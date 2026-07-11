@@ -1,0 +1,14 @@
+# dependencies (only needed to run the test suite; the app itself needs none)
+node_modules/
+package-lock.json
+
+# logs / os cruft
+*.log
+.DS_Store
+Thumbs.db
+
+# throwaway scratch
+.devtest/
+
+# tooling state
+.omc/

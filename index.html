@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Strudel Auto-DJ · steer the set</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Strudel live-coding engine (exposes initStrudel/evaluate/hush globally) -->
+  <script src="https://unpkg.com/@strudel/web@latest"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◈</span>
+      <div>
+        <h1>Strudel Auto-DJ</h1>
+        <p class="tagline">An AI DJ builds tracks live in code. You are the crowd.</p>
+      </div>
+    </div>
+    <p id="status" class="status">Loading…</p>
+  </header>
+
+  <main class="stage">
+    <!-- ── DECK: the live track + code ────────────────────────────────── -->
+    <section class="deck panel">
+      <div class="track-head">
+        <div>
+          <h2 id="trackName">—</h2>
+          <p id="trackMeta" class="track-meta">press start to begin</p>
+        </div>
+        <div class="deck-buttons">
+          <button id="startBtn" class="btn primary">▶ Start the set</button>
+          <button id="skipBtn" class="btn ghost" title="Force a fresh track">⏭ New track</button>
+        </div>
+      </div>
+
+      <div id="stageChips" class="chips" aria-label="arrangement layers"></div>
+
+      <div class="meters">
+        <label>Energy <span class="bar"><i id="energyBar"></i></span></label>
+        <label>Crowd approval <span class="bar approval"><i id="approvalBar"></i></span></label>
+        <label id="hitWrap" class="hit">Banger lock <span class="bar hitbar"><i id="hitBar"></i></span></label>
+      </div>
+
+      <pre id="code" class="code" aria-label="live Strudel code">// the DJ hasn't started yet</pre>
+
+      <div class="log-wrap">
+        <h3>DJ moves</h3>
+        <ul id="log" class="log"></ul>
+      </div>
+    </section>
+
+    <!-- ── MOOD: the crowd-mood fader (up = loving it) ────────────────── -->
+    <section class="moodcol panel">
+      <span class="mood-top">🔥 hype</span>
+      <input id="mood" class="mood-slider" type="range" min="-100" max="100" value="10" step="1"
+             aria-label="crowd mood" />
+      <span class="mood-bot">🧊 bored</span>
+      <div class="mood-readout">
+        <strong id="moodVal">0</strong>
+        <span id="moodLabel">On the fence</span>
+      </div>
+      <p class="mood-hint">Slide up when the crowd loves it, down when you're losing them. The DJ reacts.</p>
+    </section>
+
+    <!-- ── FLOOR: the crowd visualisation + saved crate ──────────────── -->
+    <section class="floor panel">
+      <div class="floor-viz">
+        <canvas id="crowd"></canvas>
+        <div id="previewBanner" class="preview-banner" hidden>
+          <span>Previewing “<b id="previewName"></b>”</span>
+          <button id="returnBtn" class="btn small">↩ back to live set</button>
+        </div>
+      </div>
+      <div class="crate-wrap">
+        <h3>🗃 The crate <small>saved bangers</small></h3>
+        <ul id="crate" class="crate"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- app modules (classic scripts, order matters) -->
+  <script src="src/rng.js"></script>
+  <script src="src/theory.js"></script>
+  <script src="src/names.js"></script>
+  <script src="src/dj.js"></script>
+  <script src="src/viz.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>
