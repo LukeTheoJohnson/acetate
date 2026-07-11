@@ -61,6 +61,16 @@
       } catch (err) {
         console.error(err);
       }
+      if (typeof window.samples === 'function') {
+        setStatus('Loading sounds…');
+        try {
+          // @strudel/web ships no default drum samples — load a kit so the
+          // drum layers (bd sd hh ho cp) actually sound.
+          await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        } catch (e) {
+          console.error('sample load failed:', e);
+        }
+      }
       started = true;
       viz.start();
     }

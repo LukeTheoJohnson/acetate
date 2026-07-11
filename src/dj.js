@@ -182,7 +182,7 @@
           ').pan(sine.range(0.35,0.65))'
       );
       if (bucket >= 3) {
-        layers.push('s("~ ~ oh ~").gain(' + n2(0.15 + e * 0.15) + ')');
+        layers.push('s("~ ~ ho ~").gain(' + n2(0.15 + e * 0.15) + ')'); // open hi-hat accent
       }
     }
 
