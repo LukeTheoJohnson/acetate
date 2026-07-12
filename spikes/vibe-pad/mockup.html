@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vibe Pad — Spike B mockup</title>
+<style>
+  /* Dark-club aesthetic, self-contained. No external requests. */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: radial-gradient(120% 120% at 50% 0%, #12121c 0%, #07070c 60%, #050508 100%);
+    color: #d7d9e3;
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap {
+    max-width: 1040px; margin: 0 auto; padding: 26px 20px 60px;
+    display: grid; grid-template-columns: 1fr 360px; gap: 26px;
+  }
+  h1 { font-size: 18px; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 4px; color: #eef0fa; }
+  .sub { color: #7d81a0; font-size: 12px; margin: 0 0 22px; letter-spacing: .04em; }
+  .full { grid-column: 1 / -1; }
+
+  /* ---- the pad ---- */
+  .pad-shell { position: relative; }
+  .pad {
+    position: relative; width: 100%; aspect-ratio: 1 / 1;
+    border-radius: 18px; cursor: crosshair; overflow: hidden;
+    border: 1px solid #23263a;
+    box-shadow: inset 0 0 60px rgba(0,0,0,.6), 0 10px 40px rgba(0,0,0,.5);
+    touch-action: none; user-select: none;
+    background:
+      radial-gradient(80% 80% at 0% 100%, rgba(60,70,110,.30), transparent 60%),  /* SW sparse-dark */
+      radial-gradient(90% 90% at 100% 100%, rgba(255,60,80,.30), transparent 60%), /* SE dense-dark */
+      radial-gradient(90% 90% at 0% 0%, rgba(80,200,255,.26), transparent 62%),    /* NW sparse-bright */
+      radial-gradient(100% 100% at 100% 0%, rgba(255,200,60,.30), transparent 62%),/* NE dense-bright */
+      #0c0d15;
+  }
+  .grid-lines { position: absolute; inset: 0; pointer-events: none; opacity: .5; }
+  .grid-lines::before, .grid-lines::after {
+    content: ""; position: absolute; background: rgba(255,255,255,.06);
+  }
+  .grid-lines::before { left: 50%; top: 0; bottom: 0; width: 1px; }
+  .grid-lines::after { top: 50%; left: 0; right: 0; height: 1px; }
+  .corner {
+    position: absolute; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+    color: #aab; opacity: .82; pointer-events: none; text-shadow: 0 1px 6px #000;
+    max-width: 150px;
+  }
+  .corner b { display: block; font-size: 12px; color: #fff; letter-spacing: .06em; }
+  .c-nw { top: 12px; left: 14px; text-align: left; }
+  .c-ne { top: 12px; right: 14px; text-align: right; }
+  .c-sw { bottom: 12px; left: 14px; text-align: left; }
+  .c-se { bottom: 12px; right: 14px; text-align: right; }
+  .dot {
+    position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 40% 35%, #fff, #cfe0ff 40%, #6f7bff 70%, #3a3f8f 100%);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.25), 0 0 22px 6px rgba(120,140,255,.55);
+    transition: transform .04s linear;
+  }
+  .dot::after {
+    content: ""; position: absolute; inset: -14px; border-radius: 50%;
+    border: 1px solid rgba(160,180,255,.35);
+  }
+  .axis-tag { position: absolute; font-size: 10px; letter-spacing: .14em; color: #6a6e8c; text-transform: uppercase; }
+  .ax-x { bottom: -20px; left: 50%; transform: translateX(-50%); }
+  .ax-y { top: 50%; left: -12px; transform: translateY(-50%) rotate(-90deg); transform-origin: left; }
+
+  /* ---- side panel ---- */
+  .panel { display: flex; flex-direction: column; gap: 18px; }
+  .card { background: #0e0f18; border: 1px solid #1d2032; border-radius: 14px; padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #7d81a0; }
+
+  .knob-row { display: flex; gap: 18px; }
+  .knob { flex: 1; text-align: center; }
+  .dial {
+    --v: 0; width: 84px; height: 84px; margin: 0 auto 8px; border-radius: 50%;
+    background: conic-gradient(from -135deg, var(--accent) calc(var(--v) * 270deg), #1a1d2e 0);
+    display: grid; place-items: center; position: relative; cursor: ns-resize;
+    box-shadow: inset 0 0 0 6px #0e0f18;
+    touch-action: none; user-select: none;
+  }
+  .dial::before {
+    content: ""; width: 60px; height: 60px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 35%, #22263a, #0d0e16);
+    border: 1px solid #262a40;
+  }
+  .dial .ind {
+    position: absolute; width: 3px; height: 22px; border-radius: 2px; background: var(--accent);
+    top: 8px; left: 50%; transform-origin: 50% 34px;
+  }
+  .knob label { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #9498b8; }
+  .knob .num { font-size: 12px; color: #cfd2e6; font-variant-numeric: tabular-nums; }
+
+  .genre-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .genre {
+    padding: 7px 12px; border-radius: 999px; font-size: 12px; letter-spacing: .04em;
+    background: #14162400; border: 1px solid #262a40; color: #9ea2c2; cursor: pointer;
+  }
+  .genre.on { background: #1c2c4a; border-color: #3f6ff0; color: #dbe4ff; }
+
+  pre.readout {
+    background: #06070c; border: 1px solid #1a1d2e; border-radius: 12px;
+    padding: 14px; font: 12px/1.5 "Cascadia Code", "Consolas", monospace;
+    color: #b7e3c8; white-space: pre-wrap; margin: 0; max-height: 420px; overflow: auto;
+  }
+  pre.readout .k { color: #7d81a0; }
+  pre.readout .n { color: #ffd47a; }
+  pre.readout .s { color: #8fd0ff; }
+  pre.readout .b { color: #ff8fae; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { font-size: 11px; padding: 4px 9px; border-radius: 6px; border: 1px solid #23263a; color: #565a78; }
+  .chip.on { background: #10331f; border-color: #2f7f4f; color: #8fe6ac; }
+  .hint { color: #565a78; font-size: 11px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="full">
+    <h1>The Vibe Pad</h1>
+    <p class="sub">Spike B — steer a vibe, not a console. Drag the pad. Twist the two macros. Everything else interpolates.</p>
+  </div>
+
+  <div class="pad-shell">
+    <div class="pad" id="pad">
+      <div class="grid-lines"></div>
+      <div class="corner c-nw"><b>Dub&nbsp;Chamber</b>sparse · bright · washed</div>
+      <div class="corner c-ne"><b>Peak&nbsp;Time</b>dense · bright · euphoric</div>
+      <div class="corner c-sw"><b>Deep&nbsp;Room</b>sparse · dark · hypnotic</div>
+      <div class="corner c-se"><b>Warehouse</b>dense · dark · pounding</div>
+      <div class="dot" id="dot"></div>
+    </div>
+    <span class="axis-tag ax-x">sparse / calm&nbsp;&nbsp;→&nbsp;&nbsp;dense / intense</span>
+    <span class="axis-tag ax-y">dark / underground&nbsp;&nbsp;→&nbsp;&nbsp;bright / euphoric</span>
+  </div>
+
+  <div class="panel">
+    <div class="card">
+      <h2>Macros</h2>
+      <div class="knob-row">
+        <div class="knob">
+          <div class="dial" id="dialChaos" style="--accent:#ff7a45"><span class="ind"></span></div>
+          <label>Chaos</label><span class="num" id="chaosNum">0.30</span>
+        </div>
+        <div class="knob">
+          <div class="dial" id="dialTension" style="--accent:#4fd0ff"><span class="ind"></span></div>
+          <label>Tension</label><span class="num" id="tensionNum">0.35</span>
+        </div>
+      </div>
+      <p class="hint">Chaos = how wildly the DJ mutates (exploration temperature). Tension = build ↔ drop (filter openness + energy push).</p>
+    </div>
+
+    <div class="card">
+      <h2>Genre</h2>
+      <div class="genre-row" id="genres"></div>
+    </div>
+
+    <div class="card">
+      <h2>Interpolated engine state</h2>
+      <pre class="readout" id="readout"></pre>
+      <div class="chips" id="layerChips"></div>
+      <p class="hint">This is the target vector the hill-climber orbits — not a hard set. The DJ still auditions mutations around it.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// CORNER ANCHOR PRESETS — full engine-state vectors, one per pad corner.
+// Pad axes: X = sparse/calm (0) -> dense/intense (1); Y = dark (0) -> bright (1).
+// Each field is a normalised target the mapping layer resolves onto genome/render.
+// ---------------------------------------------------------------------------
+const CORNERS = {
+  // SW (0,0): Deep Room — sparse, dark, hypnotic
+  SW: {
+    name: "Deep Room",
+    energy: 0.30,          // ENERGY_STEPS target (0..1)
+    density: 0.28,         // desired active-layer fraction
+    brightness: 0.20,      // key/mode + filter openness (dark)
+    harmony: 0.15,         // triads(0) -> 7ths -> 9ths(1)
+    swing: 0.55,           // groove/shuffle
+    space: 0.45,           // dry(0) -> washed(1) reverb/delay
+    repetition: 0.85,      // hypnotic(1) -> evolving(0)
+    layerBias: [1, .5, .95, .2, .55, .25, .7], // per-layer keep-prob shape
+    tempo: 124
+  },
+  // SE (1,0): Warehouse — dense, dark, pounding
+  SE: {
+    name: "Warehouse",
+    energy: 0.82,
+    density: 0.90,
+    brightness: 0.28,
+    harmony: 0.10,
+    swing: 0.20,
+    space: 0.25,
+    repetition: 0.70,
+    layerBias: [1, .95, .95, .9, .35, .3, .4],
+    tempo: 134
+  },
+  // NW (0,1): Dub Chamber — sparse, bright, washed
+  NW: {
+    name: "Dub Chamber",
+    energy: 0.34,
+    density: 0.34,
+    brightness: 0.78,
+    harmony: 0.55,
+    swing: 0.62,
+    space: 0.92,
+    repetition: 0.40,
+    layerBias: [1, .55, .5, .3, .8, .6, .95],
+    tempo: 122
+  },
+  // NE (1,1): Peak Time — dense, bright, euphoric
+  NE: {
+    name: "Peak Time",
+    energy: 0.90,
+    density: 0.92,
+    brightness: 0.88,
+    harmony: 0.80,
+    swing: 0.30,
+    space: 0.60,
+    repetition: 0.30,
+    layerBias: [1, .9, .85, .8, .9, .9, .75],
+    tempo: 130
+  }
+};
+
+const LAYER_LABELS = ["kick","hats","bass","clap","chords","lead","air"];
+const GENRES = ["house","techno","dnb","lofi","trance"];
+// Genre nudges — small offsets applied AFTER pad interpolation.
+const GENRE_MOD = {
+  house:  { tempo: 126, swing: +0.10, brightness: +0.05, harmony: +0.05 },
+  techno: { tempo: 132, swing: -0.10, brightness: -0.08, repetition: +0.10 },
+  dnb:    { tempo: 174, swing: -0.05, energy: +0.06, density: +0.05 },
+  lofi:   { tempo: 84,  swing: +0.18, brightness: +0.02, space: +0.12, energy: -0.10 },
+  trance: { tempo: 138, swing: -0.06, brightness: +0.10, harmony: +0.10, space: +0.10 }
+};
+
+// ---- state ----
+let padX = 0.62, padY = 0.66;      // start near Peak-ish for a lively default
+let chaos = 0.30, tension = 0.35;
+let genre = "house";
+
+// ---- bilinear interpolation between the four corners ----
+function lerp(a, b, t){ return a + (b - a) * t; }
+function bilinear(field, x, y){
+  const sw = CORNERS.SW[field], se = CORNERS.SE[field],
+        nw = CORNERS.NW[field], ne = CORNERS.NE[field];
+  const bottom = lerp(sw, se, x);
+  const top    = lerp(nw, ne, x);
+  return lerp(bottom, top, y);
+}
+function bilinearArray(field, x, y){
+  const out = [];
+  for (let i = 0; i < CORNERS.SW[field].length; i++){
+    const bottom = lerp(CORNERS.SW[field][i], CORNERS.SE[field][i], x);
+    const top    = lerp(CORNERS.NW[field][i], CORNERS.NE[field][i], x);
+    out.push(lerp(bottom, top, y));
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// resolveState — pad + macros + genre -> the full engine-state TARGET vector.
+// This is exactly what would be fed to the engine as an orbit target.
+// ---------------------------------------------------------------------------
+function resolveState(){
+  const scalars = ["energy","density","brightness","harmony","swing","space","repetition","tempo"];
+  const v = {};
+  scalars.forEach(f => v[f] = bilinear(f, padX, padY));
+  const bias = bilinearArray("layerBias", padX, padY);
+
+  // genre nudge
+  const gm = GENRE_MOD[genre] || {};
+  for (const k in gm){
+    if (k === "tempo") { v.tempo = gm.tempo; continue; }
+    v[k] = clamp01((v[k] ?? 0) + gm[k]);
+  }
+
+  // Tension macro: pushes energy + filter openness (brightness) toward a drop
+  // as it rises; low tension = brooding build. Non-destructive add-on.
+  v.energy    = clamp01(v.energy + (tension - 0.5) * 0.35);
+  v.brightness= clamp01(v.brightness + (tension - 0.5) * 0.30);
+  v.space     = clamp01(v.space + (0.5 - tension) * 0.15); // more space when brooding
+
+  // Chaos macro maps to the engine's exploration temperature target.
+  const temperature = clamp01(0.12 + chaos * 0.85);
+
+  // --- derive concrete genome TARGETS from the abstract vector ---
+  const energyIdx = Math.round(clamp(v.energy, 0, 1) * 4);          // 0..4 -> ENERGY_STEPS
+  const activeTarget = deriveActive(bias, v.density);                // boolean[7]
+  const activeCount = activeTarget.reduce((a,b)=>a + (b?1:0), 0);
+  const harmonyMode = v.harmony < 0.34 ? "triads" : v.harmony < 0.67 ? "7ths" : "9ths";
+  const scaleTarget = pickScale(v.brightness);
+  const lpfHint = Math.round(300 + v.brightness * 3200);            // render filter bias
+
+  return {
+    pad: { x: round2(padX), y: round2(padY), zone: nearestCorner() },
+    macros: { chaos: round2(chaos), tension: round2(tension) },
+    genre,
+    // --- abstract vibe scalars (the taste layer) ---
+    vibe: {
+      energy: round2(v.energy), density: round2(v.density),
+      brightness: round2(v.brightness), harmony: round2(v.harmony),
+      swing: round2(v.swing), space: round2(v.space),
+      repetition: round2(v.repetition)
+    },
+    // --- concrete engine targets the hill-climber orbits ---
+    engineTarget: {
+      tempoBPM: Math.round(v.tempo),
+      energyIdx,
+      temperatureTarget: round2(temperature),
+      activeTarget,
+      activeCount,
+      harmonyMode,
+      scale: scaleTarget,
+      lpfHint,
+      swing: round2(v.swing),
+      roomHint: round2(v.space),
+      repetitionLock: round2(v.repetition)
+    }
+  };
+}
+
+// Density + per-layer bias -> a concrete active set. Kick always on.
+// We keep the top-N biased layers where N tracks density (2..7).
+function deriveActive(bias, density){
+  const n = Math.max(2, Math.round(2 + density * 5)); // 2..7 layers
+  const order = bias.map((b,i)=>({i,b}))
+                    .sort((a,b)=> b.b - a.b)
+                    .map(o=>o.i);
+  const keep = new Set(order.slice(0, n));
+  keep.add(0); // kick floor
+  return LAYER_LABELS.map((_,i)=> keep.has(i));
+}
+function pickScale(bright){
+  // dark -> bright ordering of the engine's scale palette
+  const order = ["phrygian","harmonicMinor","minor","dorian","mixolydian","major"];
+  return order[Math.min(order.length-1, Math.floor(bright * order.length))];
+}
+function nearestCorner(){
+  const d = {
+    "Deep Room":   Math.hypot(padX-0, padY-0),
+    "Warehouse":   Math.hypot(padX-1, padY-0),
+    "Dub Chamber": Math.hypot(padX-0, padY-1),
+    "Peak Time":   Math.hypot(padX-1, padY-1)
+  };
+  return Object.keys(d).sort((a,b)=>d[a]-d[b])[0];
+}
+
+// ---- utils ----
+function clamp(x,lo,hi){ return x<lo?lo:x>hi?hi:x; }
+function clamp01(x){ return clamp(x,0,1); }
+function round2(x){ return Math.round(x*100)/100; }
+
+// ---------------------------------------------------------------------------
+// rendering the mockup UI
+// ---------------------------------------------------------------------------
+const pad = document.getElementById("pad");
+const dot = document.getElementById("dot");
+const readout = document.getElementById("readout");
+const layerChips = document.getElementById("layerChips");
+
+function placeDot(){
+  const r = pad.getBoundingClientRect();
+  dot.style.left = (padX * r.width) + "px";
+  dot.style.top  = ((1 - padY) * r.height) + "px"; // y inverted: up = bright
+}
+function syntax(json){
+  return json
+    .replace(/("[^"]+")(\s*:)/g, '<span class="k">$1</span>$2')
+    .replace(/: (true|false)/g, ': <span class="b">$1</span>')
+    .replace(/: ("[^"]*")/g, ': <span class="s">$1</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span class="n">$1</span>');
+}
+function refresh(){
+  const st = resolveState();
+  readout.innerHTML = syntax(JSON.stringify(st, null, 2));
+  layerChips.innerHTML = "";
+  st.engineTarget.activeTarget.forEach((on,i)=>{
+    const c = document.createElement("span");
+    c.className = "chip" + (on ? " on" : "");
+    c.textContent = LAYER_LABELS[i];
+    layerChips.appendChild(c);
+  });
+}
+
+// ---- pad drag ----
+let padDrag = false;
+function padFromEvent(e){
+  const r = pad.getBoundingClientRect();
+  const px = ("touches" in e ? e.touches[0].clientX : e.clientX) - r.left;
+  const py = ("touches" in e ? e.touches[0].clientY : e.clientY) - r.top;
+  padX = clamp01(px / r.width);
+  padY = clamp01(1 - py / r.height);
+  placeDot(); refresh();
+}
+pad.addEventListener("pointerdown", e => { padDrag = true; pad.setPointerCapture(e.pointerId); padFromEvent(e); });
+pad.addEventListener("pointermove", e => { if (padDrag) padFromEvent(e); });
+pad.addEventListener("pointerup",   () => { padDrag = false; });
+
+// ---- dials (vertical drag) ----
+function wireDial(el, get, set, numEl){
+  let dragging = false, lastY = 0;
+  function paint(){
+    const v = get();
+    el.style.setProperty("--v", v);
+    el.querySelector(".ind").style.transform = "rotate(" + (-135 + v * 270) + "deg)";
+    numEl.textContent = v.toFixed(2);
+  }
+  el.addEventListener("pointerdown", e => { dragging = true; lastY = e.clientY; el.setPointerCapture(e.pointerId); });
+  el.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const dy = lastY - e.clientY; lastY = e.clientY;
+    set(clamp01(get() + dy * 0.008));
+    paint(); refresh();
+  });
+  el.addEventListener("pointerup", () => { dragging = false; });
+  paint();
+}
+wireDial(document.getElementById("dialChaos"),   ()=>chaos,   v=>chaos=v,   document.getElementById("chaosNum"));
+wireDial(document.getElementById("dialTension"), ()=>tension, v=>tension=v, document.getElementById("tensionNum"));
+
+// ---- genre chips ----
+const genresEl = document.getElementById("genres");
+GENRES.forEach(g => {
+  const b = document.createElement("button");
+  b.className = "genre" + (g === genre ? " on" : "");
+  b.textContent = g;
+  b.onclick = () => {
+    genre = g;
+    [...genresEl.children].forEach(c => c.classList.toggle("on", c.textContent === g));
+    refresh();
+  };
+  genresEl.appendChild(b);
+});
+
+window.addEventListener("resize", placeDot);
+placeDot(); refresh();
+</script>
+</body>
+</html>

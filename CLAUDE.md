@@ -12,9 +12,15 @@ globals.
 ## Run & test
 
 ```bash
-python -m http.server 8123     # serve over HTTP (not file://), open :8123
+python serve.py 8124           # dev server with caching DISABLED — prefer this
+python -m http.server 8123     # plain server; browsers cache src/*.js (stale JS!)
 npm install && npm test        # jsdom wiring test; app itself needs no deps
 ```
+
+**Cache gotcha:** `python -m http.server` sends no `Cache-Control`, so browsers
+heuristically cache `src/*.js` and keep serving *old* code after edits — you refresh
+and hear the previous build. Use `python serve.py` (sends `no-store`), or keep DevTools
+open with Network → "Disable cache" ticked. A fresh port also gives a clean cache.
 
 The app must be served over HTTP for module/audio behaviour. Audio only starts after a
 user click (browser policy) — that's why there's a Start button.

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike E — Taste-Learner (bandit mockup)</title>
+<style>
+  /* Dark club aesthetic to match Strudel Auto-DJ. British/NZ English in all copy. */
+  :root {
+    --bg: #0b0c10;
+    --panel: #14161d;
+    --panel-2: #1b1e28;
+    --ink: #e7e9ef;
+    --dim: #8b90a0;
+    --line: #262a36;
+    --hot: #ff2e88;
+    --cool: #21d4c4;
+    --warm: #ffb84d;
+    --good: #38e08a;
+    --bad: #ff5470;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #1a1030 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #06202a 0%, transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 28px 20px 60px; }
+  header h1 {
+    font-size: 20px; margin: 0 0 4px;
+    letter-spacing: 0.3px;
+  }
+  header h1 .tag {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    color: var(--hot); border: 1px solid var(--hot); border-radius: 999px;
+    padding: 2px 8px; margin-left: 8px; vertical-align: 2px; letter-spacing: 1px;
+  }
+  header p { color: var(--dim); margin: 0 0 20px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--dim); margin: 0 0 12px; font-weight: 700;
+  }
+
+  /* Now-playing */
+  .np-arm {
+    font-size: 26px; font-weight: 800; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 14px currentColor; }
+  .np-sub { color: var(--dim); margin: 6px 0 2px; min-height: 20px; }
+  .np-mode { font-size: 12px; color: var(--warm); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .np-mode.exploit { color: var(--cool); }
+
+  /* Feedback buttons */
+  .fb { display: flex; gap: 10px; margin-top: 18px; }
+  .fb button {
+    flex: 1; cursor: pointer; border-radius: 12px; padding: 14px 0;
+    font-size: 15px; font-weight: 800; border: 1px solid var(--line);
+    background: #10131b; color: var(--ink); transition: transform .06s, box-shadow .12s, background .12s;
+  }
+  .fb button:hover { transform: translateY(-1px); }
+  .fb button:active { transform: translateY(1px); }
+  .fb .up:hover { background: #10241a; box-shadow: 0 0 0 1px var(--good) inset, 0 6px 18px -8px var(--good); }
+  .fb .down:hover { background: #2a1116; box-shadow: 0 0 0 1px var(--bad) inset, 0 6px 18px -8px var(--bad); }
+  .fb .skip:hover { background: #201a10; box-shadow: 0 0 0 1px var(--warm) inset; }
+  .kbd { color: var(--dim); font-size: 11px; text-align: center; margin-top: 8px; }
+
+  /* Match meter */
+  .match-num { font-size: 40px; font-weight: 800; line-height: 1; }
+  .match-num small { font-size: 16px; color: var(--dim); font-weight: 600; }
+  .bar { height: 10px; border-radius: 999px; background: #0c0e14; border: 1px solid var(--line); overflow: hidden; margin-top: 10px; }
+  .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--cool), var(--good)); transition: width .3s; }
+  .meta-row { display: flex; justify-content: space-between; color: var(--dim); font-size: 12px; margin-top: 8px; }
+
+  /* Arm weights */
+  .arm { margin: 10px 0; }
+  .arm-top { display: flex; align-items: baseline; gap: 8px; }
+  .arm-name { font-weight: 800; letter-spacing: .5px; }
+  .arm-desc { color: var(--dim); font-size: 12px; }
+  .arm-q { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--dim); font-size: 12px; }
+  .arm .track { height: 14px; border-radius: 8px; background: #0c0e14; border: 1px solid var(--line); overflow: hidden; margin-top: 5px; position: relative; }
+  .arm .fill { height: 100%; width: 50%; transition: width .3s; opacity: .85; }
+  .arm.playing .arm-name::after { content: " ◂ playing"; color: var(--warm); font-size: 11px; font-weight: 700; }
+  .arm.best .track { box-shadow: 0 0 0 1px var(--good) inset; }
+  .pin { margin-left: 8px; cursor: pointer; font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; background: transparent; }
+  .pin.on { color: #0b0c10; background: var(--warm); border-color: var(--warm); font-weight: 800; }
+
+  /* Controls / diagnostics */
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    cursor: pointer; border: 1px solid var(--line); background: #10131b; color: var(--ink);
+    border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 13px;
+  }
+  .btn:hover { border-color: var(--cool); }
+  .btn.primary { background: var(--hot); border-color: var(--hot); color: #12040c; }
+  .stat { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .stat span:last-child { font-variant-numeric: tabular-nums; color: var(--cool); font-weight: 700; }
+  .hint { color: var(--dim); font-size: 12px; margin-top: 10px; }
+  .persona select { background: #10131b; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .log { font-size: 12px; color: var(--dim); max-height: 150px; overflow: auto; margin: 8px 0 0; padding: 0; list-style: none; }
+  .log li { padding: 3px 0; border-bottom: 1px solid #171a22; }
+  .verdict { margin-top: 10px; font-size: 12px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+  .verdict.good { color: var(--good); border-color: #1c3a2a; background: #0d1a13; }
+  .verdict.warn { color: var(--warm); border-color: #3a2f1c; background: #1a150d; }
+  .verdict.bad  { color: var(--bad);  border-color: #3a1c22; background: #1a0d10; }
+  footer { color: var(--dim); font-size: 12px; margin-top: 26px; line-height: 1.6; }
+  code { color: var(--warm); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Taste-Learner <span class="tag">Spike E · devil's advocate</span></h1>
+    <p>
+      No knobs. A tiny <strong>&epsilon;-greedy bandit</strong> over five curated musical
+      <em>directions</em> is steering. A <strong>hidden synthetic listener</strong> (pick one below)
+      has a secret preference; you only ever say <strong>up / down / skip</strong>. Watch the
+      learned weights converge on what that listener actually likes — taste demonstrated, not dialled.
+      Nothing here makes sound; it visualises the learning loop.
+    </p>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: now playing + feedback -->
+    <div class="panel">
+      <h2>Now auditioning</h2>
+      <div class="np-arm"><span class="dot" id="npDot"></span><span id="npName">—</span></div>
+      <div class="np-sub" id="npDesc">Press <strong>Auto-run</strong> or give feedback to begin.</div>
+      <div class="np-mode" id="npMode">idle</div>
+
+      <div class="fb">
+        <button class="up"   id="btnUp">👍 More like this</button>
+        <button class="skip" id="btnSkip">⏭ Skip</button>
+        <button class="down" id="btnDown">👎 Less</button>
+      </div>
+      <div class="kbd">keys: <code>▲</code> up · <code>▼</code> down · <code>→</code> skip &nbsp;—&nbsp; that's the whole control rig</div>
+
+      <h2 style="margin-top:22px">Match to this listener's taste</h2>
+      <div class="match-num"><span id="matchPct">0</span><small>%</small></div>
+      <div class="bar"><i id="matchBar"></i></div>
+      <div class="meta-row"><span>rolling mean reward R̄</span><span id="rbar">0.00</span></div>
+      <div class="meta-row"><span>exploring vs exploiting</span><span id="epsTxt">&epsilon; 0.50</span></div>
+    </div>
+
+    <!-- RIGHT: learned weights -->
+    <div class="panel">
+      <h2>Learned direction weights (Q)</h2>
+      <div id="arms"></div>
+      <div class="hint">The <span style="color:var(--good)">outlined</span> bar is the current best
+        estimate (what the DJ exploits). Long-press-equivalent: click <strong>pin</strong> to force a
+        direction — the one escape hatch, not twelve knobs.</div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <!-- diagnostics -->
+    <div class="panel">
+      <h2>Is it actually learning you?</h2>
+      <div class="stat"><span>windows played</span><span id="stN">0</span></div>
+      <div class="stat"><span>ΔR (late third − early third)</span><span id="stDR">—</span></div>
+      <div class="stat"><span>arm entropy H(&pi;)</span><span id="stH">—</span></div>
+      <div class="stat"><span>hold-out probe gap</span><span id="stProbe">—</span></div>
+      <div class="verdict warn" id="verdict">Not enough data yet — play ~12 windows.</div>
+      <ul class="log" id="log"></ul>
+    </div>
+
+    <!-- controls -->
+    <div class="panel">
+      <h2>Simulation controls</h2>
+      <div class="row persona">
+        <label for="persona">Hidden listener:</label>
+        <select id="persona">
+          <option value="DEEPER">Warehouse head (loves DEEPER)</option>
+          <option value="HARDER">Peak-time raver (loves HARDER)</option>
+          <option value="WEIRDER">Leftfield nerd (loves WEIRDER)</option>
+          <option value="WARMER">Melodic soul (loves WARMER)</option>
+          <option value="__drift">Drifter (taste changes mid-set)</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="btnAuto">▶ Auto-run (simulate a fickle human)</button>
+        <button class="btn" id="btnStep">Step once</button>
+        <button class="btn" id="btnReset">Reset</button>
+      </div>
+      <div class="hint">
+        <strong>Auto-run</strong> lets the hidden listener react on its own (with noise + the odd
+        contrarian tap) so you can watch convergence hands-free. <strong>Step</strong> plays one
+        window using your last feedback. Manual buttons override the sim — that's <em>you</em> being
+        the listener. Try switching persona and watching Q re-home.
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <strong>What you're seeing.</strong> Update rule: <code>Q[a] ← Q[a] + α·(r − Q[a])</code>,
+    α = 0.15, optimistic init. Selection: ε-greedy, ε decays <code>0.5·e^(−t/12)</code> with a 0.12
+    floor + surprise re-trigger. Reward <code>r</code> fuses explicit taps (±1 / −0.6 skip) with a
+    passive dwell channel. The listener's true preference is hidden from the learner — exactly the
+    setup on a real floor. Every ~8 windows the DJ injects a deliberate <em>hold-out probe</em> (its
+    worst-rated arm) and checks the reward gap: that's the within-session test for "is it modelling
+    me, or regressing to a bland mean?". British/NZ spellings throughout · dependency-free · no network.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- the five curated macro-arms (directions, not raw knobs) -----------
+  var ARMS = [
+    { id: 'DEEPER',  desc: 'hypnotic · stripped · spacious', col: '#21d4c4' },
+    { id: 'HARDER',  desc: 'peak-time · driving · dense',    col: '#ff2e88' },
+    { id: 'WEIRDER', desc: 'leftfield · restless · odd',     col: '#b06bff' },
+    { id: 'WARMER',  desc: 'melodic · consonant · musical',  col: '#ffb84d' },
+    { id: 'HOLD',    desc: 'refine the current pocket',      col: '#8b90a0' },
+  ];
+  var K = ARMS.length;
+
+  // ---- hyperparameters of the learner ------------------------------------
+  var ALPHA = 0.15, EPS0 = 0.5, EPS_MIN = 0.12, TAU = 12, OPTIMISTIC = 0.6;
+  var W_WINDOW = 6;          // rolling mean window
+  var PROBE_EVERY = 8;       // inject a hold-out probe this often
+
+  // ---- learner + sim state ------------------------------------------------
+  var Q, tried, t, eps, lastArm, rewards, armCounts, probeRewards, exploitRewards;
+  var pinned = -1, autoTimer = null, badStreak = 0;
+
+  function reset() {
+    Q = ARMS.map(function () { return OPTIMISTIC; });
+    tried = ARMS.map(function () { return 0; });
+    armCounts = ARMS.map(function () { return 0; });
+    t = 0; eps = EPS0; lastArm = -1; badStreak = 0; pinned = -1;
+    rewards = []; probeRewards = []; exploitRewards = [];
+    stopAuto();
+    document.getElementById('log').innerHTML = '';
+    buildArms();
+    render();
+    setNP(-1, 'idle', 'Press Auto-run or give feedback to begin.');
+    log('reset — hidden listener: ' + persona());
+  }
+
+  // ---- the HIDDEN synthetic listener (unknown to the learner) ------------
+  // Returns a "true" reward in [-1,1] for playing an arm, given the persona.
+  function trueReward(armId) {
+    var p = persona();
+    var favourite = p;
+    if (p === '__drift') {
+      // taste drifts: first half loves DEEPER, second half loves HARDER
+      favourite = t < 14 ? 'DEEPER' : 'HARDER';
+    }
+    var base;
+    if (armId === favourite) base = 0.85;
+    else if (armId === 'HOLD') base = 0.15;                 // safe-but-bland
+    else if (adjacent(armId, favourite)) base = 0.15;       // near-misses ok
+    else base = -0.6;                                        // wrong direction
+    // fickle human: additive noise + rare contrarian flip
+    var noise = (Math.random() - 0.5) * 0.5;
+    if (Math.random() < 0.06) base = -base * 0.5;
+    return clamp(base + noise, -1, 1);
+  }
+  function adjacent(a, b) {
+    var pairs = { DEEPER: 'WARMER', WARMER: 'DEEPER', HARDER: 'WEIRDER', WEIRDER: 'HARDER' };
+    return pairs[a] === b;
+  }
+
+  // ---- one audition window ------------------------------------------------
+  // manual: reward supplied by the human's button; else the hidden listener reacts.
+  function step(manualReward, manualArm) {
+    // choose an arm (bandit), unless the human's manual feedback pins the last arm
+    var isProbe = false, arm;
+    if (manualArm != null) {
+      arm = manualArm;                       // feedback refers to what's playing
+    } else if (pinned >= 0) {
+      arm = pinned;
+    } else if ((t + 1) % PROBE_EVERY === 0 && t > 4) {
+      arm = argmin(Q); isProbe = true;       // hold-out probe: its WORST arm
+    } else {
+      arm = selectArm();
+    }
+
+    var explicit = (manualReward != null) ? manualReward : null;
+    var passive = trueReward(ARMS[arm].id);          // dwell/mood channel (always on)
+    var r = (explicit != null) ? clamp(explicit + 0.5 * passive, -1, 1) : passive;
+
+    // bandit update (skip pure-probe windows so probes don't corrupt Q)
+    if (!isProbe) {
+      Q[arm] = Q[arm] + ALPHA * (r - Q[arm]);
+      armCounts[arm]++;
+    }
+    tried[arm] = 1;
+    lastArm = arm;
+    t++;
+
+    // book-keeping for metrics
+    rewards.push(r);
+    if (isProbe) probeRewards.push(r);
+    else if (arm === argmax(Q)) exploitRewards.push(r);
+
+    // exploration schedule: decay + surprise re-trigger
+    eps = Math.max(EPS_MIN, EPS0 * Math.exp(-t / TAU));
+    if (r < -0.2) badStreak++; else badStreak = 0;
+    if (badStreak >= 3) { eps = Math.min(0.6, eps + 0.25); badStreak = 0; log('⚠ reward dropped — widening the search'); }
+
+    // narrate
+    var mode = isProbe ? 'probe' : (arm === argmax(Q) ? 'exploit' : 'explore');
+    setNP(arm, mode, ARMS[arm].desc + (isProbe ? '  ·  (hold-out probe)' : ''));
+    log((isProbe ? '🔬 probe ' : (mode === 'exploit' ? '🎯 ' : '🔀 ')) +
+        ARMS[arm].id + '  r=' + r.toFixed(2) + (explicit != null ? ' (your tap)' : ''));
+    render();
+  }
+
+  function selectArm() {
+    if (Math.random() < eps) {
+      // structured exploration: prefer least-recently / least-tried non-greedy arms
+      var g = argmax(Q), pool = [];
+      for (var i = 0; i < K; i++) if (i !== g) pool.push(i);
+      pool.sort(function (a, b) { return armCounts[a] - armCounts[b]; });
+      // pick from the least-tried half
+      var half = pool.slice(0, Math.max(1, Math.ceil(pool.length / 2)));
+      return half[(Math.random() * half.length) | 0];
+    }
+    return argmax(Q);
+  }
+
+  // ---- metrics ------------------------------------------------------------
+  function rollingMean() {
+    var w = rewards.slice(-W_WINDOW);
+    if (!w.length) return 0;
+    return w.reduce(function (a, b) { return a + b; }, 0) / w.length;
+  }
+  function deltaR() {
+    if (rewards.length < 9) return null;
+    var third = Math.floor(rewards.length / 3);
+    var early = mean(rewards.slice(0, third));
+    var late = mean(rewards.slice(-third));
+    return late - early;
+  }
+  function entropy() {
+    var total = armCounts.reduce(function (a, b) { return a + b; }, 0);
+    if (!total) return null;
+    var h = 0;
+    for (var i = 0; i < K; i++) {
+      var pr = armCounts[i] / total;
+      if (pr > 0) h -= pr * Math.log2(pr);
+    }
+    return h; // 0..log2(K)=~2.32
+  }
+  function probeGap() {
+    if (!probeRewards.length || !exploitRewards.length) return null;
+    return mean(exploitRewards) - mean(probeRewards);
+  }
+
+  // ---- rendering ----------------------------------------------------------
+  function buildArms() {
+    var host = document.getElementById('arms');
+    host.innerHTML = '';
+    ARMS.forEach(function (a, i) {
+      var el = document.createElement('div');
+      el.className = 'arm'; el.id = 'arm' + i;
+      el.innerHTML =
+        '<div class="arm-top">' +
+          '<span class="arm-name" style="color:' + a.col + '">' + a.id + '</span>' +
+          '<span class="arm-desc">' + a.desc + '</span>' +
+          '<button class="pin" data-i="' + i + '">pin</button>' +
+          '<span class="arm-q" id="q' + i + '">Q 0.60</span>' +
+        '</div>' +
+        '<div class="track"><div class="fill" id="fill' + i + '" style="background:' + a.col + '"></div></div>';
+      host.appendChild(el);
+    });
+    host.querySelectorAll('.pin').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var i = +b.dataset.i;
+        pinned = (pinned === i) ? -1 : i;
+        log(pinned === i ? '📌 pinned ' + ARMS[i].id : '📌 unpinned');
+        render();
+      });
+    });
+  }
+
+  function render() {
+    var best = argmax(Q);
+    for (var i = 0; i < K; i++) {
+      // map Q (-1..1) to 0..100% width
+      var pct = Math.round(((Q[i] + 1) / 2) * 100);
+      document.getElementById('fill' + i).style.width = pct + '%';
+      document.getElementById('q' + i).textContent = 'Q ' + Q[i].toFixed(2);
+      var el = document.getElementById('arm' + i);
+      el.classList.toggle('playing', i === lastArm);
+      el.classList.toggle('best', i === best);
+      var pb = el.querySelector('.pin');
+      pb.classList.toggle('on', i === pinned);
+      pb.textContent = (i === pinned) ? 'pinned' : 'pin';
+    }
+
+    // match % = how close the DJ's exploited arm sits to the true favourite,
+    // blended with rolling reward so it reflects felt experience.
+    var rb = rollingMean();
+    var match = Math.round(clamp((rb + 1) / 2, 0, 1) * 100);
+    document.getElementById('matchPct').textContent = match;
+    document.getElementById('matchBar').style.width = match + '%';
+    document.getElementById('rbar').textContent = rb.toFixed(2);
+    document.getElementById('epsTxt').textContent = 'ε ' + eps.toFixed(2) +
+      (eps <= EPS_MIN + 0.001 ? ' (committing)' : '');
+
+    document.getElementById('stN').textContent = t;
+    var dr = deltaR();
+    document.getElementById('stDR').textContent = (dr == null) ? '—' : (dr >= 0 ? '+' : '') + dr.toFixed(2);
+    var h = entropy();
+    document.getElementById('stH').textContent = (h == null) ? '—' : h.toFixed(2) + ' / 2.32';
+    var pg = probeGap();
+    document.getElementById('stProbe').textContent = (pg == null) ? '—' : (pg >= 0 ? '+' : '') + pg.toFixed(2);
+
+    renderVerdict(dr, h, pg);
+  }
+
+  function renderVerdict(dr, h, pg) {
+    var v = document.getElementById('verdict');
+    if (t < 12) { v.className = 'verdict warn'; v.textContent = 'Not enough data yet — play ~12 windows.'; return; }
+    var learning = (dr != null && dr > 0.05) && (pg == null || pg > 0.05);
+    var bland = (h != null && h < 0.6) && (pg != null && pg < 0.05);
+    if (bland) {
+      v.className = 'verdict bad';
+      v.textContent = '✗ Bland-mean risk: committed hard but the probe gap is flat — it may be playing safe, not learning you.';
+    } else if (learning) {
+      v.className = 'verdict good';
+      v.textContent = '✓ Learning you: reward is trending up (ΔR>0) and the hold-out probe scores worse than what it exploits.';
+    } else {
+      v.className = 'verdict warn';
+      v.textContent = '~ Still converging: reward not yet clearly rising, or the probe gap hasn\'t opened. Keep going.';
+    }
+  }
+
+  function setNP(arm, mode, desc) {
+    var name = document.getElementById('npName');
+    var dot = document.getElementById('npDot');
+    var m = document.getElementById('npMode');
+    if (arm < 0) { name.textContent = '—'; dot.style.color = '#8b90a0'; }
+    else { name.textContent = ARMS[arm].id; dot.style.color = ARMS[arm].col; }
+    document.getElementById('npDesc').textContent = desc;
+    m.textContent = mode;
+    m.className = 'np-mode' + (mode === 'exploit' ? ' exploit' : '');
+  }
+
+  // ---- helpers ------------------------------------------------------------
+  function persona() { return document.getElementById('persona').value; }
+  function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
+  function mean(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
+  function argmax(a) { var b = 0; for (var i = 1; i < a.length; i++) if (a[i] > a[b]) b = i; return b; }
+  function argmin(a) { var b = 0; for (var i = 1; i < a.length; i++) if (a[i] < a[b]) b = i; return b; }
+  function log(msg) {
+    var ul = document.getElementById('log');
+    var li = document.createElement('li');
+    li.textContent = '#' + t + '  ' + msg;
+    ul.insertBefore(li, ul.firstChild);
+    while (ul.childElementCount > 40) ul.removeChild(ul.lastChild);
+  }
+
+  // ---- auto-run: the hidden human reacts on its own ----------------------
+  function startAuto() {
+    if (autoTimer) return;
+    document.getElementById('btnAuto').textContent = '⏸ Pause auto-run';
+    autoTimer = setInterval(function () { step(null, null); }, 700);
+  }
+  function stopAuto() {
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    var b = document.getElementById('btnAuto');
+    if (b) b.textContent = '▶ Auto-run (simulate a fickle human)';
+  }
+
+  // ---- wiring -------------------------------------------------------------
+  // Manual feedback: refers to the arm currently playing (lastArm); if nothing
+  // has played yet, let the bandit pick one and apply feedback to it.
+  function feedback(explicit) {
+    stopAuto();
+    var arm = lastArm >= 0 ? lastArm : selectArm();
+    step(explicit, arm);
+  }
+
+  document.getElementById('btnUp').addEventListener('click', function () { feedback(1); });
+  document.getElementById('btnDown').addEventListener('click', function () { feedback(-1); });
+  document.getElementById('btnSkip').addEventListener('click', function () { feedback(-0.6); });
+  document.getElementById('btnStep').addEventListener('click', function () { stopAuto(); step(null, null); });
+  document.getElementById('btnReset').addEventListener('click', reset);
+  document.getElementById('btnAuto').addEventListener('click', function () {
+    if (autoTimer) stopAuto(); else startAuto();
+  });
+  document.getElementById('persona').addEventListener('change', function () {
+    log('listener changed → ' + persona() + '  (watch Q re-home)');
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowUp') { e.preventDefault(); feedback(1); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); feedback(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); feedback(-0.6); }
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

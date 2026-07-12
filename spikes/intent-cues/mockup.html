@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike D — Talk to the DJ + Cue Deck</title>
+<style>
+  :root {
+    --bg: #0a0b10;
+    --panel: #12141d;
+    --panel2: #171a26;
+    --edge: #262b3d;
+    --ink: #e6e8f0;
+    --dim: #8a90a6;
+    --hot: #ff4d7d;
+    --cool: #4dd6ff;
+    --lime: #7CFF9B;
+    --amber: #ffc24d;
+    --violet: #b18cff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 70% -10%, #1a1030 0%, var(--bg) 55%);
+    color: var(--ink);
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    padding: 20px;
+  }
+  h1 { font-size: 18px; margin: 0 0 2px; letter-spacing: .3px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; max-width: 1180px; }
+  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+    border: 1px solid var(--edge);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--dim); margin: 0 0 10px; font-weight: 700; }
+
+  /* intent box */
+  .intent-row { display: flex; gap: 8px; }
+  #intent {
+    flex: 1; background: #0c0e16; border: 1px solid var(--edge); color: var(--ink);
+    border-radius: 8px; padding: 11px 12px; font: 15px/1.2 "Consolas", monospace;
+    outline: none;
+  }
+  #intent:focus { border-color: var(--cool); box-shadow: 0 0 0 3px rgba(77,214,255,.12); }
+  .go { background: var(--cool); color: #04202b; border: 0; border-radius: 8px;
+    padding: 0 16px; font-weight: 800; cursor: pointer; letter-spacing: .4px; }
+  .go:hover { filter: brightness(1.1); }
+  .hints { color: var(--dim); font-size: 11px; margin: 8px 2px 0; }
+  .hints b { color: var(--violet); font-weight: 600; cursor: pointer; }
+  .hints b:hover { color: var(--cool); }
+  .parsebox {
+    margin-top: 10px; min-height: 22px; font: 12px/1.4 "Consolas", monospace;
+    color: var(--lime); background: #0c0e16; border: 1px dashed var(--edge);
+    border-radius: 8px; padding: 8px 10px;
+  }
+  .parsebox.miss { color: var(--amber); }
+
+  /* cue deck */
+  .deck { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cue {
+    position: relative; background: #0f1220; border: 1px solid var(--edge);
+    color: var(--ink); border-radius: 10px; padding: 12px 8px 10px; cursor: pointer;
+    text-align: center; font-weight: 700; letter-spacing: .3px; transition: transform .05s;
+    user-select: none;
+  }
+  .cue:hover { border-color: var(--cool); }
+  .cue:active { transform: translateY(1px) scale(.98); }
+  .cue small { display: block; color: var(--dim); font-weight: 500; font-size: 10px;
+    margin-top: 3px; }
+  .cue .q { position: absolute; top: 6px; right: 7px; font-size: 8.5px; font-weight: 800;
+    letter-spacing: .5px; padding: 1px 4px; border-radius: 4px; }
+  .cue .q.quant { background: rgba(177,140,255,.18); color: var(--violet); }
+  .cue .q.imm { background: rgba(124,255,155,.15); color: var(--lime); }
+  .cue.drop { background: linear-gradient(180deg,#2a0f1c,#1a0b13); border-color: var(--hot); }
+  .cue.drop:hover { box-shadow: 0 0 0 3px rgba(255,77,125,.15); }
+  .cue.flash { animation: flash .5s ease; }
+  @keyframes flash { 0%{ background:#2b3350; } 100%{} }
+
+  /* engine state */
+  .state { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-bottom: 10px; }
+  .kv { display: flex; justify-content: space-between; border-bottom: 1px dotted #20263a;
+    padding: 3px 0; font: 12px "Consolas", monospace; }
+  .kv span:first-child { color: var(--dim); }
+  .kv .v { color: var(--ink); font-weight: 700; }
+  .kv .v.changed { color: var(--lime); animation: pop .5s ease; }
+  @keyframes pop { 0%{ transform: scale(1.25); color:#fff; } 100%{} }
+  .layers { display: flex; gap: 5px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .lyr { font: 11px "Consolas", monospace; padding: 3px 8px; border-radius: 20px;
+    border: 1px solid var(--edge); color: var(--dim); background: #0d1018; }
+  .lyr.on { color: #04202b; background: var(--cool); border-color: var(--cool); font-weight: 700; }
+  .bar { height: 7px; background: #0c0e16; border-radius: 6px; overflow: hidden; margin: 2px 0 8px; }
+  .bar > i { display: block; height: 100%; border-radius: 6px; transition: width .3s; }
+  .barlabel { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); }
+  details.json { margin-top: 10px; }
+  details.json summary { cursor: pointer; color: var(--dim); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1px; }
+  pre#json { font: 11px/1.45 "Consolas", monospace; color: var(--cool); background: #0b0d15;
+    border: 1px solid var(--edge); border-radius: 8px; padding: 10px; overflow: auto;
+    margin: 8px 0 0; max-height: 220px; }
+
+  /* log */
+  #log { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow: auto; }
+  #log li { font: 12px/1.5 "Consolas", monospace; padding: 4px 8px; border-radius: 6px;
+    margin-bottom: 3px; background: #0d1018; border-left: 3px solid var(--edge); }
+  #log li.intent { border-left-color: var(--cool); }
+  #log li.cue { border-left-color: var(--violet); }
+  #log li.script { border-left-color: var(--amber); color: var(--amber); }
+  #log li.miss { border-left-color: var(--hot); color: #ff9bb4; }
+  #log li.hand { border-left-color: var(--lime); color: var(--lime); }
+  .clock { font: 12px "Consolas", monospace; color: var(--dim); float: right; }
+  .foot { color: var(--dim); font-size: 11px; margin-top: 14px; max-width: 1180px; }
+</style>
+</head>
+<body>
+  <h1>Spike D — Talk to the DJ <span style="color:var(--dim)">+</span> Cue Deck</h1>
+  <div class="sub">Event-based control. Type an intent or fire a cue — watch the engine state move and the set take shape. (Mock — no audio; a bar clock ticks so quantised cues land on the grid.)</div>
+
+  <div class="grid">
+    <!-- LEFT: controls -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="panel">
+        <h2>Talk to the DJ <span class="clock" id="clock">bar 1 · beat 1</span></h2>
+        <div class="intent-row">
+          <input id="intent" placeholder='try: "darker, more space"  ·  "bring the bass back"  ·  "take it to techno"  ·  "drop it"' autocomplete="off" spellcheck="false">
+          <button class="go" id="send">SEND</button>
+        </div>
+        <div class="parsebox" id="parse">interpreted as → …</div>
+        <div class="hints">quick words:
+          <b data-say="darker">darker</b> ·
+          <b data-say="brighter">brighter</b> ·
+          <b data-say="harder">harder</b> ·
+          <b data-say="chill it out">chill</b> ·
+          <b data-say="bring the bass">bring the bass</b> ·
+          <b data-say="more space">more space</b> ·
+          <b data-say="groovier">groovier</b> ·
+          <b data-say="surprise me">surprise me</b> ·
+          <b data-say="take it to techno">go techno</b> ·
+          <b data-say="build it up">build it up</b> ·
+          <b data-say="drop it">drop it</b> ·
+          <b data-say="let it ride">let it ride</b>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Cue Deck <span style="color:var(--violet);font-size:10px;letter-spacing:1px">QUANT = next bar/phrase</span> <span style="color:var(--lime);font-size:10px;letter-spacing:1px">· IMM = now</span></h2>
+        <div class="deck" id="deck"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: engine state + log -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="panel">
+        <h2>Engine state (the genome + latent targets)</h2>
+        <div class="state" id="kvs"></div>
+        <div style="font-size:11px;color:var(--dim);margin-bottom:2px">layers</div>
+        <div class="layers" id="layers"></div>
+        <div class="barlabel"><span>crowd approval (fitness)</span><span id="apLbl"></span></div>
+        <div class="bar"><i id="apBar" style="background:var(--hot)"></i></div>
+        <div class="barlabel"><span>energy</span><span id="enLbl"></span></div>
+        <div class="bar"><i id="enBar" style="background:var(--amber)"></i></div>
+        <div class="barlabel"><span>search temperature (exploration)</span><span id="tpLbl"></span></div>
+        <div class="bar"><i id="tpBar" style="background:var(--violet)"></i></div>
+        <details class="json" open>
+          <summary>raw state JSON (what render() reads)</summary>
+          <pre id="json"></pre>
+        </details>
+      </div>
+      <div class="panel">
+        <h2>Event log — the set as it performs</h2>
+        <ul id="log"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Spike D thesis: a set is a sequence of <b>timed events</b>, not a point in parameter space.
+    Intents and cues both compile to the engine's existing "propose a change" loop —
+    NUDGE a target, FORCE a pre-approved edit, or SCRIPT a multi-bar gesture the hill-climber then optimises around.
+  </div>
+
+<script>
+"use strict";
+/* ---------------------------------------------------------------------------
+   Mock engine state — mirrors src/dj.js genome + this spike's latent targets.
+   No audio, no Strudel; this proves the CONTROL PARADIGM feels like performing.
+--------------------------------------------------------------------------- */
+const LAYERS = ["kick","hats","bass","clap","chords","lead","air"];
+const MODES  = ["phrygian","minor","harmonicMinor","dorian","mixolydian","major"]; // dark -> bright
+const GENRES = ["house","techno","dnb","lofi","trance"];
+const GENRE_BPM = { house:124, techno:132, dnb:174, lofi:82, trance:138 };
+
+const engine = {
+  active: [true,true,false,false,false,false,false], // kick+hats to start
+  modeIdx: 1,          // index into MODES  (1 = minor)
+  genre: "house",
+  bpm: 124,
+  energyIdx: 1,        // 0..4
+  filterBias: 0,       // -1..+1
+  swing: 0,            // 0..0.3
+  spaceFX: 0.25,       // 0..1
+  density: 0,          // -1..+1
+  temp: 0.4,           // 0..1 exploration
+  approval: 50,        // 0..100 fitness (crowd)
+  hold: false,
+  gesture: null        // active scripted gesture {name,bar,len}
+};
+const prev = {};       // for change-highlighting
+
+/* ---- bar clock so quantised cues land on the grid ---- */
+let beat = 0, bar = 1;
+function tickClock(){
+  beat = (beat + 1) % 4;
+  if (beat === 0) { bar++; advanceGesture(); }
+  document.getElementById("clock").textContent = "bar " + bar + " · beat " + (beat+1);
+  // let a running gesture also tick approval drift a touch for realism
+  render();
+}
+setInterval(tickClock, 650);
+
+/* ---------------------------------------------------------------------------
+   INTENT PARSER — pure keyword/synonym matching. No LLM, no network.
+   Each rule: {axis, test(tokens,raw), apply(mult), say}. Modifiers scale moves.
+--------------------------------------------------------------------------- */
+function has(raw, ...words){ return words.some(w => raw.includes(w)); }
+function step(field, d, lo, hi){ engine[field] = clamp(engine[field] + d, lo, hi); }
+function clamp(x,lo,hi){ return x<lo?lo:x>hi?hi:x; }
+
+function intensity(raw){
+  if (has(raw," a bit"," slightly"," touch"," little")) return 0.5;
+  if (has(raw," way "," much "," really "," loads"," af"," as hell"," heaps")) return 1.5;
+  return 1;
+}
+
+// axis lets multiple independent moves fire from one sentence, but only one per axis.
+const RULES = [
+  { axis:"mode", say:r=>"darker → mode↓ ("+MODES[engine.modeIdx]+"), filterBias−",
+    test:r=>has(r,"dark","mood","evil","dirty","menac","sinister","minor "),
+    apply(m){ engine.modeIdx = clamp(engine.modeIdx - Math.round(2*m),0,MODES.length-1);
+              step("filterBias",-0.25*m,-1,1); } },
+  { axis:"mode", say:r=>"brighter → mode↑ ("+MODES[engine.modeIdx]+"), filterBias+",
+    test:r=>has(r,"bright","happy","happier","uplift","euphor","major","hopeful"),
+    apply(m){ engine.modeIdx = clamp(engine.modeIdx + Math.round(2*m),0,MODES.length-1);
+              step("filterBias",0.25*m,-1,1); if(!engine.active[6]) engine.active[6]=true; } },
+
+  { axis:"energy", say:r=>"harder → energy+, density+",
+    test:r=>has(r,"hard","big","heav","more energy","pump","banging","full on","intens"),
+    apply(m){ step("energyIdx",Math.round(1*m),0,4); step("density",0.3*m,-1,1); engine.swing=0; } },
+  { axis:"energy", say:r=>"softer → energy−, density−",
+    test:r=>has(r,"soft","chill","relax","mellow","calm","bring it down","gentle","easy"),
+    apply(m){ step("energyIdx",-Math.round(1*m),0,4); step("density",-0.3*m,-1,1);
+              if(!engine.active[4]) engine.active[4]=true; } },
+
+  { axis:"bass", say:r=>"bring the bass → bass ON (FORCE, grace window)",
+    test:r=>has(r,"bass","low end","sub","bottom end"),
+    apply(m){ engine.active[2]=true; step("filterBias",0.15,-1,1); log("FORCE: bass ON — exempt from revert for 1 trial","script"); } },
+
+  { axis:"space", say:r=>"more space → spaceFX+, favour air, density−",
+    test:r=>has(r,"space","dub","echo","roomy","ambient","spacious","reverb"),
+    apply(m){ step("spaceFX",0.3*m,0,1); engine.active[6]=true; step("density",-0.2*m,-1,1); } },
+  { axis:"space", say:r=>"tighter → spaceFX−, density+, dry",
+    test:r=>has(r,"tight","dry","less reverb","clean","focus"),
+    apply(m){ step("spaceFX",-0.3*m,0,1); step("density",0.2*m,-1,1); } },
+
+  { axis:"swing", say:r=>"groovier → swing≈"+(0.2).toFixed(2),
+    test:r=>has(r,"groov","swing","shuffle","bounc"),
+    apply(m){ engine.swing = clamp(0.2*m,0,0.3); } },
+  { axis:"swing", say:r=>"straighten → swing 0",
+    test:r=>has(r,"straight","four-four","four four","machine","quantis","robotic"),
+    apply(m){ engine.swing = 0; } },
+
+  { axis:"temp", say:r=>"more movement → temp+ (widen search)",
+    test:r=>has(r,"movement","evolve","keep chang","surprise","less repet","mix it up","different"),
+    apply(m){ step("temp",0.3*m,0.1,1); engine.hold=false; } },
+
+  { axis:"genre", say:r=>"genre → "+engine.genre+" (NUDGE tempo+feel over a phrase)",
+    test:r=>has(r,"techno","house","dnb","drum and bass","jungle","liquid","lofi","lo-fi","trance","hands up","deep ","sleepy","epic"),
+    apply(m,r){ engine.genre = genreFrom(r); engine.bpm = GENRE_BPM[engine.genre];
+                log("NUDGE: re-skinning to "+engine.genre+" over next phrase","script"); } },
+
+  { axis:"tempo", say:r=>"tempo → "+engine.bpm+" BPM (quantised glide)",
+    test:r=>has(r,"faster","speed up","slower","slow down","half the speed","tempo"),
+    apply(m,r){ const d = has(r,"fast","speed")?6:-6; engine.bpm = clamp(engine.bpm + d*m,70,180); } },
+
+  // scripted / structural
+  { axis:"script", say:r=>"BUILD 8 armed (quantised, next bar → 8 bars)",
+    test:r=>has(r,"build"),
+    apply(m,r){ armGesture("Build 8",8); } },
+  { axis:"script", say:r=>"DROP armed (quantised, next phrase downbeat)",
+    test:r=>has(r,"drop","here it comes","break it down"),
+    apply(m,r){ armGesture("Drop",2); } },
+  { axis:"script", say:r=>"strip back → cut to kick(+hats), energy−",
+    test:r=>has(r,"strip","just the drum","take it down to"),
+    apply(m){ stripBack(); } },
+  { axis:"script", say:r=>"full send → all layers, energy MAX",
+    test:r=>has(r,"full send","everything","max it","all in"),
+    apply(m){ fullSend(); } },
+  { axis:"script", say:r=>"reload → re-fire last-liked phrase on next downbeat",
+    test:r=>has(r,"reload","rewind","spin back","pull it back","again"),
+    apply(m){ log("Reload — spinning last-liked phrase back on next downbeat","script"); } },
+
+  { axis:"hold", say:r=>"let it ride → hold, temp→min (drive toward lock)",
+    test:r=>has(r,"let it ride","lock it","hold it","keep it","ride it"),
+    apply(m){ engine.hold=true; engine.temp=0.1; } },
+];
+
+function genreFrom(r){
+  if (has(r,"jungle","liquid","dnb","drum and bass")) return "dnb";
+  if (has(r,"lofi","lo-fi","sleepy")) return "lofi";
+  if (has(r,"trance","hands up","epic")) return "trance";
+  if (has(r,"deep ","house")) return "house";
+  if (has(r,"techno","banging")) return "techno";
+  return engine.genre;
+}
+
+function parseIntent(rawInput){
+  const raw = " " + rawInput.toLowerCase().replace(/[^\w\s-]/g," ").replace(/\s+/g," ") + " ";
+  const m = intensity(raw);
+  const fired = [];
+  const usedAxes = new Set();
+  for (const rule of RULES){
+    if (usedAxes.has(rule.axis)) continue;      // one move per axis
+    if (rule.test(raw)){
+      rule.apply(m, raw);
+      usedAxes.add(rule.axis);
+      fired.push(rule.say(raw));
+    }
+  }
+  return fired;
+}
+
+/* ---------------------------------------------------------------------------
+   CUE DECK — discrete gestures. immediate = now; quantised = schedule on grid.
+--------------------------------------------------------------------------- */
+const CUES = [
+  { label:"Build 8", desc:"tension ramp",   q:true,  drop:false, run:()=>armGesture("Build 8",8) },
+  { label:"Drop",    desc:"strip → SLAM",   q:true,  drop:true,  run:()=>armGesture("Drop",2) },
+  { label:"Reload",  desc:"spin back",      q:true,  drop:false, run:()=>log("Reload — last-liked phrase re-fires on next downbeat","cue") },
+  { label:"Half-time", desc:"halve the feel", q:true, drop:false, run:()=>{ step("density",-0.4,-1,1); log("Half-time feel — lands next bar (bpm unchanged)","cue"); } },
+  { label:"Double-time", desc:"busier feel", q:true, drop:false, run:()=>{ step("density",0.4,-1,1); log("Double-time feel — lands next bar (bpm unchanged)","cue"); } },
+  { label:"Filter Sweep", desc:"2-bar rise", q:true, drop:false, run:()=>{ step("filterBias",0.5,-1,1); log("Filter sweep rising over 2 bars, then settle","cue"); } },
+  { label:"Strip Back", desc:"cut to kick", q:false, drop:false, run:()=>stripBack() },
+  { label:"Full Send", desc:"all in, peak", q:false, drop:false, run:()=>fullSend() },
+  { label:"Darker",  desc:"mode↓ filter↓", q:false, drop:false, run:()=>{ engine.modeIdx=clamp(engine.modeIdx-2,0,5); step("filterBias",-0.3,-1,1); } },
+  { label:"Brighter", desc:"mode↑ filter↑", q:false, drop:false, run:()=>{ engine.modeIdx=clamp(engine.modeIdx+2,0,5); step("filterBias",0.3,-1,1); engine.active[6]=true; } },
+  { label:"More Space", desc:"dub it out",  q:false, drop:false, run:()=>{ step("spaceFX",0.35,0,1); engine.active[6]=true; step("density",-0.2,-1,1); } },
+  { label:"Let It Ride", desc:"lock, cool", q:false, drop:false, run:()=>{ engine.hold=true; engine.temp=0.1; } },
+];
+
+function buildDeck(){
+  const deck = document.getElementById("deck");
+  CUES.forEach((c,idx)=>{
+    const b = document.createElement("div");
+    b.className = "cue" + (c.drop?" drop":"");
+    b.innerHTML = '<span class="q '+(c.q?"quant":"imm")+'">'+(c.q?"QUANT":"IMM")+'</span>'+
+                  c.label + '<small>'+c.desc+'</small>';
+    b.addEventListener("click", ()=>{
+      b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash");
+      if (c.q) log('▸ cue "'+c.label+'" armed — fires on next '+(c.label==="Drop"?"phrase downbeat":"bar")+' (bar '+(bar+1)+')',"cue");
+      else     log('▸ cue "'+c.label+'" — fired now',"cue");
+      c.run();
+      render();
+    });
+    deck.appendChild(b);
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   SCRIPTED GESTURES — borrow the render loop for a fixed span, then hand back.
+--------------------------------------------------------------------------- */
+function armGesture(name, len){
+  engine.gesture = { name, bar:0, len };
+  engine.hold = false;
+  log('⏱ '+name+' armed — starts next bar, runs '+len+' bar'+(len>1?"s":"")+' (mutations suspended)',"script");
+}
+function advanceGesture(){
+  const g = engine.gesture; if (!g) return;
+  g.bar++;
+  if (g.name === "Build 8"){
+    step("energyIdx", 0, 0, 4); // energy nudged smoothly:
+    if (g.bar<=6) step("energyIdx", g.bar%2?0:1, 0, 4);
+    step("filterBias", 0.12, -1, 1);
+    if (g.bar===7) engine.active = engine.active.map((v,i)=> i<=1 ? v : (i<=4)); // thin to core before drop
+    log("⏱ Build 8 — bar "+g.bar+"/8, tension climbing","script");
+    if (g.bar>=g.len){ log("↳ Build complete — natural drop point armed","hand"); handBack(); }
+  } else if (g.name === "Drop"){
+    if (g.bar===1){ // the break
+      window.__snap = engine.active.slice();
+      engine.active = [true,false,false,false,false,false,false]; // strip to kick
+      log("⏱ DROP — the break: stripped to kick on the downbeat","script");
+    } else { // full re-entry at peak
+      engine.active = (window.__snap||[true,true,true,true,true,true,true]).map(()=>true);
+      engine.energyIdx = 4; step("filterBias",0.4,-1,1);
+      log("💥 DROP — full re-entry, everything back in at peak energy","script");
+      engine.approval = clamp(engine.approval + 14, 0, 100); // the drop lands
+      log("↳ crowd spiked — hill-climber anchors the post-drop shape as high-fitness","hand");
+      handBack();
+    }
+  }
+}
+function handBack(){
+  engine.gesture = null;
+  log("↩ gesture done — hill-climber resumes from this shape as its new baseline","hand");
+  render();
+}
+
+function stripBack(){
+  engine.active = engine.active.map((v,i)=> i<=1 ? v : false);
+  step("energyIdx",-1,0,4);
+}
+function fullSend(){
+  engine.active = engine.active.map(()=>true);
+  engine.energyIdx = 4; step("filterBias",0.3,-1,1); step("spaceFX",0.15,0,1);
+}
+
+/* ---------------------------------------------------------------------------
+   RENDER the state readout + change highlights.
+--------------------------------------------------------------------------- */
+function kvRow(label, val, key){
+  const changed = prev[key] !== undefined && prev[key] !== val;
+  prev[key] = val;
+  return '<div class="kv"><span>'+label+'</span><span class="v'+(changed?" changed":"")+'">'+val+'</span></div>';
+}
+function render(){
+  const e = engine;
+  document.getElementById("kvs").innerHTML =
+    kvRow("mode", MODES[e.modeIdx], "mode") +
+    kvRow("genre", e.genre, "genre") +
+    kvRow("bpm", Math.round(e.bpm), "bpm") +
+    kvRow("energyIdx", e.energyIdx+" / 4", "energyIdx") +
+    kvRow("filterBias", e.filterBias.toFixed(2), "filterBias") +
+    kvRow("swing", e.swing.toFixed(2), "swing") +
+    kvRow("spaceFX", e.spaceFX.toFixed(2), "spaceFX") +
+    kvRow("density", e.density.toFixed(2), "density") +
+    kvRow("hold", e.hold?"yes":"no", "hold") +
+    kvRow("gesture", e.gesture?e.gesture.name+" ("+e.gesture.bar+"/"+e.gesture.len+")":"—", "gesture");
+
+  document.getElementById("layers").innerHTML =
+    LAYERS.map((n,i)=>'<span class="lyr'+(e.active[i]?" on":"")+'">'+n+'</span>').join("");
+
+  setBar("ap", e.approval, 100, Math.round(e.approval));
+  setBar("en", (e.energyIdx/4)*100, 100, e.energyIdx+"/4");
+  setBar("tp", e.temp*100, 100, e.temp.toFixed(2));
+
+  document.getElementById("json").textContent = JSON.stringify({
+    active: LAYERS.filter((n,i)=>e.active[i]),
+    mode: MODES[e.modeIdx], genre: e.genre, bpm: Math.round(e.bpm),
+    energyIdx: e.energyIdx, filterBias: +e.filterBias.toFixed(2),
+    swing: +e.swing.toFixed(2), spaceFX: +e.spaceFX.toFixed(2),
+    density: +e.density.toFixed(2), temp: +e.temp.toFixed(2),
+    hold: e.hold, gesture: e.gesture ? e.gesture.name : null
+  }, null, 2);
+}
+function setBar(id, pct, max, label){
+  document.getElementById(id+"Bar").style.width = clamp(pct,0,100)+"%";
+  document.getElementById(id+"Lbl").textContent = label;
+}
+
+/* ---- event log ---- */
+function log(text, cls){
+  const li = document.createElement("li");
+  li.className = cls || "";
+  li.textContent = "["+"bar "+bar+"] "+text;
+  const ul = document.getElementById("log");
+  ul.prepend(li);
+  while (ul.childElementCount > 60) ul.lastChild.remove();
+}
+
+/* ---------------------------------------------------------------------------
+   Wire up the intent box.
+--------------------------------------------------------------------------- */
+function submitIntent(){
+  const box = document.getElementById("intent");
+  const raw = box.value.trim();
+  if (!raw) return;
+  const parse = document.getElementById("parse");
+  const fired = parseIntent(raw);
+  if (fired.length){
+    parse.className = "parsebox";
+    parse.textContent = "interpreted as → " + fired.join("   |   ");
+    log('🗣 "'+raw+'"  →  '+fired.join(" | "), "intent");
+  } else {
+    parse.className = "parsebox miss";
+    parse.textContent = "didn't catch that — try: darker · drop it · bring the bass · more space · go techno";
+    log('🗣 "'+raw+'"  →  no match (no change — fail-safe)', "miss");
+  }
+  box.value = "";
+  render();
+}
+document.getElementById("send").addEventListener("click", submitIntent);
+document.getElementById("intent").addEventListener("keydown", e=>{ if(e.key==="Enter") submitIntent(); });
+document.querySelectorAll(".hints b").forEach(b=>{
+  b.addEventListener("click", ()=>{ document.getElementById("intent").value = b.dataset.say; submitIntent(); });
+});
+
+buildDeck();
+render();
+log("🎧 set up — kick + hats running, house at 124. Talk to the DJ or fire a cue.","hand");
+</script>
+</body>
+</html>
