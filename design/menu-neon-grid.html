@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike 01 — Neon Grid Deck</title>
+<style>
+  /* ── Spike 01 · NEON GRID DECK ─────────────────────────────────────────
+     Thesis: a Tron/synthwave horizon. A perspective grid floor races toward
+     you under a cut-line sun; a waveform ribbon rides the middle distance and
+     the silhouette of a mixer sits on the near edge. Vector glow, scanlines,
+     wide-tracked type. "The set is about to drop." */
+  :root {
+    --bg:      #04060f;
+    --ink:     #eafcff;
+    --muted:   #7fa9c4;
+    --cyan:    #00e6ff;
+    --magenta: #ff2d9b;
+    --violet:  #7c4dff;
+    --amber:   #ffcf5c;
+    --line:    rgba(0, 230, 255, 0.22);
+    --font: "DM Mono", ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; }
+  #floor { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* scanlines + vignette + chromatic vibe, purely decorative */
+  .overlay { position: fixed; inset: 0; pointer-events: none; }
+  .overlay.scan {
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.16) 2px 3px);
+    mix-blend-mode: multiply; opacity: 0.7;
+  }
+  .overlay.vig { background: radial-gradient(120% 90% at 50% 42%, transparent 45%, rgba(0,0,0,0.75) 100%); }
+
+  .hub {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; pointer-events: none; padding: 4vh 5vw;
+  }
+  .hub > * { pointer-events: auto; }
+
+  .status {
+    position: fixed; top: 20px; left: 24px; font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--cyan); display: flex; gap: 10px; align-items: center;
+  }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); animation: pulse 1.4s ease-in-out infinite; }
+  .bpm { position: fixed; top: 20px; right: 24px; font-size: 11px; letter-spacing: 2px; color: var(--magenta); text-transform: uppercase; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .logo { text-align: center; margin-bottom: 6vh; }
+  .logo .mark {
+    font-size: clamp(38px, 8vw, 92px); font-weight: 500; letter-spacing: 0.14em; line-height: 0.92;
+    background: linear-gradient(180deg, #fff 0%, var(--cyan) 55%, var(--magenta) 130%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(0, 230, 255, 0.55));
+  }
+  .logo .mark .b { display: block; background: linear-gradient(180deg, var(--magenta), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .logo .tag { margin-top: 14px; font-size: clamp(11px, 1.4vw, 14px); letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+
+  .cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 940px; }
+  .card {
+    position: relative; width: 260px; min-height: 150px; text-decoration: none; color: var(--ink);
+    padding: 20px 20px 18px; border: 1px solid var(--line);
+    background: linear-gradient(160deg, rgba(0,230,255,0.06), rgba(124,77,255,0.04));
+    backdrop-filter: blur(3px); clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    transition: transform .18s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  .card::before { content: ""; position: absolute; left: -1px; top: -1px; width: 34px; height: 2px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  .card:hover { transform: translateY(-6px); border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan), 0 20px 60px rgba(0,230,255,0.22); }
+  .card .idx { position: absolute; top: 14px; right: 16px; font-size: 11px; color: var(--muted); letter-spacing: 2px; }
+  .card .ic { font-size: 30px; line-height: 1; filter: drop-shadow(0 0 10px var(--cyan)); }
+  .card h3 { margin: 14px 0 6px; font-size: 17px; letter-spacing: 2px; text-transform: uppercase; }
+  .card p { margin: 0; font-size: 11.5px; line-height: 1.55; color: var(--muted); }
+  .card .go { margin-top: 12px; font-size: 10px; letter-spacing: 2px; color: var(--cyan); text-transform: uppercase; }
+  .card.magenta::before { background: var(--magenta); box-shadow: 0 0 10px var(--magenta); }
+  .card.magenta:hover { border-color: var(--magenta); box-shadow: 0 0 0 1px var(--magenta), 0 20px 60px rgba(255,45,155,0.22); }
+  .card.magenta .ic, .card.magenta .go { color: var(--magenta); filter: drop-shadow(0 0 10px var(--magenta)); }
+  .card.amber::before { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+  .card.amber:hover { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber), 0 20px 60px rgba(255,207,92,0.2); }
+  .card.amber .ic, .card.amber .go { color: var(--amber); filter: drop-shadow(0 0 10px var(--amber)); }
+
+  .foot { position: fixed; bottom: 18px; left: 0; right: 0; text-align: center; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .foot span { color: var(--cyan); }
+</style>
+</head>
+<body>
+  <canvas id="floor"></canvas>
+  <div class="overlay scan"></div>
+  <div class="overlay vig"></div>
+
+  <div class="status"><span class="dot"></span> System online · deck armed</div>
+  <div class="bpm" id="bpm">140 BPM</div>
+
+  <div class="hub">
+    <div class="logo">
+      <div class="mark">STRUDEL<span class="b">AUTO·DJ</span></div>
+      <div class="tag">An AI DJ builds tracks live in code · you are the crowd</div>
+    </div>
+    <div class="cards">
+      <a class="card" href="#">
+        <span class="idx">01</span><div class="ic">▶</div>
+        <h3>Live Set</h3>
+        <p>Bring the DJ up and steer the crowd. It writes every note; you set the mood.</p>
+        <div class="go">Enter ›</div>
+      </a>
+      <a class="card magenta" href="#">
+        <span class="idx">02</span><div class="ic">◎</div>
+        <h3>A&amp;R Session</h3>
+        <p>The DJ pitches one change at a time. Keep the good, kill the bad.</p>
+        <div class="go">Enter ›</div>
+      </a>
+      <a class="card amber" href="#">
+        <span class="idx">03</span><div class="ic">▤</div>
+        <h3>The Crate</h3>
+        <p>Play back the bangers you have saved. A standalone player.</p>
+        <div class="go">Enter ›</div>
+      </a>
+    </div>
+  </div>
+  <div class="foot">Strudel Auto·DJ — <span>select a destination</span></div>
+
+<script>
+(function () {
+  const cv = document.getElementById('floor');
+  const ctx = cv.getContext('2d');
+  let W, H, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  let t = 0;
+  function draw() {
+    t += 0.016;
+    const horizon = H * 0.46;
+    // sky wash
+    const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0, '#05040f'); sky.addColorStop(1, '#12082a');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, horizon);
+    // floor wash
+    const flr = ctx.createLinearGradient(0, horizon, 0, H);
+    flr.addColorStop(0, '#12082a'); flr.addColorStop(1, '#03040c');
+    ctx.fillStyle = flr; ctx.fillRect(0, horizon, W, H - horizon);
+
+    // sun with cut lines
+    const cx = W / 2, sunR = Math.min(W, H) * 0.16, sunY = horizon - sunR * 0.35;
+    const sunG = ctx.createLinearGradient(0, sunY - sunR, 0, sunY + sunR);
+    sunG.addColorStop(0, '#ffe08a'); sunG.addColorStop(0.5, '#ff5fa8'); sunG.addColorStop(1, '#7c4dff');
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, sunY, sunR, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = sunG; ctx.fillRect(cx - sunR, sunY - sunR, sunR * 2, sunR * 2);
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 7; i++) {
+      const yy = sunY + sunR * 0.15 + i * sunR * 0.14;
+      ctx.fillRect(cx - sunR, yy, sunR * 2, Math.max(1.5, (i + 1) * 0.9));
+    }
+    ctx.restore();
+    // sun glow
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const gl = ctx.createRadialGradient(cx, sunY, 0, cx, sunY, sunR * 2.4);
+    gl.addColorStop(0, 'rgba(255,95,168,0.35)'); gl.addColorStop(1, 'rgba(255,95,168,0)');
+    ctx.fillStyle = gl; ctx.fillRect(0, 0, W, horizon + 40);
+    ctx.restore();
+
+    // perspective grid floor
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,230,255,0.5)'; ctx.lineWidth = 1;
+    ctx.shadowColor = 'rgba(0,230,255,0.8)'; ctx.shadowBlur = 6;
+    // vertical converging lines
+    const vanish = cx;
+    for (let i = -10; i <= 10; i++) {
+      const x = cx + i * (W * 0.09);
+      ctx.beginPath(); ctx.moveTo(vanish, horizon); ctx.lineTo(x, H); ctx.stroke();
+    }
+    // horizontal lines racing forward (exponential spacing scrolls with time)
+    const speed = (t * 0.35) % 1;
+    for (let i = 0; i < 16; i++) {
+      const p = (i + speed) / 16;                 // 0..1 depth
+      const y = horizon + (H - horizon) * (p * p); // ease so near lines spread out
+      ctx.globalAlpha = 0.25 + p * 0.6;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // waveform ribbon riding the mid-distance
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(255,45,155,0.9)'; ctx.lineWidth = 2;
+    ctx.shadowColor = '#ff2d9b'; ctx.shadowBlur = 14;
+    ctx.beginPath();
+    const wy = horizon - sunR * 1.15;
+    for (let x = 0; x <= W; x += 6) {
+      const k = x / W;
+      const amp = 26 * (0.4 + 0.6 * Math.sin(k * Math.PI));
+      const y = wy + Math.sin(k * 22 + t * 4) * amp * 0.5 + Math.sin(k * 6 - t * 2) * amp;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke(); ctx.restore();
+
+    // near-edge mixer silhouette
+    ctx.save();
+    ctx.fillStyle = '#02030a';
+    ctx.shadowColor = 'rgba(0,230,255,0.5)'; ctx.shadowBlur = 20;
+    const mw = Math.min(W * 0.62, 720), mh = 74, mx = cx - mw / 2, my = H - mh + 18;
+    ctx.fillRect(mx, my, mw, mh);
+    // two platters + fader glows
+    ctx.globalCompositeOperation = 'lighter';
+    [mx + mw * 0.2, mx + mw * 0.8].forEach((px, i) => {
+      const g = ctx.createRadialGradient(px, my + 22, 2, px, my + 22, 30);
+      const col = i === 0 ? '0,230,255' : '255,45,155';
+      g.addColorStop(0, 'rgba(' + col + ',0.8)'); g.addColorStop(1, 'rgba(' + col + ',0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, my + 22, 30, 0, Math.PI * 2); ctx.fill();
+    });
+    for (let i = 0; i < 9; i++) {
+      const px = cx - 90 + i * 22;
+      const h = 8 + (Math.sin(t * 3 + i) * 0.5 + 0.5) * 22;
+      ctx.fillStyle = 'rgba(255,207,92,0.85)'; ctx.fillRect(px, my + 44 - h, 5, h);
+    }
+    ctx.restore();
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // live BPM flicker for game-menu energy
+  const bpmEl = document.getElementById('bpm');
+  setInterval(() => { bpmEl.textContent = (136 + Math.floor(Math.random() * 10)) + ' BPM'; }, 1400);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike 03 — Panned Rig</title>
+<style>
+  /* ── Spike 03 · PANNED RIG ─────────────────────────────────────────────
+     Thesis: a slow cinematic pan across a holographic DJ rig — turntables,
+     faders, knobs drawn as glowing wireframe with depth-of-field. VU meters
+     twitch, dust drifts. Feels like a camera move in a title sequence. Cooler,
+     engineering-hologram palette: teal + amber on near-black. Menu docks as a
+     HUD to the right while the rig keeps panning behind. */
+  :root {
+    --bg:    #05070a;
+    --ink:   #dffcf5;
+    --muted: #6f9a97;
+    --teal:  #00ffd5;
+    --amber: #ffb020;
+    --red:   #ff4d5e;
+    --line:  rgba(0, 255, 213, 0.2);
+    --font: "DM Mono", ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; }
+  #rig { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .dof { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(60% 55% at 68% 50%, transparent 35%, rgba(5,7,10,0.82) 100%); }
+  .frameline { position: fixed; pointer-events: none; border-color: var(--line); }
+
+  /* corner brackets for a viewfinder feel */
+  .bracket { position: fixed; width: 26px; height: 26px; pointer-events: none; border: 2px solid var(--teal); opacity: 0.6; }
+  .bracket.tl { top: 20px; left: 20px; border-right: 0; border-bottom: 0; }
+  .bracket.tr { top: 20px; right: 20px; border-left: 0; border-bottom: 0; }
+  .bracket.bl { bottom: 20px; left: 20px; border-right: 0; border-top: 0; }
+  .bracket.br { bottom: 20px; right: 20px; border-left: 0; border-top: 0; }
+
+  .rec { position: fixed; top: 22px; left: 58px; font-size: 11px; letter-spacing: 2px; color: var(--red); text-transform: uppercase; display: flex; gap: 8px; align-items: center; }
+  .rec .d { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.15; } }
+  .tc { position: fixed; top: 22px; right: 58px; font-size: 11px; letter-spacing: 2px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .hud { position: fixed; top: 0; right: 0; bottom: 0; width: min(46vw, 460px); display: flex; flex-direction: column; justify-content: center; gap: 20px; padding: 0 6vw 0 2vw; }
+  .title { margin-bottom: 8px; }
+  .title .k { font-size: 11px; letter-spacing: 4px; color: var(--teal); text-transform: uppercase; }
+  .title h1 { margin: 10px 0 0; font-size: clamp(34px, 5vw, 62px); line-height: 0.95; letter-spacing: 0.06em; text-shadow: 0 0 26px rgba(0,255,213,0.4); }
+  .title h1 em { font-style: normal; color: var(--amber); text-shadow: 0 0 26px rgba(255,176,32,0.4); }
+  .title p { margin: 14px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; max-width: 34ch; }
+
+  .rows { display: grid; gap: 10px; }
+  .row {
+    position: relative; text-decoration: none; color: var(--ink);
+    display: flex; align-items: center; gap: 14px; padding: 15px 16px;
+    border: 1px solid var(--line); border-left: 3px solid var(--teal);
+    background: linear-gradient(90deg, rgba(0,255,213,0.06), transparent);
+    transition: transform .16s, background .2s, border-color .2s;
+  }
+  .row:hover { transform: translateX(-6px); background: linear-gradient(90deg, rgba(0,255,213,0.14), transparent); }
+  .row .k { font-size: 22px; filter: drop-shadow(0 0 10px var(--teal)); }
+  .row h3 { margin: 0; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .row p { margin: 3px 0 0; font-size: 11px; color: var(--muted); }
+  .row .arw { margin-left: auto; color: var(--teal); font-size: 16px; }
+  .row.amber { border-left-color: var(--amber); background: linear-gradient(90deg, rgba(255,176,32,0.06), transparent); }
+  .row.amber .k, .row.amber .arw { color: var(--amber); filter: drop-shadow(0 0 10px var(--amber)); }
+  .row.amber:hover { background: linear-gradient(90deg, rgba(255,176,32,0.14), transparent); }
+</style>
+</head>
+<body>
+  <canvas id="rig"></canvas>
+  <div class="dof"></div>
+  <span class="bracket tl"></span><span class="bracket tr"></span>
+  <span class="bracket bl"></span><span class="bracket br"></span>
+  <div class="rec"><span class="d"></span> REC · rig cam</div>
+  <div class="tc" id="tc">00:00:00:00</div>
+
+  <div class="hud">
+    <div class="title">
+      <div class="k">Rig online — panning</div>
+      <h1>STRUDEL<br><em>AUTO·DJ</em></h1>
+      <p>An AI DJ builds tracks live in code. You are the crowd — set the mood and watch it work the gear.</p>
+    </div>
+    <div class="rows">
+      <a class="row" href="#"><span class="k">▶</span><div><h3>Live Set</h3><p>Steer the crowd; it writes every note.</p></div><span class="arw">›</span></a>
+      <a class="row amber" href="#"><span class="k">◎</span><div><h3>A&amp;R Session</h3><p>Keep or kill each pitched change.</p></div><span class="arw">›</span></a>
+      <a class="row" href="#"><span class="k">▤</span><div><h3>The Crate</h3><p>Play back your saved bangers.</p></div><span class="arw">›</span></a>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const cv = document.getElementById('rig');
+  const ctx = cv.getContext('2d');
+  let W, H, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  // draw one deck module (turntable + tonearm + a small fader/knob cluster)
+  function deck(x, y, s, hue, spin, level) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = hue; ctx.shadowColor = hue; ctx.shadowBlur = 12; ctx.lineWidth = 1.4;
+    // platter rings
+    for (let r = 90; r > 20; r -= 16) { ctx.globalAlpha = 0.25 + (90 - r) / 160; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    // spindle marker rotating
+    ctx.save(); ctx.rotate(spin);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -84); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -84, 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    // tonearm
+    ctx.beginPath(); ctx.moveTo(96, -96); ctx.lineTo(34, -22); ctx.stroke();
+    ctx.beginPath(); ctx.arc(96, -96, 6, 0, Math.PI * 2); ctx.stroke();
+    // fader track + cap
+    ctx.beginPath(); ctx.moveTo(-96, 60); ctx.lineTo(-96, 118); ctx.stroke();
+    const fy = 60 + (Math.sin(spin * 0.5) * 0.5 + 0.5) * 58;
+    ctx.fillStyle = hue; ctx.fillRect(-104, fy - 4, 16, 8);
+    // vu meter bars
+    for (let i = 0; i < 7; i++) {
+      const bh = 6 + ((Math.sin(spin * 2 + i) * 0.5 + 0.5) * level) * 34;
+      ctx.globalAlpha = 0.85; ctx.fillRect(-40 + i * 12, 122 - bh, 7, bh);
+    }
+    ctx.restore();
+  }
+
+  let t = 0;
+  function draw() {
+    t += 0.016;
+    // deep base wash
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#07100f'); g.addColorStop(1, '#03050a');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // faint floor grid for depth
+    ctx.save(); ctx.strokeStyle = 'rgba(0,255,213,0.05)'; ctx.lineWidth = 1;
+    for (let yy = H * 0.6; yy < H; yy += 22) { ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
+    ctx.restore();
+
+    // the rig pans slowly left→right→left (a long sine on time)
+    const pan = Math.sin(t * 0.12) * W * 0.16;
+    const cy = H * 0.52;
+    // three decks at different depths (parallax): back small/dim, front large/bright
+    deck(W * 0.30 - pan * 1.4, cy - H * 0.02, 0.7, 'rgba(0,255,213,0.5)', t * 1.3, 0.5);
+    deck(W * 0.72 - pan * 1.4, cy - H * 0.03, 0.66, 'rgba(255,176,32,0.45)', -t * 1.1, 0.4);
+    deck(W * 0.50 - pan, cy + H * 0.02, 1.05, 'rgba(0,255,213,0.85)', t * 1.7, 0.9);
+
+    // holographic scan sweep
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const sweep = (t * 90) % (W + 200) - 100;
+    const sg = ctx.createLinearGradient(sweep - 60, 0, sweep + 60, 0);
+    sg.addColorStop(0, 'rgba(0,255,213,0)'); sg.addColorStop(0.5, 'rgba(0,255,213,0.06)'); sg.addColorStop(1, 'rgba(0,255,213,0)');
+    ctx.fillStyle = sg; ctx.fillRect(sweep - 60, 0, 120, H);
+    ctx.restore();
+
+    // drifting dust motes
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 46; i++) {
+      const px = (i * 137.5 - t * (8 + (i % 4) * 5)) % W; const x = px < 0 ? px + W : px;
+      const py = (i * 71.3 + Math.sin(t * 0.6 + i) * 26) % H;
+      ctx.fillStyle = 'rgba(' + (i % 3 ? '0,255,213' : '255,176,32') + ',' + (0.05 + (i % 3) * 0.03) + ')';
+      ctx.beginPath(); ctx.arc(x, py, 0.8 + (i % 3), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // running timecode
+  const tcEl = document.getElementById('tc'); const start = Date.now();
+  setInterval(() => {
+    const ms = Date.now() - start, f = Math.floor((ms % 1000) / 40), s = Math.floor(ms / 1000);
+    const p = (n) => String(n).padStart(2, '0');
+    tcEl.textContent = p(Math.floor(s / 3600)) + ':' + p(Math.floor(s / 60) % 60) + ':' + p(s % 60) + ':' + p(f);
+  }, 40);
+})();
+</script>
+</body>
+</html>

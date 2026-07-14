@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike 04 — Datastream</title>
+<style>
+  /* ── Spike 04 · DATASTREAM ─────────────────────────────────────────────
+     Thesis: the loudest, most "hacker terminal" of the four. Strudel code rains
+     down the background, a boot log types itself, a reactive core pulses, and
+     the menu reads as executable commands: > live_set.run(). Acid green + amber
+     with a red-alert accent. This is the one that says "a MACHINE made this". */
+  :root {
+    --bg:    #02040a;
+    --ink:   #d7ffe3;
+    --muted: #5f8a6d;
+    --green: #39ff14;
+    --amber: #ffb000;
+    --red:   #ff3b3b;
+    --line:  rgba(57, 255, 20, 0.18);
+    --font: "DM Mono", ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; }
+  #rain { position: fixed; inset: 0; width: 100%; height: 100%; display: block; opacity: 0.55; }
+  .crt { position: fixed; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.18) 2px 3px); }
+  .vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(120% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.7) 100%); }
+
+  .shell { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; padding: 5vh 6vw; }
+
+  .top { display: flex; justify-content: space-between; align-items: center; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .top b { color: var(--green); }
+  .top .alert { color: var(--red); }
+
+  .mid { display: flex; flex-direction: column; justify-content: center; }
+  .glyph { font-size: 11px; color: var(--green); letter-spacing: 2px; margin-bottom: 6px; opacity: 0.8; }
+  h1.word {
+    margin: 0; font-size: clamp(40px, 9vw, 120px); line-height: 0.86; letter-spacing: 0.04em; font-weight: 500;
+    color: var(--green); text-shadow: 0 0 8px rgba(57,255,20,0.6), 0 0 34px rgba(57,255,20,0.35);
+  }
+  h1.word small { display: block; font-size: 0.28em; letter-spacing: 0.5em; color: var(--amber); text-shadow: 0 0 18px rgba(255,176,0,0.5); margin-top: 14px; }
+  .boot { margin-top: 20px; font-size: 12px; color: var(--muted); min-height: 18px; letter-spacing: 0.5px; }
+  .boot .cur { color: var(--green); animation: cur 1s steps(2) infinite; }
+  @keyframes cur { 50% { opacity: 0; } }
+
+  .cmds { display: grid; gap: 8px; margin-top: 30px; max-width: 560px; }
+  .cmd {
+    text-decoration: none; color: var(--ink); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px;
+    padding: 13px 16px; border: 1px solid var(--line); background: rgba(57,255,20,0.03);
+    transition: background .16s, transform .16s, border-color .2s;
+  }
+  .cmd:hover { background: rgba(57,255,20,0.1); border-color: var(--green); transform: translateX(6px); }
+  .cmd .p { color: var(--green); }
+  .cmd .p b { color: var(--amber); }
+  .cmd .desc { color: var(--muted); font-size: 11px; }
+  .cmd .key { border: 1px solid var(--line); padding: 2px 8px; font-size: 11px; color: var(--muted); }
+  .cmd.amber { border-color: rgba(255,176,0,0.2); }
+  .cmd.amber:hover { border-color: var(--amber); background: rgba(255,176,0,0.08); }
+  .cmd.amber .p { color: var(--amber); } .cmd.amber .p b { color: var(--green); }
+
+  .bottom { display: flex; justify-content: space-between; align-items: center; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .core { display: flex; align-items: center; gap: 10px; }
+  .core .orb { width: 12px; height: 12px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green), 0 0 20px var(--green); animation: throb 1.3s ease-in-out infinite; }
+  @keyframes throb { 0%,100% { transform: scale(0.7); opacity: 0.6; } 50% { transform: scale(1.25); opacity: 1; } }
+</style>
+</head>
+<body>
+  <canvas id="rain"></canvas>
+  <div class="crt"></div>
+  <div class="vig"></div>
+
+  <div class="shell">
+    <div class="top">
+      <span>strudel@auto-dj:<b>~</b>$ session --live</span>
+      <span class="alert">● crowd: awaiting input</span>
+    </div>
+
+    <div class="mid">
+      <div class="glyph">╔═ ENGINE READY ═══ hill-climber armed ═══ 7 layers loaded ═╗</div>
+      <h1 class="word">STRUDEL<small>AUTO·DJ // the machine writes the set</small></h1>
+      <div class="boot" id="boot"><span class="cur">▌</span></div>
+
+      <div class="cmds">
+        <a class="cmd" href="#">
+          <span class="p">&gt; <b>live_set</b>.run()</span>
+          <span class="desc">// steer the crowd — it writes every note</span>
+          <span class="key">↵ 01</span>
+        </a>
+        <a class="cmd amber" href="#">
+          <span class="p">&gt; <b>a_and_r</b>.pitch()</span>
+          <span class="desc">// keep or kill each proposed change</span>
+          <span class="key">↵ 02</span>
+        </a>
+        <a class="cmd" href="#">
+          <span class="p">&gt; <b>crate</b>.open()</span>
+          <span class="desc">// play back the bangers you have saved</span>
+          <span class="key">↵ 03</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <span class="core"><span class="orb"></span> core stable · 140bpm · Fm dorian</span>
+      <span>strudel auto·dj — build-free · no backend</span>
+    </div>
+  </div>
+
+<script>
+(function () {
+  // ── code rain of Strudel fragments ──────────────────────────────────
+  const cv = document.getElementById('rain');
+  const ctx = cv.getContext('2d');
+  let W, H, dpr, cols, drops;
+  const glyphs = 's("bd hh") n("0 3 5") .scale() .lpf(800) stack( .gain(0.8) .room(0.4) bd sd hh oh cp ~ * < > . fm( )'.split(' ');
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = Math.floor(W / 16);
+    drops = new Array(cols).fill(0).map(() => Math.random() * -40);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  function draw() {
+    ctx.fillStyle = 'rgba(2,4,10,0.16)'; ctx.fillRect(0, 0, W, H);
+    ctx.font = '13px ui-monospace, monospace';
+    for (let i = 0; i < cols; i++) {
+      const x = i * 16, y = drops[i] * 16;
+      const txt = glyphs[(Math.floor(y / 16) + i) % glyphs.length];
+      // lead char bright, trail dim
+      ctx.fillStyle = Math.random() > 0.94 ? 'rgba(255,176,0,0.9)' : 'rgba(57,255,20,0.75)';
+      ctx.fillText(txt[Math.floor(Math.random() * txt.length)] || '·', x, y);
+      if (y > H && Math.random() > 0.975) drops[i] = Math.random() * -20;
+      drops[i] += 0.5 + (i % 3) * 0.12;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // ── self-typing boot log ────────────────────────────────────────────
+  const bootEl = document.getElementById('boot');
+  const lines = [
+    'loading dirt-samples … ok',
+    'mounting drum-machines [808 · 909 · 707 · linn] … ok',
+    'seeding genome · key Fm · dorian · 140 bpm … ok',
+    'crowd model attached · awaiting mood vector …',
+    'ready. select a destination ▍',
+  ];
+  let li = 0, ci = 0;
+  function type() {
+    if (li >= lines.length) return;
+    const line = lines[li];
+    bootEl.innerHTML = '<span style="color:var(--muted)">$ </span>' + line.slice(0, ci) + '<span class="cur">▌</span>';
+    ci++;
+    if (ci > line.length) { li = (li + 1) % lines.length; ci = 0; setTimeout(type, 1100); }
+    else setTimeout(type, 26 + Math.random() * 40);
+  }
+  type();
+})();
+</script>
+</body>
+</html>

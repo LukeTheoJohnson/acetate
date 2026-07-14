@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strudel Auto·DJ — Main-menu design spikes · review</title>
+<style>
+  :root {
+    --bg: #0a0a12; --panel: #12121d; --panel-2: #171726; --ink: #e9e9f6;
+    --muted: #8a8aa6; --line: #24243a; --accent: #7c9cff;
+    --font: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; }
+  a { color: inherit; }
+
+  header.top {
+    padding: 22px 28px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #12121f, #0b0b14);
+  }
+  header.top h1 { margin: 0; font-size: 20px; letter-spacing: 0.5px; }
+  header.top p { margin: 8px 0 0; color: var(--muted); font-size: 13px; max-width: 90ch; line-height: 1.6; }
+
+  .layout { display: grid; grid-template-columns: 232px 1fr; min-height: calc(100vh - 92px); }
+
+  /* left rail: concept selector */
+  .rail { border-right: 1px solid var(--line); padding: 18px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .rail .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin: 4px 6px 2px; }
+  .pick {
+    display: grid; grid-template-columns: 14px 1fr; gap: 10px; align-items: center;
+    padding: 12px 12px; border: 1px solid var(--line); border-radius: 11px; cursor: pointer;
+    background: var(--panel); transition: border-color .2s, background .2s, transform .12s; text-align: left;
+    color: var(--ink); font-family: var(--font); font-size: 13px;
+  }
+  .pick:hover { transform: translateY(-2px); }
+  .pick .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+  .pick strong { display: block; font-size: 13.5px; }
+  .pick small { color: var(--muted); font-size: 11px; }
+  .pick.active { border-color: var(--accent); background: var(--panel-2); box-shadow: 0 0 0 1px var(--accent); }
+
+  .stage { padding: 22px 26px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+  .concept-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .concept-head h2 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
+  .concept-head .num { color: var(--muted); font-size: 13px; }
+  .concept-head .thesis { color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1 1 340px; min-width: 260px; }
+
+  .frame-wrap { position: relative; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #000; }
+  .frame-wrap iframe { display: block; width: 100%; height: 560px; border: 0; background: #000; }
+  .frame-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #0e0e18; font-size: 11px; color: var(--muted); }
+  .frame-bar .fdots { display: flex; gap: 5px; }
+  .frame-bar .fdots i { width: 9px; height: 9px; border-radius: 50%; background: #2a2a3c; display: block; }
+  .frame-bar a { margin-left: auto; color: var(--accent); text-decoration: none; font-size: 11px; }
+
+  .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .gcard { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: var(--panel); }
+  .gcard h3 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+
+  /* palette swatches */
+  .swatches { display: grid; gap: 8px; }
+  .sw { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; font-size: 12px; }
+  .sw .chip { width: 40px; height: 26px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.12); }
+  .sw .name { color: var(--ink); }
+  .sw .token { color: var(--muted); font-size: 11px; }
+  .sw .hex { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .spec { display: grid; gap: 10px; font-size: 12.5px; line-height: 1.5; }
+  .spec div { display: grid; grid-template-columns: 90px 1fr; gap: 10px; }
+  .spec .key { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 1px; padding-top: 2px; }
+
+  /* roll-out preview — real app components under the theme's tokens */
+  .rollout { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .rollout .rlabel { padding: 10px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--panel); }
+  .preview {
+    padding: 22px; display: grid; gap: 16px;
+    background: var(--pv-bg);
+    color: var(--pv-ink); font-family: var(--font);
+  }
+  .preview .prow { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pv-btn { border: none; border-radius: 9px; padding: 10px 16px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; color: #06060c; background: linear-gradient(135deg, var(--pv-hot), var(--pv-cool)); }
+  .pv-btn.ghost { background: transparent; color: var(--pv-ink); border: 1px solid var(--pv-line); font-weight: 400; }
+  .pv-chip { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--pv-line); color: var(--pv-muted); }
+  .pv-chip.on { color: #06060c; border-color: transparent; background: linear-gradient(135deg, var(--pv-cool), var(--pv-good)); }
+  .pv-card { min-width: 200px; flex: 1; border: 1px solid var(--pv-line); border-radius: 14px; padding: 18px; background: linear-gradient(180deg, var(--pv-panel), var(--pv-panel2)); }
+  .pv-card .ic { font-size: 26px; }
+  .pv-card strong { display: block; margin: 10px 0 4px; font-size: 15px; }
+  .pv-card span { color: var(--pv-muted); font-size: 11.5px; line-height: 1.5; }
+  .pv-code { border: 1px solid var(--pv-line); border-radius: 10px; padding: 14px; background: var(--pv-code-bg); font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; }
+  .pv-code .str { color: var(--pv-good); } .pv-code .num { color: var(--pv-warm); } .pv-code .fn { color: var(--pv-cool); }
+  .pv-puck { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--pv-hot) 60%, var(--pv-cool) 120%); box-shadow: 0 0 0 2px rgba(255,255,255,0.2), 0 0 22px 6px var(--pv-hot); }
+
+  footer { padding: 20px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); line-height: 1.6; }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } .rail { flex-direction: row; overflow: auto; } }
+</style>
+</head>
+<body>
+  <header class="top">
+    <h1>Strudel Auto·DJ — Main-menu design spikes</h1>
+    <p>Four live, cyberpunk/Tron main-menu concepts — each a working animated page, not a mockup. Pick one on the left to preview it live and read its style guide. Each guide maps its palette onto the app's existing CSS tokens (<code>--bg</code>, <code>--hot</code>, <code>--cool</code>…), so adopting a direction is a token swap plus the menu markup — the roll-out preview at the bottom shows how the rest of the app's components would look once that palette rolls out.</p>
+  </header>
+
+  <div class="layout">
+    <nav class="rail" id="rail">
+      <span class="lbl">Concepts</span>
+    </nav>
+
+    <main class="stage">
+      <div class="concept-head">
+        <span class="num" id="cNum">01 / 04</span>
+        <h2 id="cName">—</h2>
+        <p class="thesis" id="cThesis">—</p>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="frame-bar">
+          <span class="fdots"><i></i><i></i><i></i></span>
+          <span id="fFile">—</span>
+          <a id="fOpen" href="#" target="_blank" rel="noopener">open full-screen ↗</a>
+        </div>
+        <iframe id="frame" title="live menu preview"></iframe>
+      </div>
+
+      <div class="guide">
+        <div class="gcard">
+          <h3>Palette → app tokens</h3>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="gcard">
+          <h3>Type &amp; motion</h3>
+          <div class="spec" id="spec"></div>
+        </div>
+      </div>
+
+      <div class="rollout">
+        <div class="rlabel">Roll-out preview — how the rest of the app looks under this palette</div>
+        <div class="preview" id="preview">
+          <div class="prow">
+            <button class="pv-btn">▶ Start the set</button>
+            <button class="pv-btn ghost">⏸ Freeze</button>
+            <span class="pv-chip on">kick</span>
+            <span class="pv-chip on">bass</span>
+            <span class="pv-chip">lead</span>
+            <span class="pv-chip">air</span>
+          </div>
+          <div class="prow">
+            <div class="pv-card"><div class="ic">🎛</div><strong>Live Set</strong><span>Steer the crowd; it writes every note.</span></div>
+            <div class="pv-card"><div class="ic">🎧</div><strong>A&amp;R Session</strong><span>Keep the good, kill the bad.</span></div>
+            <div class="pv-code"><span class="fn">stack</span>(
+  <span class="fn">s</span>(<span class="str">"bd ~ ~ bd ~ ~ bd ~"</span>).<span class="fn">gain</span>(<span class="num">0.9</span>),
+  <span class="fn">n</span>(<span class="str">"0 3 5 7"</span>).<span class="fn">scale</span>(<span class="str">"F:minor"</span>).<span class="fn">lpf</span>(<span class="num">800</span>)
+)</div>
+            <div class="pv-puck" title="mood-pad puck"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    Review notes: pick a direction (or a hybrid — e.g. Neon Grid's hero with Datastream's command-list menu). Once you choose, the next step is to fold the winning menu into <code>index.html</code>'s <code>view-menu</code> and swap <code>styles.css</code>'s <code>:root</code> tokens to the chosen palette, then walk the components for contrast. Nothing here touches the live app yet.
+  </footer>
+
+<script>
+const CONCEPTS = [
+  {
+    id: 'neon-grid', num: '01', name: 'Neon Grid Deck', file: 'menu-neon-grid.html', dot: '#00e6ff',
+    thesis: 'Tron / synthwave horizon: a perspective grid races toward you under a cut-line sun, a waveform ribbon rides the mid-distance, a mixer silhouette sits on the near edge. Reads as "the drop is coming".',
+    palette: [
+      ['--bg', 'Void', '#04060f'], ['--panel', 'Deck panel', '#0a0f1f'], ['--ink', 'Ink', '#eafcff'],
+      ['--cool', 'Grid cyan', '#00e6ff'], ['--hot', 'Hot magenta', '#ff2d9b'], ['--warm', 'Sun amber', '#ffcf5c'],
+      ['--good', 'Signal violet', '#7c4dff'], ['--muted', 'Haze', '#7fa9c4'], ['--line', 'Vector line', 'rgba(0,230,255,.22)'],
+    ],
+    spec: [
+      ['Type', 'Wide-tracked mono (DM Mono / JetBrains), uppercase display at 0.14em tracking. Gradient wordmark cyan→magenta.'],
+      ['Motion', 'Scrolling perspective grid (eased depth), breathing sun glow, sine waveform ribbon, twitching VU faders. ~60fps canvas.'],
+      ['Signature', 'Clipped-corner vector panels with a glowing top-edge tick; scanline + vignette overlay.'],
+      ['Best for', 'Maximum "arcade attract screen" energy; the most on-brief Tron reading.'],
+    ],
+    pv: { hot: '#ff2d9b', cool: '#00e6ff', warm: '#ffcf5c', good: '#7c4dff', muted: '#7fa9c4',
+          bg: '#04060f', panel: '#0a0f1f', panel2: '#0e1428', ink: '#eafcff', line: 'rgba(0,230,255,.22)', codeBg: '#02030a' },
+  },
+  {
+    id: 'signal-bloom', num: '02', name: 'Signal Bloom', file: 'menu-signal-bloom.html', dot: '#22d3ee',
+    thesis: 'The music is the hero. A radial oscilloscope breathes at the centre, a live spectrum rakes the floor, everything blooms. Softer and more abstract than the grid; menu items are "signal channels" with reactive levels.',
+    palette: [
+      ['--bg', 'Deep space', '#06040d'], ['--panel', 'Nebula panel', '#120b26'], ['--ink', 'Ink', '#f3ecff'],
+      ['--good', 'Violet core', '#7a5cff'], ['--cool', 'Cyan signal', '#22d3ee'], ['--hot', 'Hot pink', '#ff3d81'],
+      ['--warm', 'Amber', '#ffb84d'], ['--muted', 'Dust', '#9d8fc7'], ['--line', 'Bloom line', 'rgba(122,92,255,.24)'],
+    ],
+    spec: [
+      ['Type', 'Space Grotesk display (soft, rounded, humanist) over mono body — the only non-mono direction. Tight -0.01em headline.'],
+      ['Motion', 'Three nested oscilloscope rings, eased spectrum bars, drifting particles, per-row level meters. Heavy additive bloom.'],
+      ['Signature', 'Left-anchored 3px signal bar on each channel; radial gradient core behind the wordmark.'],
+      ['Best for', 'A warmer, more "premium music app" feel; least aggressive, most inviting.'],
+    ],
+    pv: { hot: '#ff3d81', cool: '#22d3ee', warm: '#ffb84d', good: '#7a5cff', muted: '#9d8fc7',
+          bg: '#06040d', panel: '#120b26', panel2: '#17102e', ink: '#f3ecff', line: 'rgba(122,92,255,.24)', codeBg: '#080510' },
+  },
+  {
+    id: 'panned-rig', num: '03', name: 'Panned Rig', file: 'menu-panned-rig.html', dot: '#00ffd5',
+    thesis: 'A slow cinematic camera pan across a holographic DJ rig — turntables, faders, knobs as glowing wireframe with depth-of-field. VU meters twitch, dust drifts. The menu docks as a HUD while the rig keeps moving behind.',
+    palette: [
+      ['--bg', 'Studio black', '#05070a'], ['--panel', 'Rack panel', '#08120f'], ['--ink', 'Ink', '#dffcf5'],
+      ['--cool', 'Holo teal', '#00ffd5'], ['--warm', 'Amber', '#ffb020'], ['--hot', 'Alert red', '#ff4d5e'],
+      ['--good', 'Holo teal', '#00ffd5'], ['--muted', 'Slate', '#6f9a97'], ['--line', 'Holo line', 'rgba(0,255,213,.2)'],
+    ],
+    spec: [
+      ['Type', 'DM Mono, restrained. Headline mixes teal + amber emphasis. Viewfinder brackets + running timecode frame it as a shot.'],
+      ['Motion', 'Long-period pan (parallax across 3 depths), rotating platters, holographic scan sweep, drifting dust motes.'],
+      ['Signature', 'REC dot + timecode + corner brackets = "you are watching a live camera on the gear".'],
+      ['Best for', 'A mature, cinematic title-sequence feel; the most restrained and "product" of the four.'],
+    ],
+    pv: { hot: '#ff4d5e', cool: '#00ffd5', warm: '#ffb020', good: '#00ffd5', muted: '#6f9a97',
+          bg: '#05070a', panel: '#08120f', panel2: '#0a1613', ink: '#dffcf5', line: 'rgba(0,255,213,.2)', codeBg: '#03060a' },
+  },
+  {
+    id: 'datastream', num: '04', name: 'Datastream', file: 'menu-datastream.html', dot: '#39ff14',
+    thesis: 'The loudest, most "hacker terminal" reading. Strudel code rains behind a self-typing boot log; the menu is executable commands: > live_set.run(). Acid green + amber with a red-alert accent. Says "a MACHINE made this".',
+    palette: [
+      ['--bg', 'Terminal black', '#02040a'], ['--panel', 'Shell panel', '#05100a'], ['--ink', 'Phosphor', '#d7ffe3'],
+      ['--cool', 'Acid green', '#39ff14'], ['--warm', 'Amber', '#ffb000'], ['--hot', 'Alert red', '#ff3b3b'],
+      ['--good', 'Acid green', '#39ff14'], ['--muted', 'Dim green', '#5f8a6d'], ['--line', 'Grid line', 'rgba(57,255,20,.18)'],
+    ],
+    spec: [
+      ['Type', 'DM Mono throughout — the terminal is the type. Phosphor glow text-shadow on the wordmark; command-line prompts.'],
+      ['Motion', 'Strudel-fragment code rain, self-typing boot log with blinking cursor, throbbing core orb, CRT scanlines.'],
+      ['Signature', 'Prompt-style menu (> a_and_r.pitch()), red-alert crowd status, ↵ keycaps. Ties directly to the app being live code.'],
+      ['Best for', 'Leaning all the way into "AI writes the code you hear"; the strongest concept-to-product tie.'],
+    ],
+    pv: { hot: '#ff3b3b', cool: '#39ff14', warm: '#ffb000', good: '#39ff14', muted: '#5f8a6d',
+          bg: '#02040a', panel: '#05100a', panel2: '#07140c', ink: '#d7ffe3', line: 'rgba(57,255,20,.18)', codeBg: '#01030a' },
+  },
+];
+
+const rail = document.getElementById('rail');
+const frame = document.getElementById('frame');
+CONCEPTS.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.className = 'pick'; b.dataset.i = i;
+  b.innerHTML = '<span class="dot" style="background:' + c.dot + ';color:' + c.dot + '"></span>' +
+    '<span><strong>' + c.name + '</strong><small>' + c.num + ' · ' + c.file + '</small></span>';
+  b.addEventListener('click', () => select(i));
+  rail.appendChild(b);
+});
+
+function select(i) {
+  const c = CONCEPTS[i];
+  document.querySelectorAll('.pick').forEach((p, k) => p.classList.toggle('active', k === i));
+  document.getElementById('cNum').textContent = c.num + ' / 04';
+  document.getElementById('cName').textContent = c.name;
+  document.getElementById('cThesis').textContent = c.thesis;
+  document.getElementById('fFile').textContent = c.file;
+  document.getElementById('fOpen').href = c.file;
+  frame.src = c.file;
+
+  const sw = document.getElementById('swatches'); sw.innerHTML = '';
+  c.palette.forEach(([token, name, hex]) => {
+    const row = document.createElement('div'); row.className = 'sw';
+    row.innerHTML = '<span class="chip" style="background:' + hex + '"></span>' +
+      '<span class="name">' + name + ' <span class="token">' + token + '</span></span>' +
+      '<span class="hex">' + hex + '</span>';
+    sw.appendChild(row);
+  });
+
+  const spec = document.getElementById('spec'); spec.innerHTML = '';
+  c.spec.forEach(([k, v]) => {
+    const row = document.createElement('div');
+    row.innerHTML = '<span class="key">' + k + '</span><span>' + v + '</span>';
+    spec.appendChild(row);
+  });
+
+  const pv = c.pv, p = document.getElementById('preview').style;
+  p.setProperty('--pv-hot', pv.hot); p.setProperty('--pv-cool', pv.cool); p.setProperty('--pv-warm', pv.warm);
+  p.setProperty('--pv-good', pv.good); p.setProperty('--pv-muted', pv.muted); p.setProperty('--pv-bg', pv.bg);
+  p.setProperty('--pv-panel', pv.panel); p.setProperty('--pv-panel2', pv.panel2); p.setProperty('--pv-ink', pv.ink);
+  p.setProperty('--pv-line', pv.line); p.setProperty('--pv-code-bg', pv.codeBg);
+}
+select(0);
+</script>
+</body>
+</html>

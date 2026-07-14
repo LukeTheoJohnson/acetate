@@ -64,9 +64,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   await sleep(100); // let DOMContentLoaded fire so boot() runs
 
-  // boot ran on load. Crate should be rendered from seeded storage.
+  // boot ran on load. Crate should be rendered from seeded storage. The seeded
+  // entry uses the OLD record shape (no genome/art/id) — so this also proves the
+  // library migrates old entries. Actions are keyed off data-act (not a fixed
+  // button count) so the richer action set (play/remix/rename/del) stays valid.
   check('crate rendered from storage', doc.querySelectorAll('#crate .crate-item').length === 1);
-  check('crate has play + delete buttons', doc.querySelectorAll('#crate .crate-item button').length === 2);
+  check('crate item has play + delete controls',
+    !!doc.querySelector('#crate .crate-item [data-act="play"]') &&
+    !!doc.querySelector('#crate .crate-item [data-act="del"]'));
+  check('migrated (art-less) record still gets a cover',
+    doc.querySelector('#crate .crate-art svg') != null);
 
   // start the set
   doc.getElementById('startBtn').click();
@@ -91,6 +98,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // guitar-hero pianoroll: attached to the live audio, kept out of the code panel
   check('live audio carries the pianoroll', evalCalls.some((c) => c.includes('.pianoroll(')));
   check('code panel omits the pianoroll', !doc.getElementById('code').innerHTML.includes('pianoroll'));
+
+  // ---- genre picker: pin the style for new tracks (empty value = surprise) ----
+  check('genre select lists every genre + surprise',
+    doc.querySelectorAll('#liveGenre option').length === window.SDJ.Theory.GENRES.length + 1);
+  const seedBefore = window.SDJ.engine.song.seed;
+  window.SDJ.setGenre('drill');
+  check('pinning a genre re-skins the live track in place (same song, new style + tempo)',
+    window.SDJ.engine.song.genre.id === 'drill'
+    && window.SDJ.engine.song.seed === seedBefore
+    && window.SDJ.engine.song.bpm >= 138 && window.SDJ.engine.song.bpm <= 148
+    && doc.getElementById('liveGenre').value === 'drill');
+  window.SDJ.setGenre('');
+  check('clearing the genre returns to surprise mode', window.SDJ.engine.genrePref === null);
+
+  // ---- remix lab: a saved record as a bed + vocal/overlay layers ----
+  // The bed (the record's own stack) nests inside a new outer stack; every
+  // overlay appends a layer. Compose must stay balanced across all overlays.
+  const remixRec = JSON.parse(window.localStorage.getItem('sdj.crate'))[0];
+  window.SDJ.remix.load(remixRec);
+  ['chops', 'topline', 'sweep', 'stutter', 'riser'].forEach((k) => window.SDJ.remix.toggle(k));
+  const remixCode = window.SDJ.remix.compose();
+  check('remix composes balanced Strudel with all overlays',
+    !!remixCode && balanced(remixCode) && remixCode.indexOf('stack(') >= 0, remixCode);
+  check('remix nests the record as a bed', remixCode.indexOf(remixRec.code.split('\n')[1]) >= 0);
 
   // crank the crowd up (pad energy to max) and let the loop evolve a few ticks
   check('crowd pad rendered', !!doc.getElementById('pad'));
@@ -155,7 +186,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let k = 0; k < 40; k++) { const pp = de.proposeChange(); if (!pp) { deadEnded = true; break; } de.rejectChange(); }
   check('A&R never dead-ends while a layer is playable', !deadEnded);
 
-  // ---- A&R DOM flow: start a session, kill a change, get re-pitched ----
+  // ---- A&R DOM flow: turn-based individual review — kill a change, get re-pitched ----
   const voteEvalStart = evalCalls.length;
   doc.getElementById('voteStart').click();
   await sleep(60); // audio already unlocked earlier, so the session opens right away
@@ -174,6 +205,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('kill logs a decision and re-pitches',
     doc.querySelectorAll('#voteHistory li').length === histBefore + 1 && !doc.getElementById('voteCard').hidden);
 
+  // walk several accepts so the DJ pitches the fuller vocabulary (FX / double /
+  // fill) and confirm every card stays valid (desc + cover art) — fill maps to a
+  // pseudo-lane, so this guards the card against the new move kinds.
+  let cardOk = true, kinds = 0;
+  for (let k = 0; k < 14; k++) {
+    doc.getElementById('voteUp').click();
+    await sleep(10);
+    if (doc.getElementById('voteCard').hidden) break; // settled — fine
+    kinds++;
+    if (!doc.getElementById('voteDesc').textContent.length ||
+        doc.getElementById('voteArt').innerHTML.indexOf('<svg') !== 0) { cardOk = false; break; }
+  }
+  check('A&R cards stay valid across the fuller vocabulary', cardOk, `pitches=${kinds}`);
+  check('A&R evaluations stayed balanced', evalCalls.every(balanced));
+
   // ---- highlight escapes mini-notation < > ----
   engine.song.stage = 6; engine.song.variation = 6;
   const sample = engine.render();
@@ -181,10 +227,35 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ---- global stop really stops (header ⏹) ----
   const hushBefore = hushCalls;
+  const evalBefore = evalCalls.length;
   doc.getElementById('tpStop').click();
   await sleep(20);
+  const silenceEvals = evalCalls.slice(evalBefore).filter((c) => c === 'silence');
   check('global stop hushes and clears the transport',
     hushCalls > hushBefore && doc.getElementById('transport').hidden);
+  check('global stop evaluates silence to override in-flight audio', silenceEvals.length > 0);
+
+  // ---- remix console: a 2-deck DJ setup — vox pads stab one-shots over the bed ----
+  // The vox deck is a square of single-press pads; the shelf is the record picker.
+  // Firing a pad is a no-op until the bed plays; once it does, the stab nests as a
+  // one-shot vocal layer and the program stays balanced. Runs at the very end so
+  // starting the bed doesn't disturb the live-set assertions above.
+  const rc = JSON.parse(window.localStorage.getItem('sdj.crate'))[0];
+  window.SDJ.remix.load(rc);
+  check('vox deck renders 8 one-shot pads', doc.querySelectorAll('#remixVox .vox-pad').length === 8);
+  check('record shelf renders cover tiles', doc.querySelectorAll('#remixShelf .shelf-item').length >= 1);
+  window.SDJ.remix.stab('yeah');
+  check('a vox pad is a no-op until the bed plays', window.SDJ.remix.state().stabs.length === 0);
+  await window.SDJ.remix.play(); // audio already unlocked earlier — starts the bed
+  await sleep(20);
+  window.SDJ.remix.stab('yeah');
+  const stabCode = window.SDJ.remix.compose();
+  const firedStabs = window.SDJ.remix.state().stabs;
+  check('a fired vox pad adds a balanced one-shot vocal layer',
+    firedStabs.length === 1 && balanced(stabCode) && stabCode.indexOf('s("' + firedStabs[0] + '")') >= 0,
+    stabCode);
+  window.SDJ.remix.stop();
+  check('stopping the remix clears the stabs', window.SDJ.remix.state().stabs.length === 0);
 
   // report
   let pass = 0;

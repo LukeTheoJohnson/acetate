@@ -57,6 +57,18 @@
   // A&R cover art (art.js LAYER_HUE) so a layer reads the same everywhere.
   const LANE_COLORS = ['#f43f7d', '#2ee6d6', '#a64dff', '#ff9a1f', '#2edb8b', '#ff4dd2', '#4da6ff'];
 
+  // Complexity vocabulary beyond the 7 on/off lanes: per-lane FX flags, a
+  // per-lane second voice ("double"), and one song-level fill/riser. These let
+  // a track get genuinely dense instead of capping at seven elements.
+  const FX_BITS = [1, 2, 4, 8];
+  const FX_NAMES = { 1: 'delay', 2: 'crush', 4: 'wash', 8: 'width' };
+  const FILL_IDX = 7;                        // pseudo-lane for the fill line (maps a code line for A&R)
+  const FILL_COLOR = '#c3ccff';
+  const FILL_NAMES = ['', 'a riser', 'a snare build', 'an impact'];
+  // Lanes whose double is an octave shadow (pure n() melodic voices); the rest
+  // get a timing-ghost so we never transpose a sample bank by mistake.
+  const MELODIC_DOUBLE = { 2: true, 4: true, 5: true };
+
   const HIT_SECONDS = 10;     // held approval on a full track before it's banked
   const TRIAL = 2.5;         // seconds the DJ auditions a mutation before judging
   const ACCEPT = 6;          // approval rise (0..100) that counts as a win
@@ -75,6 +87,13 @@
   }
   function n2(x) {
     return Math.round(x * 100) / 100;
+  }
+  function weightedPick(r, arr) {
+    let total = 0;
+    for (const c of arr) total += c.w;
+    let x = r() * total;
+    for (const c of arr) { x -= c.w; if (x <= 0) return c; }
+    return arr[arr.length - 1];
   }
 
   // ---- genome helpers ----------------------------------------------------
@@ -100,13 +119,20 @@
     return r;
   }
   function cloneGenome(g) {
-    return { active: g.active.slice(), variant: g.variant.slice(), energyIdx: g.energyIdx, bank: g.bank };
+    return {
+      active: g.active.slice(), variant: g.variant.slice(),
+      energyIdx: g.energyIdx, bank: g.bank,
+      fx: g.fx.slice(), double: g.double.slice(), fill: g.fill,
+    };
   }
   function restoreGenome(g, snap) {
     g.active = snap.active.slice();
     g.variant = snap.variant.slice();
     g.energyIdx = snap.energyIdx;
     g.bank = snap.bank;
+    g.fx = snap.fx.slice();
+    g.double = snap.double.slice();
+    g.fill = snap.fill;
   }
 
   function DJEngine() {
@@ -114,6 +140,7 @@
     this.masterSeed = (Math.random() * 1e9) >>> 0;
     this.songCount = 0;
     this.banksLoaded = false; // flipped true by app.js once the kit map loads
+    this.genrePref = null;    // null = surprise me; else a Theory.GENRES id to force
   }
 
   // ---- lifecycle ---------------------------------------------------------
@@ -123,6 +150,11 @@
     const seed = (this.masterSeed + this.songCount * 2654435761) >>> 0;
     const rng = Rng.make(seed);
 
+    // Pick genre first so BPM range is genre-correct. Honour a pinned genre if
+    // the user chose one; otherwise surprise them.
+    const genre = (this.genrePref && Theory.GENRES.find((x) => x.id === this.genrePref))
+      || Rng.pick(rng, Theory.GENRES);
+
     const song = {
       seed,
       rng,
@@ -130,13 +162,17 @@
       key: Rng.pick(rng, Theory.ROOTS),
       scaleType: Rng.pick(rng, Theory.SCALES),
       prog: Rng.pick(rng, Theory.PROGRESSIONS),
-      bpm: Rng.int(rng, 120, 140),
+      genre: genre,
+      bpm: Rng.int(rng, genre.bpmLo, genre.bpmHi),
       // the genome the DJ optimises
       genome: {
         active: [true, false, false, false, false, false, false], // open on the kick
         variant: [0, 0, 0, 0, 0, 0, 0],
         energyIdx: 1, // ENERGY_STEPS[1] = 0.4
         bank: Rng.int(rng, 0, BANKS.length - 1), // which drum machine
+        fx: [0, 0, 0, 0, 0, 0, 0],           // per-lane FX bitmask (FX_BITS)
+        double: [false, false, false, false, false, false, false], // per-lane second voice
+        fill: 0,                             // song-level fill/riser (0 = none, 1..3)
       },
       // optimiser state
       approval: 50,      // fitness: smoothed crowd approval (0..100), starts neutral
@@ -148,6 +184,10 @@
       hitTimer: 0,       // seconds a full track has been held at high approval
       age: 0,
       warmth: 0,         // crowd warmth (-1..1): biases HOW the DJ searches
+      intent: 0,         // density dial (-1..1): strip <-> hold <-> build <-> pile-on
+      laneMood: [0, 0, 0, 0, 0, 0, 0], // per-lane opinion (-1..1): granular feedback,
+                         // NOT genome — the human's taste per component, never reverted.
+                         // >0 protect & feature the lane; <0 strip & drop it.
       lastVerdict: null, // { kind, delta, desc } of the last judged mutation
       verdictSeq: 0,     // bumped each judged mutation so the UI can spot new ones
       rev: 0,            // bumped when a curveball changes a song-level musical param
@@ -163,17 +203,36 @@
     return song;
   };
 
+  // Pin the genre for future tracks and, if one is live, re-skin it in place:
+  // keep the arrangement (which layers are on) but re-render every layer in the
+  // new style at a genre-appropriate tempo. id '' / null = surprise me (only
+  // affects the next fresh track). Returns true if the live track was re-skinned.
+  DJEngine.prototype.setGenre = function (id) {
+    this.genrePref = id || null;
+    if (!this.genrePref) return false;
+    const genre = Theory.GENRES.find((x) => x.id === this.genrePref);
+    if (!genre || !this.song) return false;
+    const s = this.song;
+    if (s.genre && s.genre.id === genre.id) return false; // already this genre
+    s.genre = genre;
+    s.bpm = Rng.int(s.rng, genre.bpmLo, genre.bpmHi);
+    s.cps = s.bpm / 240;
+    s.rev += 1; // a song-level musical change → shows up in _signature()
+    return true;
+  };
+
   // ---- the optimiser -----------------------------------------------------
 
   // Advance by `dt` seconds given the crowd's `mood` (energy, -1..1) and
   // optional `warmth` (-1..1). Returns { changed, events, hit }: `changed` =>
   // re-evaluate the code, `hit` => the crowd approved a finished track.
-  DJEngine.prototype.tick = function (mood, dt, warmth) {
+  DJEngine.prototype.tick = function (mood, dt, warmth, intent) {
     const s = this.song;
     if (!s) return { changed: false, events: [], hit: false };
     const events = [];
     s.age += dt;
     if (typeof warmth === 'number') s.warmth = warmth;
+    if (typeof intent === 'number') s.intent = intent;
 
     // Fitness signal: a responsive EMA of the crowd's mood, mapped to 0..100.
     // Warmth gently nudges it, but the energy axis is what the DJ climbs.
@@ -186,6 +245,12 @@
       // ---- judge the mutation we've been auditioning --------------------
       if (s.pending) {
         const delta = s.approval - s.trialBase;
+      if (s.pending.opinion) {
+        // the human's explicit per-lane steer — kept as-is, never reverted or
+        // punished by the crowd-approval judge.
+        if (s.pending.desc) { s.lastVerdict = { kind: 'kept', delta: delta, desc: s.pending.desc }; s.verdictSeq += 1; }
+        s.flatStreak = 0;
+      } else {
         const moves = layerMoves(s.pending.snapshot, s.genome);
         const good = delta >= ACCEPT; // approval clearly rose
         const bad = delta <= -REJECT; // approval clearly fell
@@ -234,6 +299,7 @@
           s.lastVerdict = { kind: kind, delta: delta, desc: s.pending.desc };
           s.verdictSeq += 1;
         }
+      } // end non-opinion judge
       }
 
       // ---- temperature tracks approval: unhappy => explore harder -------
@@ -322,6 +388,94 @@
     return '🎲 shifted the mood — new scale colour';
   }
 
+  // Deepen the arrangement without adding a lane: an FX flag, a doubled voice,
+  // or a fill. This is where "more complexity" comes from once the seven lanes
+  // are mostly in — the track thickens instead of capping out. Returns a desc
+  // (or null if there's genuinely nothing left to deepen).
+  function deepen(s) {
+    const g = s.genome, r = s.rng;
+    const act = droppableIdxs(g).concat(g.active[0] ? [0] : []);
+    const roll = Rng.int(r, 0, 3);
+    if (roll === 0) {
+      const opts = act.filter((i) => FX_BITS.some((b) => !(g.fx[i] & b)));
+      if (opts.length) {
+        const i = Rng.pick(r, opts);
+        const bit = Rng.pick(r, FX_BITS.filter((b) => !(g.fx[i] & b)));
+        g.fx[i] |= bit;
+        return '✨ ' + FX_NAMES[bit] + ' on ' + STAGES[i].label;
+      }
+    }
+    if (roll <= 1) {
+      const opts = act.filter((i) => !g.double[i]);
+      if (opts.length) { const i = Rng.pick(r, opts); g.double[i] = true; return '➿ doubled ' + STAGES[i].label; }
+    }
+    if (g.fill === 0) { g.fill = Rng.int(r, 1, 3); return '🎆 dropped in ' + FILL_NAMES[g.fill]; }
+    if (act.length) { const i = Rng.pick(r, act); g.variant[i] += 1 + Rng.int(r, 0, 2); return '🔀 reshaped ' + STAGES[i].label; }
+    return null;
+  }
+
+  // Strip complexity: pull the fill, undo a double, clear an FX — the "less"
+  // end of the density dial (and how a cold crowd hardens). Returns null when
+  // there's nothing left to strip, so the caller can drop a whole lane instead.
+  function simplify(s) {
+    const g = s.genome, r = s.rng;
+    const act = droppableIdxs(g).concat(g.active[0] ? [0] : []);
+    if (g.fill > 0) { g.fill = 0; return '🧹 pulled the fill'; }
+    const dbl = act.filter((i) => g.double[i]);
+    if (dbl.length) { const i = Rng.pick(r, dbl); g.double[i] = false; return '➖ undoubled ' + STAGES[i].label; }
+    const fxd = act.filter((i) => g.fx[i]);
+    if (fxd.length) { const i = Rng.pick(r, fxd); g.fx[i] = 0; return '➖ stripped FX off ' + STAGES[i].label; }
+    return null;
+  }
+
+  // Per-lane opinion resolver — the granular feedback the human sets on the seven
+  // coloured sliders, at component grain (this is the mechanism that replaces the
+  // A&R whole-track pass/fail). Applies the single strongest directive:
+  //   inactive + liked      -> bring the lane in (you asked for it)
+  //   active + disliked     -> ease it off: undouble, strip FX, then drop
+  //   active + liked (thin) -> feature it: double, add FX, or rework toward it
+  // Returns a desc, or null when no lane holds a strong opinion (DJ decides).
+  function steerByOpinion(s) {
+    const g = s.genome, r = s.rng, lm = s.laneMood || [];
+    const STRONG = 0.4;
+    let best, bestV;
+
+    // 1) bring in a liked lane that's currently out
+    best = -1; bestV = STRONG;
+    for (let i = 1; i < g.active.length; i++) {
+      if (!g.active[i] && lm[i] >= bestV) { best = i; bestV = lm[i]; }
+    }
+    if (best >= 0) {
+      g.active[best] = true; g.variant[best] = Rng.int(r, 0, 5); s.lastAdded = best; markTabu(s, best);
+      return '➕ you called for ' + STAGES[best].label + ' — brought it in';
+    }
+
+    // 2) ease off the most-disliked active lane (peel complexity, then drop)
+    best = -1; bestV = -STRONG;
+    for (let i = 1; i < g.active.length; i++) {
+      if (g.active[i] && lm[i] <= bestV) { best = i; bestV = lm[i]; }
+    }
+    if (best >= 0) {
+      if (g.double[best]) { g.double[best] = false; return '➖ easing off ' + STAGES[best].label + ' — undoubled'; }
+      if (g.fx[best]) { g.fx[best] = 0; return '➖ easing off ' + STAGES[best].label + ' — stripped FX'; }
+      if (droppableIdxs(g).length > 1) { g.active[best] = false; markTabu(s, best); return '➖ you cooled on ' + STAGES[best].label + ' — dropped it'; }
+    }
+
+    // 3) feature the most-liked active lane that still has headroom
+    best = -1; bestV = STRONG;
+    for (let i = 0; i < g.active.length; i++) {
+      if (g.active[i] && lm[i] >= bestV) { best = i; bestV = lm[i]; }
+    }
+    if (best >= 0) {
+      const freeFx = FX_BITS.filter((b) => !(g.fx[best] & b));
+      if (!g.double[best] && Rng.chance(r, 0.5)) { g.double[best] = true; return '✨ featuring ' + STAGES[best].label + ' — doubled it'; }
+      if (freeFx.length) { const b = Rng.pick(r, freeFx); g.fx[best] |= b; return '✨ featuring ' + STAGES[best].label + ' — ' + FX_NAMES[b]; }
+      g.variant[best] += 1 + Rng.int(r, 0, 2); return '🔀 reworking ' + STAGES[best].label + ' toward what you want';
+    }
+
+    return null;
+  }
+
   // Choose and apply one mutation, returning { snapshot, desc } so it can be
   // reverted if the crowd rejects it. Behaviour is banded by approval:
   //   high + full -> locked: hold, at most a tiny flourish
@@ -335,11 +489,21 @@
     const r = s.rng;
     const snapshot = cloneGenome(g);
     const act = activeCount(g);
-    const inact = tabuFree(s, inactiveIdxs(g));
-    const drop = tabuFree(s, droppableIdxs(g));
+    const likedLane = (i) => s.laneMood && s.laneMood[i] > 0.3;     // protected from drops
+    const dislikedLane = (i) => s.laneMood && s.laneMood[i] < -0.3; // kept out of adds
+    const inact = tabuFree(s, inactiveIdxs(g)).filter((i) => !dislikedLane(i));
+    const drop = tabuFree(s, droppableIdxs(g)).filter((i) => !likedLane(i));
     let desc = null;
     const warm = s.warmth || 0;
+    const intent = s.intent || 0; // density dial: <0 strip, >0 pile on
     s.propCount += 1;
+
+    // Per-lane opinion takes priority: granular human feedback steers which
+    // component the DJ works on before its own autonomous search kicks in.
+    if (s.laneMood && s.laneMood.some((v) => Math.abs(v) >= 0.4) && Rng.chance(r, 0.7)) {
+      const od = steerByOpinion(s);
+      if (od) return { snapshot, desc: od, opinion: true };
+    }
 
     // reshape by a random jump (not a fixed +1) so a reworked layer actually
     // sounds different rather than nudging one step through a list.
@@ -353,19 +517,26 @@
     const dropOne = (i) => { g.active[i] = false; markTabu(s, i); };
 
     if (s.approval >= LOCK_APPROVAL && act >= MIN_FULL) {
-      // locked in — don't rock the boat; occasionally tease one layer
-      if (drop.length && Rng.chance(r, 0.3)) {
+      // locked in — don't rock the boat; tease a layer, or thicken if the dial
+      // is asking for more.
+      if (intent > 0.3 && Rng.chance(r, 0.25)) {
+        desc = deepen(s);
+      } else if (drop.length && Rng.chance(r, 0.3)) {
         const i = Rng.pick(r, drop);
         reshape(i);
         desc = '🎯 locked in — teasing ' + STAGES[i].label;
       }
       // else hold (no change)
     } else if (s.approval >= WARM) {
-      // crowd's with it -> build the track up, in order, toward full.
-      // Warmth makes it reach for the next layer more eagerly.
-      if (inact.length && Rng.chance(r, clamp(0.72 + warm * 0.15, 0.3, 0.96))) {
+      // crowd's with it -> build the track up, in order, toward full. Warmth and
+      // a positive density dial make it reach for the next layer more eagerly;
+      // once the arrangement is fleshed out it thickens (FX/double/fill) instead.
+      const eager = clamp(0.72 + warm * 0.15 + intent * 0.18, 0.3, 0.97);
+      if (inact.length && Rng.chance(r, eager)) {
         add(inact[0]);
         desc = '➕ brought in ' + STAGES[inact[0]].label;
+      } else if (act >= 4 && Rng.chance(r, clamp(0.35 + intent * 0.4, 0.12, 0.9))) {
+        desc = deepen(s);
       } else if (drop.length && Rng.chance(r, 0.5)) {
         const i = Rng.pick(r, drop);
         reshape(i);
@@ -387,8 +558,13 @@
         s.flatStreak = 0;
         return { snapshot, desc: curveball(s, banksLoaded) };
       }
+      // density dial pulled low (or a cold crowd) -> shed complexity first
+      if ((intent < -0.2 || warm < -0.35) && Rng.chance(r, clamp(0.45 - intent * 0.4, 0.15, 0.9))) {
+        const d = simplify(s);
+        if (d) return { snapshot, desc: d };
+      }
       const t = s.temp;
-      const roll = clamp(r() - warm * 0.2, 0, 1);
+      const roll = clamp(r() - warm * 0.2 - intent * 0.2, 0, 1);
       if (roll < 0.42) {
         const i = Rng.int(r, 1, MAX_STAGE);
         if (g.active[i]) {
@@ -397,7 +573,7 @@
             const j = Rng.pick(r, inact);
             add(j);
             desc = '➕ warmed it up — brought in ' + STAGES[j].label;
-          } else if (drop.length > 1 && !isTabu(s, i)) {
+          } else if (drop.length > 1 && !isTabu(s, i) && !likedLane(i)) {
             dropOne(i);
             desc = '➖ dropped ' + STAGES[i].label;
           } else if (inact.length) {
@@ -405,7 +581,7 @@
             add(j);
             desc = '➕ brought in ' + STAGES[j].label;
           }
-        } else if (!isTabu(s, i)) {
+        } else if (!isTabu(s, i) && !dislikedLane(i)) {
           add(i);
           desc = '➕ tried ' + STAGES[i].label;
         }
@@ -441,21 +617,31 @@
       g.variant.join('.'),
       g.energyIdx,
       g.bank,
+      (this.song.laneMood || []).map((x) => Math.round(x * 8)).join('.'), // opinion tint re-renders (quantised)
+      g.fx.join('.'),
+      g.double.map((d) => (d ? 1 : 0)).join(''),
+      g.fill,
     ].join(':');
   };
 
   // ---- rendering: genome -> Strudel code --------------------------------
+  //
+  // Every layer is genre-aware: trap/drill get 808 bass, half-time snares and
+  // hi-hat rolls; boom bap gets bouncy kick patterns and walking bass; R&B and
+  // lo-fi get 7th-chord pads and lush atmospheres. Bucket (1..3) tracks energy.
 
   DJEngine.prototype.render = function () {
     const s = this.song;
     const g = s.genome;
     const e = ENERGY_STEPS[g.energyIdx]; // 0..1 intensity
     const bucket = Math.round(e * 3);    // 1..3 in practice
+    const gid = s.genre ? s.genre.id : 'trap';
 
     const key = s.key;
     const scale = s.scaleType;
     const rootSeq = Theory.rootSeq(s.prog);
     const chordSeq = Theory.chordSeq(s.prog);
+    const seventhSeq = Theory.seventhSeq(s.prog);
     const scl = (oct) => '"' + Theory.scaleName(key, oct, scale) + '"';
 
     // Drum machine: only reach for a bank once the kit map has actually loaded,
@@ -471,103 +657,202 @@
 
     const layers = [];
     const lineLayers = []; // stage index for each body line — the A&R code map
-    const put = (i, code) => { layers.push(code + '.color("' + LANE_COLORS[i] + '")'); lineLayers.push(i); };
+
+    // Complexity chains appended to a lane's base code: FX flags, a second voice
+    // (octave shadow for melodic lanes, timing ghost for sample lanes), and the
+    // mixer trim. Chained .gain() multiplies in Strudel, so level scales the lane
+    // without touching its own gain maths. All kept paren/quote-balanced.
+    const fxChain = (mask) => {
+      let f = '';
+      if (mask & 1) f += '.delay(0.4).delaytime(0.1875).delayfeedback(' + n2(0.26 + e * 0.14) + ')';
+      if (mask & 2) f += '.crush(' + (4 + bucket * 2) + ')';
+      if (mask & 4) f += '.room(' + n2(0.4 + (1 - e) * 0.3) + ')';
+      if (mask & 8) f += '.pan(sine.range(0.2,0.8).slow(4))';
+      return f;
+    };
+    const doubleChain = (i) => (MELODIC_DOUBLE[i]
+      ? '.superimpose(x => x.add(12).gain(' + n2(0.4 + e * 0.1) + '))'
+      : '.superimpose(x => x.late(0.02).gain(' + n2(0.35 + e * 0.1) + '))');
+    const applyLane = (i, code) => {
+      let c = code + fxChain(g.fx[i] || 0);
+      if (g.double[i]) c += doubleChain(i);
+      // per-lane opinion tints prominence: a liked lane sits a touch forward, a
+      // cooled one drops back before the optimiser strips it. Steering (below) is
+      // the main effect; this is just the audible cue. Chained .gain() multiplies.
+      const op = (s.laneMood && s.laneMood[i]) || 0;
+      if (op) c += '.gain(' + n2(clamp(1 + op * 0.35, 0.5, 1.4)) + ')';
+      return c;
+    };
+    const put = (i, code) => { layers.push(applyLane(i, code) + '.color("' + LANE_COLORS[i] + '")'); lineLayers.push(i); };
     const on = (i) => g.active[i];
 
-    // 0 — kick: four-on-the-floor, euclidean pushes and a little drive up top.
+    // 0 — kick: hip-hop syncopation first, not four-on-the-floor.
+    // Trap and drill kick patterns are spare and punchy; boom bap/lo-fi bounce.
     if (on(0)) {
       const kr = lrng(0);
-      let pat = 'bd*4';
-      if (bucket >= 2) {
-        pat = Rng.pick(kr, ['bd*4', 'bd*4', 'bd(<5 4>,8)', 'bd(3,8) bd', 'bd*2 [~ bd] bd bd']);
-      }
-      let kick = 's("' + pat + '").gain(' + n2(0.85 + e * 0.1) + ')';
-      if (bucket >= 3 && Rng.chance(kr, 0.4)) kick += '.shape(' + n2(0.12 + e * 0.18) + ')';
+      // Pattern pools indexed by bucket (1..3). Euclidean notation gives organic feel.
+      const trapKick = [
+        ['bd ~ ~ ~ ~ ~ ~ ~', 'bd ~ ~ ~ bd ~ ~ ~', 'bd(3,8)'],
+        ['bd ~ ~ ~ bd ~ bd ~', 'bd ~ bd ~ ~ ~ bd ~', 'bd ~ ~ bd ~ ~ bd ~'],
+        ['bd ~ bd bd ~ bd ~ bd', 'bd bd ~ bd ~ ~ bd ~', 'bd ~ bd ~ bd ~ bd bd'],
+      ];
+      const boomKick = [
+        ['bd ~ ~ ~ bd ~ ~ ~', 'bd ~ bd ~ ~ ~ ~ ~'],
+        ['bd ~ ~ bd ~ ~ bd ~', 'bd ~ bd ~ ~ bd ~ ~'],
+        ['bd ~ bd bd ~ ~ bd ~', 'bd bd ~ ~ bd ~ bd ~'],
+      ];
+      const pool = (gid === 'boomBap' || gid === 'loFi')
+        ? (boomKick[bucket - 1] || boomKick[1])
+        : (trapKick[bucket - 1] || trapKick[1]);
+      const pat = Rng.pick(kr, pool);
+      let kick = 's("' + pat + '").gain(' + n2(0.88 + e * 0.09) + ')';
+      if (bucket >= 3 && Rng.chance(kr, 0.4)) kick += '.shape(' + n2(0.1 + e * 0.18) + ')';
       put(0, kit(kick));
     }
 
-    // 1 — hi-hats: density tracks energy; the DJ picks a straight, euclidean or
-    // noise-shaker voice, so this layer can sound quite different when reshaped.
+    // 1 — hi-hats: trap rolls (16th streams, euclidean patterns), open hat
+    // accents on off-beats. Boom bap and lo-fi stay sparser and breathier.
     if (on(1)) {
       const hr = lrng(1);
-      const dens = 8 + bucket * 2; // 10..14
-      const voice = Rng.int(hr, 0, 2);
-      if (voice === 0) {
-        put(1,
-          kit('s("hh*' + dens + '").gain(' + n2(0.18 + e * 0.2) + ').pan(sine.range(0.35,0.65))')
-        );
-      } else if (voice === 1) {
-        put(1,
-          kit('s("hh(' + (dens - 1) + ',16)").gain(' + n2(0.18 + e * 0.2) + ').pan(perlin.range(0.4,0.6))')
-        );
-      } else {
-        // synth shaker from filtered noise — always available, no samples
-        put(1,
-          's("white*' + dens + '").decay(0.03).sustain(0).hpf(' + (7000 + bucket * 800) +
-            ').gain(' + n2(0.1 + e * 0.12) + ').pan(sine.range(0.4,0.6))'
-        );
-      }
+      const trapHats = [
+        'hh*8',
+        'hh*16',
+        'hh(11,16)',
+        'hh(13,16)',
+        'hh ~ [hh hh] ~ hh ~ [hh hh hh] ~',
+      ];
+      const boomHats = ['hh*8', 'hh(9,16)', 'hh ~ hh hh ~ hh hh ~', 'hh ~ hh ~ hh ~ hh ~'];
+      const loFiHats = ['hh*8', 'hh ~ hh ~ hh ~ hh ~', 'hh hh ~ hh hh ~ hh ~'];
+      let hatPool;
+      if (gid === 'boomBap') hatPool = boomHats;
+      else if (gid === 'loFi') hatPool = loFiHats;
+      else hatPool = trapHats;
+      // low energy keeps it simple
+      const actualPool = bucket <= 1 ? hatPool.slice(0, 2) : hatPool;
+      const pat = Rng.pick(hr, actualPool);
+      put(1, kit('s("' + pat + '").gain(' + n2(0.20 + e * 0.18) + ').pan(sine.range(0.35,0.65))'));
+      // open hi-hat accent on off-beats
       if (bucket >= 2 && Rng.chance(hr, 0.55)) {
-        put(1, kit('s("~ ~ oh ~").gain(' + n2(0.15 + e * 0.15) + ')')); // open hat accent
+        const ohPat = Rng.pick(hr, ['~ oh ~ ~', '~ ~ oh ~', '~ oh ~ oh']);
+        put(1, kit('s("' + ohPat + '").gain(' + n2(0.16 + e * 0.14) + ')'));
       }
     }
 
-    // 2 — bass: root-per-bar; the DJ picks a saw, an enveloped square or an FM
-    // voice, and the groove thickens with energy.
+    // 2 — bass: 808-style sub for trap/drill (long sine with FM, deep lpf);
+    // melodic walking bass for boom bap, R&B and lo-fi.
     if (on(2)) {
       const br = lrng(2);
-      const light = ['x ~ ~ ~ x ~ ~ ~', 'x ~ ~ x x ~ ~ ~'];
-      const heavy = ['x ~ x ~ x ~ x x', 'x x ~ x x ~ x x'];
-      const struct = bucket <= 1 ? Rng.pick(br, light) : Rng.pick(br, heavy);
-      const cut = Math.round(280 + e * 1900);
-      let bass = 'n("' + rootSeq + '").scale(' + scl(2) + ').struct("' + struct + '")';
-      const voice = Rng.int(br, 0, 2);
-      if (voice === 0) {
-        bass += '.sound("sawtooth").lpf(' + cut + ').lpq(' + n2(4 + e * 8) + ')';
-      } else if (voice === 1) {
-        bass += '.sound("square").lpf(' + cut + ').lpenv(' + n2(2 + e * 2) + ').lpattack(0.02)';
+      const isTrap = gid === 'trap' || gid === 'drill';
+      let bass;
+      if (isTrap) {
+        // 808 character: sine with light FM for upper harmonics, long release,
+        // very low filter. Pattern is sparse — the 808 holds the note.
+        const structs808 = [
+          'x ~ ~ ~ ~ ~ ~ ~',
+          'x ~ ~ ~ x ~ ~ ~',
+          'x ~ ~ x ~ ~ ~ ~',
+          'x ~ x ~ ~ ~ x ~',
+          'x ~ ~ ~ ~ ~ x ~',
+        ];
+        const struct = Rng.pick(br, structs808);
+        bass = 'n("' + rootSeq + '").scale(' + scl(2) + ')' +
+          '.struct("' + struct + '")' +
+          '.sound("sine").fm(' + n2(0.3 + e * 1.0) + ').fmh(' + Rng.int(br, 1, 2) + ')' +
+          '.attack(0.01).release(' + n2(0.8 + e * 1.0) + ')' +
+          '.lpf(' + Math.round(160 + e * 220) + ').gain(' + n2(0.88 + e * 0.08) + ')';
       } else {
-        bass += '.sound("sine").fm(' + n2(1.5 + e * 4) + ').fmh(' + Rng.int(br, 1, 2) +
-          ').lpf(' + Math.round(cut * 1.3) + ')';
+        // Melodic bassline: saw/square/sine with rhythmic structure.
+        const light = ['x ~ ~ ~ x ~ ~ ~', 'x ~ ~ x x ~ ~ ~'];
+        const heavy = ['x ~ x ~ x ~ x x', 'x x ~ x x ~ x x', 'x ~ x ~ ~ ~ x ~'];
+        const struct = bucket <= 1 ? Rng.pick(br, light) : Rng.pick(br, heavy);
+        const cut = Math.round(280 + e * 1900);
+        const voice = Rng.int(br, 0, 2);
+        if (voice === 0) {
+          bass = 'n("' + rootSeq + '").scale(' + scl(2) + ').struct("' + struct + '")' +
+            '.sound("sawtooth").lpf(' + cut + ').lpq(' + n2(4 + e * 8) + ')' +
+            '.gain(' + n2(0.7 + e * 0.1) + ')';
+        } else if (voice === 1) {
+          bass = 'n("' + rootSeq + '").scale(' + scl(2) + ').struct("' + struct + '")' +
+            '.sound("square").lpf(' + cut + ').lpenv(' + n2(2 + e * 2) + ').lpattack(0.02)' +
+            '.gain(' + n2(0.7 + e * 0.1) + ')';
+        } else {
+          bass = 'n("' + rootSeq + '").scale(' + scl(2) + ').struct("' + struct + '")' +
+            '.sound("sine").fm(' + n2(1.5 + e * 4) + ').fmh(' + Rng.int(br, 1, 2) + ')' +
+            '.lpf(' + Math.round(cut * 1.3) + ').gain(' + n2(0.7 + e * 0.1) + ')';
+        }
       }
-      put(2, bass + '.gain(' + n2(0.7 + e * 0.1) + ')');
+      put(2, bass);
     }
 
-    // 3 — clap/snare on the backbeat; pattern and a touch of pitch vary.
+    // 3 — snare/clap: trap and drill use half-time (beat 3 only — four 1-beat
+    // elements, snare on the third); boom bap uses the standard 2-and-4 backbeat.
     if (on(3)) {
       const cr = lrng(3);
       const hit = Rng.chance(cr, 0.5) ? 'cp' : 'sd';
-      const pat = Rng.pick(cr, [
-        '~ ' + hit + ' ~ ' + hit,
-        '~ ' + hit + ' ~ [' + hit + ' ' + hit + ']',
-        '~ ' + hit + ' ~ ' + hit + '*2',
-      ]);
-      let clap = 's("' + pat + '").gain(' + n2(0.42 + e * 0.12) + ').room(' + n2(0.2 + (1 - e) * 0.2) + ')';
+      let pat;
+      if (gid === 'trap' || gid === 'drill') {
+        // Half-time: snare on beat 3 = 4 elements, each one beat, third is the hit
+        pat = Rng.pick(cr, [
+          '~ ~ ' + hit + ' ~',
+          '~ ~ [' + hit + ' ' + hit + '] ~',
+          '~ ~ ' + hit + ' [~ ' + hit + ']',
+        ]);
+      } else {
+        // Standard backbeat: beats 2 and 4
+        pat = Rng.pick(cr, [
+          '~ ' + hit + ' ~ ' + hit,
+          '~ ' + hit + ' ~ [' + hit + ' ' + hit + ']',
+          '~ ' + hit + ' ~ ' + hit + '*2',
+        ]);
+      }
+      let clap = 's("' + pat + '").gain(' + n2(0.45 + e * 0.12) + ').room(' + n2(0.22 + (1 - e) * 0.2) + ')';
       if (Rng.chance(cr, 0.3)) clap += '.speed(' + n2(0.9 + Rng.int(cr, 0, 3) * 0.1) + ')';
       put(3, kit(clap));
     }
 
-    // 4 — chords: pad-like triads. Gentle by default so a fresh chord layer
-    // settles rather than slamming. Kept soft on purpose (see below) so it never
-    // honks; reshape walks the wave/filter within the pad-safe range.
+    // 4 — chords: three voices per variant roll:
+    //   0 = piano stab (trap signature — short attack, quick decay),
+    //   1 = lush pad (R&B / lo-fi — slow swell),
+    //   2 = plucked square (boom bap / soul — sharp envelope).
+    // R&B and lo-fi favour 7th-chord voicings for that neo-soul depth.
     if (on(4)) {
       const chr = lrng(4);
-      // A proper pad, not a blare. A raw sawtooth triad with a fast attack reads
-      // as nasal/"honky", so: soft waveform (triangle/sine only), a slow swell
-      // instead of a snap, and a darker filter kept below the ~1.5 kHz honk band.
-      // No FM/vowel either — both clang on a stacked triad.
-      const wave = Rng.pick(chr, ['triangle', 'sine']);
-      const cut = Math.round(700 + e * 800);           // 700..1500, below the honk band
-      const atk = n2(0.2 + Rng.int(chr, 0, 3) * 0.12); // 0.2..0.56s swell
-      put(4,
-        'n("' + chordSeq + '").scale(' + scl(3) + ').sound("' + wave +
-          '").lpf(' + cut + ').attack(' + atk + ').release(' + n2(0.5 + (1 - e) * 0.5) +
-          ').gain(0.2).room(' + n2(0.4 + (1 - e) * 0.25) + ')'
-      );
+      const seq = (gid === 'rb' || gid === 'loFi' || Rng.chance(chr, 0.3))
+        ? seventhSeq
+        : chordSeq;
+      const voice = Rng.int(chr, 0, 2);
+      let chord;
+      if (voice === 0) {
+        // Piano stab: hard transient, short tail — punchy trap chord hit
+        const stabPat = Rng.pick(chr, ['x ~ ~ ~', 'x ~ x ~', 'x ~ ~ x', 'x x ~ ~']);
+        chord = 'n("' + seq + '").scale(' + scl(3) + ')' +
+          '.struct("' + stabPat + '")' +
+          '.sound("sawtooth").lpf(' + Math.round(1800 + e * 1200) + ')' +
+          '.attack(0.005).decay(' + n2(0.12 + e * 0.15) + ').release(0.08)' +
+          '.gain(' + n2(0.28 + e * 0.12) + ').room(0.22)';
+      } else if (voice === 1) {
+        // Lush pad: slow swell, triangle or sine — R&B / lo-fi / atmospheric
+        const wave = Rng.pick(chr, ['triangle', 'sine']);
+        const cut = Math.round(700 + e * 800);
+        const atk = n2(0.2 + Rng.int(chr, 0, 3) * 0.12);
+        chord = 'n("' + seq + '").scale(' + scl(3) + ')' +
+          '.sound("' + wave + '").lpf(' + cut + ')' +
+          '.attack(' + atk + ').release(' + n2(0.5 + (1 - e) * 0.5) + ')' +
+          '.gain(0.18).room(' + n2(0.45 + (1 - e) * 0.25) + ')';
+      } else {
+        // Plucked / muted square: sharp envelope, slightly shaped — boom bap soul
+        chord = 'n("' + seq + '").scale(' + scl(3) + ')' +
+          '.sound("square").lpf(' + Math.round(1200 + e * 1500) + ')' +
+          '.attack(0.01).decay(' + n2(0.2 + e * 0.3) + ').release(0.15)' +
+          '.shape(' + n2(0.1 + e * 0.1) + ')' +
+          '.gain(' + n2(0.22 + e * 0.1) + ').room(0.35)';
+      }
+      put(4, chord);
     }
 
-    // 5 — lead melody: a scale-degree cell; the wave, an FM option, delay and a
-    // little crush give each reshape a distinct voice.
+    // 5 — lead melody: scale-degree cell from the hip-hop library — sparse
+    // phrases, triplet ornaments, late entries and emotional space.
+    // Trap delay uses a dotted-8th (0.125) for rhythmic echo; others use 3/16.
     if (on(5)) {
       const lr = lrng(5);
       const cell = Theory.MELODY_CELLS[g.variant[5] % Theory.MELODY_CELLS.length];
@@ -575,28 +860,57 @@
       let lead = 'n("' + cell + '").scale(' + scl(5) + ').sound("' + wave + '")';
       if (Rng.chance(lr, 0.4)) lead += '.fm(' + n2(1 + e * 3) + ').fmh(' + Rng.int(lr, 1, 3) + ')';
       lead += '.gain(' + n2(0.3 + e * 0.14) + ').room(0.3)';
-      if (e > 0.55) lead += '.delay(0.35).delaytime(0.1875).delayfeedback(' + n2(0.3 + e * 0.1) + ')';
+      if (e > 0.55) {
+        const dt = (gid === 'trap' || gid === 'drill') ? '0.125' : '0.1875';
+        lead += '.delay(0.35).delaytime(' + dt + ').delayfeedback(' + n2(0.3 + e * 0.1) + ')';
+      }
       if (e < 0.35) lead += '.degradeBy(0.3)';
       if (Rng.chance(lr, 0.25)) lead += '.crush(' + Rng.int(lr, 6, 12) + ')';
       put(5, lead);
     }
 
-    // 6 — atmosphere: either a slow sine pad or a breathy noise wash that
-    // widens the space. Both sit low and open up the top end.
+    // 6 — atmosphere: three voices that open up the space:
+    //   0 = filtered noise wash (pink or brown) — airy, wide,
+    //   1 = slow sine sub drone on the root — deep, rooted,
+    //   2 = detuned triangle chord pad — choir shimmer.
     if (on(6)) {
       const ar = lrng(6);
-      if (Rng.chance(ar, 0.5)) {
+      const atmoVoice = Rng.int(ar, 0, 2);
+      if (atmoVoice === 0) {
         const col = Rng.pick(ar, ['pink', 'brown']);
         put(6,
-          's("' + col + '").gain(' + n2(0.06 + e * 0.06) + ').lpf(' + Math.round(1200 + e * 2000) +
-            ').hpf(300).room(0.8)'
+          's("' + col + '").gain(' + n2(0.06 + e * 0.06) + ')' +
+          '.lpf(' + Math.round(1200 + e * 2000) + ').hpf(300).room(0.8)'
+        );
+      } else if (atmoVoice === 1) {
+        put(6,
+          'n("' + rootSeq + '").scale(' + scl(5) + ')' +
+          '.sound("sine").slow(2).gain(0.1).lpf(1000).room(0.7)'
         );
       } else {
+        // Choir shimmer: triangle 7th chord, slow swell, high room
         put(6,
-          'n("' + rootSeq + '").scale(' + scl(5) +
-            ').sound("sine").slow(2).gain(0.12).lpf(1200).room(0.7)'
+          'n("' + seventhSeq + '").scale(' + scl(4) + ')' +
+          '.sound("triangle").lpf(' + Math.round(900 + e * 1100) + ')' +
+          '.attack(' + n2(0.4 + e * 0.3) + ').release(' + n2(0.8 + (1 - e) * 0.4) + ')' +
+          '.gain(' + n2(0.09 + e * 0.07) + ').room(0.75)'
         );
       }
+    }
+
+    // Song-level fill/riser — its own body line (pseudo-lane FILL_IDX), so the
+    // A&R map can highlight it like any other change.
+    if (g.fill > 0) {
+      let fill;
+      if (g.fill === 1) {
+        fill = 's("white").gain(' + n2(0.05 + e * 0.1) + ').lpf(sine.range(400,9000).slow(4)).hpf(300).room(0.5)';
+      } else if (g.fill === 2) {
+        fill = 's("~ ~ [sd sd] [sd*4]").gain(' + n2(0.24 + e * 0.18) + ').room(0.3)';
+      } else {
+        fill = 's("~ ~ ~ cp").gain(' + n2(0.32 + e * 0.14) + ').room(0.6).speed(0.85)';
+      }
+      layers.push(fill + '.color("' + FILL_COLOR + '")');
+      lineLayers.push(FILL_IDX);
     }
 
     const body = layers.join(',\n  ');
@@ -622,6 +936,8 @@
       scaleType: s.scaleType,
       bpm: s.bpm,
       cps: s.cps,
+      genre: s.genre ? s.genre.id : 'trap',
+      genreLabel: s.genre ? s.genre.label : 'Trap',
       stage: highestActive(g),
       maxStage: MAX_STAGE,
       stageLabel: STAGES[highestActive(g)].label,
@@ -634,6 +950,11 @@
       mode: mode,
       temp: s.temp,
       warmth: s.warmth,
+      intent: s.intent,
+      laneMood: (s.laneMood || []).slice(),
+      fx: g.fx.slice(),
+      double: g.double.slice(),
+      fill: g.fill,
       move: s.pending ? s.pending.desc : null,
       lastVerdict: s.lastVerdict,
       verdictSeq: s.verdictSeq,
@@ -671,43 +992,69 @@
     if (!s.vtabu) s.vtabu = {};
     s.vprop = (s.vprop || 0) + 1;
     const snapshot = cloneGenome(g);
+    const intent = s.intent || 0;      // A&R density dial (0 until the UI sets it)
+    const act = activeCount(g);
 
-    // Hard constraint: a killed *add* keeps that instrument out for the song.
-    // Reworks are an endless well — killing one only spaces it out (tabu), never
-    // bans it, so the session can't dead-end while any layer is still playable.
-    const addable = inactiveIdxs(g).filter((i) => !s.banned['add:' + i]);
-    const reshapeable = droppableIdxs(g);
-    if (!addable.length && !reshapeable.length) { s.pending = null; return null; }
+    // Build the candidate moves. Adds bring the skeleton in first; once three
+    // lanes are down, the deeper moves unlock — rework, FX, a doubled voice, or
+    // a fill — so a session keeps finding fresh things to pitch instead of
+    // capping out at a handful of instruments. A killed idea is banned (never
+    // re-pitched); a killed *rework* is only spaced out, and rework is never
+    // banned, so the session can't dead-end while any lane is still playable.
+    const activeLanes = [];
+    for (let i = 0; i < g.active.length; i++) if (g.active[i]) activeLanes.push(i);
+    const more = 1 + Math.max(0, intent) * 0.8, less = 1 + Math.max(0, -intent) * 0.8;
+    const cands = [];
 
-    // Soft spacing: don't re-pitch a just-touched layer (that's what caused the
-    // "rework the clap ×5" spam). Relax it only if it would leave nothing to
-    // offer, so there's always a move.
-    const free = (i) => (s.vtabu[i] || 0) <= s.vprop;
-    let addPool = addable.filter(free);
-    let reshapePool = reshapeable.filter(free);
-    if (!addPool.length && !reshapePool.length) { addPool = addable; reshapePool = reshapeable; }
-
-    // build the arrangement first, rework once it's fleshed out
-    const choice = addPool.length && (!reshapePool.length || Rng.chance(r, 0.6)) ? 'add' : 'reshape';
-
-    let layer, dir, desc, banKey;
-    if (choice === 'add') {
-      layer = addPool[0]; // bring layers in, in arrangement order
-      g.active[layer] = true;
-      g.variant[layer] = Rng.int(r, 0, 5);
-      dir = 1;
-      desc = 'bring in ' + STAGES[layer].label;
-      banKey = 'add:' + layer;
-    } else {
-      layer = Rng.pick(r, reshapePool);
-      g.variant[layer] += 1 + Rng.int(r, 0, 2);
-      dir = 0;
-      desc = 'rework ' + STAGES[layer].label;
-      banKey = 'reshape:' + layer;
+    inactiveIdxs(g).forEach((i) => {
+      if (!s.banned['add:' + i]) {
+        cands.push({ kind: 'add', layer: i, dir: 1, w: 3 * more, banKey: 'add:' + i, desc: 'bring in ' + STAGES[i].label });
+      }
+    });
+    droppableIdxs(g).forEach((i) => {
+      cands.push({ kind: 'reshape', layer: i, dir: 0, w: 1 * less, banKey: 'reshape:' + i, desc: 'rework ' + STAGES[i].label });
+    });
+    if (act >= 3) {
+      activeLanes.forEach((i) => {
+        FX_BITS.forEach((b) => {
+          if (!(g.fx[i] & b) && !s.banned['fx:' + i + ':' + b]) {
+            cands.push({ kind: 'fx', layer: i, bit: b, dir: 0, w: 1.3 * more, banKey: 'fx:' + i + ':' + b, desc: 'add ' + FX_NAMES[b] + ' to ' + STAGES[i].label });
+          }
+        });
+        if (!g.double[i] && !s.banned['double:' + i]) {
+          cands.push({ kind: 'double', layer: i, dir: 0, w: 1.1 * more, banKey: 'double:' + i, desc: 'double up ' + STAGES[i].label });
+        }
+      });
+      if (g.fill === 0 && !s.banned['fill']) {
+        cands.push({ kind: 'fill', layer: FILL_IDX, dir: 1, w: 0.9 * more, banKey: 'fill', desc: 'drop in a fill' });
+      }
     }
-    s.vtabu[layer] = s.vprop + 2; // hold this layer out of the next couple of pitches
-    s.pending = { snapshot: snapshot, desc: desc, layer: layer, dir: dir, kind: choice, banKey: banKey };
-    return { desc: desc, layer: layer, dir: dir, kind: choice };
+    if (!cands.length) { s.pending = null; return null; }
+
+    // Soft spacing: prefer candidates whose lane wasn't just touched; relax only
+    // if that would leave nothing, so there's always a move.
+    const free = (c) => (s.vtabu[c.layer] || 0) <= s.vprop;
+    let pool = cands.filter(free);
+    if (!pool.length) pool = cands;
+
+    const pick = weightedPick(r, pool);
+
+    if (pick.kind === 'add') {
+      g.active[pick.layer] = true;
+      g.variant[pick.layer] = Rng.int(r, 0, 5);
+    } else if (pick.kind === 'reshape') {
+      g.variant[pick.layer] += 1 + Rng.int(r, 0, 2);
+    } else if (pick.kind === 'fx') {
+      g.fx[pick.layer] |= pick.bit;
+    } else if (pick.kind === 'double') {
+      g.double[pick.layer] = true;
+    } else if (pick.kind === 'fill') {
+      g.fill = Rng.int(r, 1, 3);
+      pick.desc = 'drop in ' + FILL_NAMES[g.fill];
+    }
+    s.vtabu[pick.layer] = s.vprop + 2; // hold this lane out of the next couple of pitches
+    s.pending = { snapshot: snapshot, desc: pick.desc, layer: pick.layer, dir: pick.dir, kind: pick.kind, banKey: pick.banKey };
+    return { desc: pick.desc, layer: pick.layer, dir: pick.dir, kind: pick.kind };
   };
 
   // Keep the pitched change (it's already applied). Returns the change.
@@ -728,16 +1075,49 @@
     restoreGenome(s.genome, p.snapshot);
     if (!s.banned) s.banned = {};
     if (!s.vtabu) s.vtabu = {};
-    if (p.kind === 'add') {
-      s.banned[p.banKey] = true;             // a killed instrument stays out for the song
+    if (p.kind === 'reshape') {
+      s.vtabu[p.layer] = (s.vprop || 0) + 3; // a killed rework: try a different idea before this lane again
     } else {
-      s.vtabu[p.layer] = (s.vprop || 0) + 3; // a killed rework: try a different idea before this layer again
+      s.banned[p.banKey] = true;             // a killed add / FX / double / fill stays out for the song
     }
     s.pending = null;
     (s.voteLog = s.voteLog || []).push({ v: 'down', desc: p.desc });
     return p;
   };
 
+  // ---- A&R, redesigned: opinion at component grain, not whole-track pass/fail
+  // The keep/kill card is gone; the human's seven per-lane sliders (s.laneMood)
+  // are the feedback. Each step the DJ acts on the strongest opinion; with no
+  // strong opinion it makes a small neutral move so the track keeps breathing.
+  // Returns { desc } — A&R never reverts, so there's no snapshot to keep.
+  DJEngine.prototype.steerStep = function () {
+    const s = this.song;
+    if (!s) return null;
+    let desc = steerByOpinion(s);
+    if (!desc) {
+      const g = s.genome, r = s.rng;
+      const inact = inactiveIdxs(g).filter((i) => !(s.laneMood && s.laneMood[i] < -0.3));
+      if (inact.length && activeCount(g) < 4) {
+        // still thin — reliably build the skeleton so the session always moves
+        const i = inact[0];
+        g.active[i] = true; g.variant[i] = Rng.int(r, 0, 5); s.lastAdded = i;
+        desc = '➕ building — brought in ' + STAGES[i].label;
+      } else {
+        const d = droppableIdxs(g);
+        if (d.length) { const i = Rng.pick(r, d); g.variant[i] += 1 + Rng.int(r, 0, 2); desc = '🔀 idling — reworked ' + STAGES[i].label; }
+        else desc = 'holding on the kick';
+      }
+    }
+    s.pending = null;
+    return { desc: desc };
+  };
+
   SDJ.DJEngine = DJEngine;
   SDJ.STAGES = STAGES;
+  SDJ.LANE_COLORS = LANE_COLORS;
+  SDJ.FILL_IDX = FILL_IDX;
+  SDJ.FILL_COLOR = FILL_COLOR;
+  SDJ.FILL_NAMES = FILL_NAMES;
+  SDJ.FX_BITS = FX_BITS;
+  SDJ.FX_NAMES = FX_NAMES;
 })(window.SDJ = window.SDJ || {});

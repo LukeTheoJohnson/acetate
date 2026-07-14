@@ -98,6 +98,24 @@ html, body {
   background: linear-gradient(135deg, var(--cool), var(--good));
   box-shadow: 0 0 14px rgba(69, 182, 255, 0.4);
 }
+/* the lane currently being pitched — pulses in its own lane colour (--pitch set
+   inline) so the chip, the highlighted code line and the pianoroll lane agree. */
+.chip.pitching {
+  opacity: 1; color: #fff;
+  border-color: var(--pitch, var(--warm, #ff9a1f));
+  animation: chip-pitch 1.15s ease-in-out infinite;
+}
+@keyframes chip-pitch {
+  0%, 100% { box-shadow: 0 0 5px -1px var(--pitch, var(--warm, #ff9a1f)); }
+  50%      { box-shadow: 0 0 15px 1px var(--pitch, var(--warm, #ff9a1f)); }
+}
+/* a render that failed to evaluate — a one-shot red pulse on the code panel. */
+.eval-error { animation: eval-err 0.75s ease-out 1; }
+@keyframes eval-err {
+  0%   { box-shadow: 0 0 0 0 rgba(244, 63, 125, 0); }
+  25%  { box-shadow: 0 0 0 2px var(--hot, #f43f7d), 0 0 22px 2px rgba(244, 63, 125, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 63, 125, 0); }
+}
 
 .meters { display: grid; gap: 8px; margin-bottom: 12px; }
 .meters label { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
@@ -181,7 +199,38 @@ html, body {
 .pad-readout strong { font-size: 16px; }
 .pad-readout div:first-child strong { color: var(--cool); }
 .pad-readout div:last-child strong { color: var(--warm); }
-.pad-hint { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin: 2px 2px 0; }
+.pad-hint { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin: 8px 2px 0; }
+
+/* ── per-part opinion faders + density dial ──────────────────────────── */
+.ctrl-block { margin-top: 12px; }
+.ctrl-title { margin: 0 0 8px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+.ctrl-title small { text-transform: none; letter-spacing: 0; font-weight: normal; opacity: 0.75; margin-left: 6px; }
+
+.opinion-bank { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; align-items: end; }
+.fader { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* neutral-centre cue: a faint mid line the fader sits over */
+.fader::before {
+  content: ""; position: absolute; top: 43px; left: 15%; right: 15%; height: 1px;
+  background: rgba(255, 255, 255, 0.14); pointer-events: none;
+}
+.fader-range {
+  -webkit-appearance: slider-vertical; appearance: slider-vertical;
+  writing-mode: vertical-lr; direction: rtl;
+  width: 22px; height: 88px; margin: 0; cursor: ns-resize;
+  accent-color: var(--hot); background: transparent;
+}
+.fader-range:focus-visible { outline: 1px solid var(--cool); outline-offset: 2px; }
+.fader-key { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.density-block { margin-top: 14px; }
+.density { width: 100%; accent-color: var(--warm); cursor: ew-resize; }
+.density-scale { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+.genre-block { margin-top: 14px; }
+.genre-select {
+  width: 100%; font-family: var(--font); font-size: 12px; color: var(--ink);
+  background: #1d1d30; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; cursor: pointer;
+}
+.genre-select:focus { outline: none; border-color: var(--hot); }
 
 /* ── the DJ's mind: watch it decide ──────────────────────────────────── */
 .mind { gap: 10px; min-height: 0; flex: 1; }
@@ -243,17 +292,38 @@ html, body {
 .crate { list-style: none; margin: 0; padding: 0; overflow: auto; display: grid; gap: 6px; }
 .crate-empty { color: var(--muted); font-size: 12px; padding: 8px; line-height: 1.5; }
 .crate-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: #0f0f1c; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px;
+  display: grid; grid-template-columns: 46px 1fr auto; align-items: center; gap: 12px;
+  background: #0f0f1c; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
 }
+.crate-art {
+  width: 46px; height: 46px; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--line); background: #0a0a14; flex: 0 0 46px;
+}
+.crate-art svg { display: block; width: 100%; height: 100%; }
+.crate-body { min-width: 0; }
 .crate-meta strong { display: block; font-size: 13px; }
 .crate-meta span { font-size: 11px; color: var(--muted); }
+.crate-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.crate-tags span {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px;
+}
+.crate-tags .crate-hype { color: var(--good); border-color: rgba(56, 224, 166, 0.4); }
+.crate-tags .crate-src { color: var(--warm); }
 .crate-actions { display: flex; gap: 5px; }
 .crate-actions button {
   width: 28px; height: 28px; border-radius: 7px; cursor: pointer;
   border: 1px solid var(--line); background: #1a1a2c; color: var(--ink); font-size: 12px;
 }
 .crate-actions button:hover { filter: brightness(1.3); }
+
+/* crate library tools (sort / export / import) */
+.crate-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.crate-sort {
+  font-family: var(--font); font-size: 11px; color: var(--ink);
+  background: #1d1d30; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; cursor: pointer;
+}
+.filelabel { cursor: pointer; }
 
 /* ── app shell: views + top nav ──────────────────────────────────────── */
 .view[hidden] { display: none; }
@@ -284,6 +354,7 @@ html, body {
 }
 .tp-kind.preview { background: var(--cool); }
 .tp-kind.frozen { background: var(--warm); }
+.tp-kind.remix { background: #a64dff; }
 .btn.ghost.active { border-color: var(--warm); color: var(--warm); }
 .topnav { display: flex; gap: 4px; }
 .topnav a {
@@ -297,33 +368,65 @@ html, body {
   background: linear-gradient(135deg, rgba(255, 77, 141, 0.18), rgba(69, 182, 255, 0.14));
 }
 
-/* ── menu: the central hub ───────────────────────────────────────────── */
-.view-menu { display: grid; place-items: center; min-height: calc(100% - 62px); padding: 24px; }
-.menu-hub { width: 100%; max-width: 720px; }
-.menu-title {
-  margin: 0 0 18px; text-align: center; font-size: 13px; letter-spacing: 1.5px;
-  text-transform: uppercase; color: var(--muted);
+/* ── menu: signal-bloom hub (scoped palette — menu view only) ─────────── */
+.view-menu {
+  --m-bg: #06040d; --m-ink: #f3ecff; --m-muted: #9d8fc7;
+  --m-violet: #7a5cff; --m-cyan: #22d3ee; --m-pink: #ff3d81; --m-amber: #ff9f45;
+  --m-line: rgba(122, 92, 255, 0.24);
+  position: relative; overflow: hidden; height: calc(100% - 62px);
+  color: var(--m-ink);
+  background: radial-gradient(120% 100% at 50% 30%, #120a2a 0%, var(--m-bg) 60%);
 }
-.menu-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
-.menu-card {
-  display: flex; flex-direction: column; gap: 10px; text-decoration: none;
-  background: linear-gradient(180deg, var(--panel), var(--panel-2));
-  border: 1px solid var(--line); border-radius: 16px; padding: 24px;
-  color: var(--ink); min-height: 190px;
-  transition: transform .12s, border-color .2s, box-shadow .2s;
+.menu-viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.menu-grain {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.05; z-index: 1;
+  background-image: radial-gradient(#fff 0.5px, transparent 0.6px); background-size: 3px 3px;
 }
-.menu-card:hover {
-  transform: translateY(-3px); border-color: var(--hot);
-  box-shadow: 0 12px 34px rgba(255, 77, 141, 0.16);
+.menu-hud {
+  position: absolute; top: 16px; left: 5vw; right: 5vw; z-index: 2;
+  display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--m-muted);
 }
-.menu-ic { font-size: 34px; line-height: 1; }
-.menu-card strong { font-size: 18px; }
-.menu-sub { font-size: 12px; color: var(--muted); line-height: 1.5; flex: 1; }
-.menu-tag {
-  align-self: flex-start; font-size: 10px; text-transform: uppercase;
-  letter-spacing: 0.8px; color: var(--muted);
-  border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+.menu-hud b { color: var(--m-cyan); font-weight: 600; }
+
+.menu-hub {
+  position: relative; z-index: 2; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 7vh; padding: 8vh 5vw;
 }
+
+/* central wordmark — the app title, in a synthy/retro face */
+.menu-word {
+  margin: 0; line-height: 0.9; text-align: center;
+  font-family: 'Orbitron', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: clamp(40px, 8.5vw, 104px);
+  background: linear-gradient(110deg, #fff, var(--m-cyan) 40%, var(--m-violet) 70%, var(--m-pink));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* channels: a true retro-game select — just words, one lit with a blinking cursor */
+.menu-channels { display: grid; gap: 14px; width: min(400px, 86vw); justify-items: center; }
+.channel {
+  position: relative; text-decoration: none; color: var(--m-muted);
+  font-size: clamp(20px, 3.4vw, 30px); letter-spacing: 3px; text-transform: uppercase;
+  padding: 4px 12px; transition: color .14s, text-shadow .14s;
+}
+/* the small highlight: selected word lights up + a blinking arrow cursor */
+.channel.sel { color: var(--m-ink); text-shadow: 0 0 16px var(--m-cyan); }
+.channel.sel::before {
+  content: "▸"; position: absolute; left: -0.9em; color: var(--m-cyan);
+  animation: chBlink 1s steps(1, end) infinite;
+}
+.channel:hover { color: var(--m-ink); }
+@keyframes chBlink { 50% { opacity: 0; } }
+
+.menu-foot {
+  position: absolute; bottom: 16px; left: 0; right: 0; z-index: 2;
+  display: flex; justify-content: center; gap: 18px;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--m-muted);
+}
+.menu-foot span { border: 1px solid var(--m-line); border-radius: 999px; padding: 4px 12px; }
 
 /* ── crate: saved-song playback page ─────────────────────────────────── */
 .view-crate { padding: 16px; height: calc(100% - 62px); display: flex; justify-content: center; }
@@ -361,6 +464,9 @@ html, body {
 }
 .vc-kind.add { background: var(--good); }
 .vc-kind.reshape { background: var(--warm); }
+.vc-kind.fx { background: var(--hot); }
+.vc-kind.double { background: #a64dff; }
+.vc-kind.fill { background: #c3ccff; }
 .vc-desc { font-size: 18px; color: var(--ink); }
 .vc-code {
   margin: 0; flex: 1; min-height: 120px; overflow: auto; white-space: pre-wrap;
@@ -392,10 +498,165 @@ html, body {
 .vh-row.up .vh-desc { color: var(--good); }
 .vh-row.down .vh-desc { color: var(--hot); text-decoration: line-through; opacity: 0.8; }
 
+/* ── A&R turntable: visual deck between pitch card and verdict buttons ── */
+.vote-deck {
+  display: flex; align-items: center; justify-content: center;
+  gap: 22px; padding: 4px 0;
+}
+.tt-platter {
+  flex: 0 0 90px; width: 90px; height: 90px; border-radius: 50%;
+  background: #0a0a12; border: 2px solid var(--line);
+  box-shadow: 0 0 0 5px #0c0c16, 0 4px 18px rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.tt-record {
+  width: 74px; height: 74px; border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    #0d0d15 0px, #0d0d15 2px,
+    #151524 3px, #151524 7px
+  );
+  display: flex; align-items: center; justify-content: center;
+  animation: spin 2.6s linear infinite;
+  will-change: transform;
+}
+.tt-label {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  background: var(--hot); color: #08121a;
+  box-shadow: 0 0 10px rgba(255,77,141,0.55);
+  transition: background .25s, box-shadow .25s;
+  /* counter-spin so the letter stays upright while the record turns */
+  animation: spin 2.6s linear infinite reverse;
+}
+.tt-label.side-a { background: var(--muted); color: var(--bg); box-shadow: none; }
+.tt-info { display: flex; flex-direction: column; gap: 8px; }
+.tt-badge {
+  align-self: flex-start; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1px; padding: 3px 9px; border-radius: 999px;
+  background: var(--hot); color: #08121a; transition: background .25s;
+}
+.tt-badge.side-a { background: var(--muted); }
+.tt-ab { font-size: 11px; padding: 6px 14px; border-radius: 999px; align-self: flex-start; }
+.tt-hint { font-size: 11px; color: var(--muted); }
+
+/* ── remix: a 2-deck DJ console ──────────────────────────────────────── */
+.view-remix { padding: 16px; height: calc(100% - 62px); display: flex; justify-content: center; overflow: auto; }
+.remix-console { max-width: 940px; width: 100%; gap: 14px; }
+.remix-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.remix-head h2 { margin: 0; font-size: 20px; }
+.remix-head h2 small { color: var(--muted); font-size: 12px; font-weight: normal; }
+.remix-vocal {
+  font-size: 10px; letter-spacing: 0.5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+}
+.remix-vocal.ready { color: var(--good); border-color: rgba(56, 224, 166, 0.4); }
+.remix-vocal.loading { color: var(--warm); }
+.remix-vocal.unavailable { color: var(--hot); border-color: rgba(255, 77, 141, 0.4); }
+
+/* record shelf: click a cover to load it onto Deck B */
+.remix-shelf-wrap { overflow-x: auto; padding-bottom: 4px; }
+.remix-shelf { display: flex; gap: 10px; min-height: 82px; }
+.shelf-item {
+  flex: 0 0 auto; width: 64px; cursor: pointer; border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; background: #0a0a14;
+  transition: transform .12s, border-color .2s, box-shadow .2s;
+}
+.shelf-item:hover { transform: translateY(-2px); border-color: #a64dff; }
+.shelf-item.sel { border-color: var(--hot); box-shadow: 0 0 0 1px var(--hot), 0 8px 20px rgba(255, 77, 141, 0.25); }
+.shelf-art { width: 64px; height: 64px; }
+.shelf-art svg { display: block; width: 100%; height: 100%; }
+.shelf-name {
+  font-size: 8.5px; text-align: center; padding: 2px 3px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.remix-shelf-empty { color: var(--muted); font-size: 12px; align-self: center; padding: 20px 6px; }
+
+.remix-stage { display: grid; gap: 14px; }
+.remix-decks { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.deck {
+  border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #0c0c16;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.deck-label {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.deck-tag { font-size: 9px; padding: 2px 7px; border-radius: 999px; background: #1a1a2c; color: var(--ink); letter-spacing: 1px; }
+.deck-a .deck-tag { box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.45); }
+.deck-b .deck-tag { box-shadow: inset 0 0 0 1px rgba(255, 77, 141, 0.45); }
+.deck-hint { margin: 0; font-size: 11px; color: var(--muted); }
+
+/* Deck A: the vox sampler pad grid (the square set) */
+.vox-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.vox-pad {
+  aspect-ratio: 1 / 1; border-radius: 10px; cursor: pointer; border: 1px solid rgba(34, 211, 238, 0.28);
+  background: linear-gradient(180deg, #10131f, #0b0b14); color: var(--ink);
+  font-size: 12px; letter-spacing: 0.3px; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 4px; transition: transform .06s, box-shadow .12s, background .12s, border-color .12s;
+  -webkit-user-select: none; user-select: none;
+}
+.vox-pad:hover { border-color: var(--cyan); }
+.vox-pad:active, .vox-pad.hit {
+  transform: translateY(1px) scale(0.97);
+  background: linear-gradient(180deg, #1a2740, #12203a);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.5) inset, 0 0 14px rgba(34, 211, 238, 0.35);
+  border-color: var(--cyan);
+}
+
+/* Deck B: the base track platter */
+.base-deck { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
+.platter {
+  width: 96px; height: 96px; border-radius: 50%; padding: 8px;
+  background: repeating-radial-gradient(circle at 50% 50%, #14141f 0 2px, #0d0d16 2px 4px);
+  box-shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.platter.spin { animation: spin 2.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.platter-art { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; border: 1px solid var(--line); background: #0a0a14; }
+.platter-art svg { display: block; width: 100%; height: 100%; }
+.base-info { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.remix-name {
+  font-size: 18px;
+  background: linear-gradient(90deg, var(--ink), #a64dff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* deck FX: latching pads that layer over the loop */
+.remix-rack { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.remix-pad {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left;
+  padding: 9px 11px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: #0f0f1c; color: var(--ink);
+  transition: transform .1s, border-color .2s, box-shadow .2s, background .2s;
+}
+.remix-pad:hover { transform: translateY(-1px); filter: brightness(1.12); }
+.remix-pad strong { font-size: 12px; }
+.remix-pad small { font-size: 10px; color: var(--muted); }
+.remix-pad.vocal { border-color: rgba(166, 77, 255, 0.35); }
+.remix-pad.on {
+  border-color: #a64dff; background: linear-gradient(180deg, #1a1030, #12121d);
+  box-shadow: 0 0 16px rgba(166, 77, 255, 0.3) inset;
+}
+.remix-pad.on.vocal { border-color: var(--hot); box-shadow: 0 0 16px rgba(255, 77, 141, 0.28) inset; }
+.remix-pad.on strong::before { content: "● "; color: var(--good); }
+
+/* transition fader — filter the bed for a drop */
+.transition { display: flex; flex-direction: column; gap: 6px; }
+.transition-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.transition-label small { text-transform: none; letter-spacing: 0; display: block; font-size: 10px; opacity: 0.8; }
+.transition-fader { width: 100%; }
+
+.remix-roll { position: relative; height: 140px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #08080f; }
+#remixRoll { display: block; width: 100%; height: 100%; }
+
 /* ── responsive: stack on narrow screens ─────────────────────────────── */
 @media (max-width: 900px) {
   .stage { grid-template-columns: 1fr; height: auto; }
-  .menu-cards { grid-template-columns: 1fr; }
+  .menu-hub { gap: 5vh; padding: 8vh 6vw 12vh; }
+  .remix-decks { grid-template-columns: 1fr; }
+  .base-deck { grid-template-columns: 80px 1fr; }
   .pad { max-width: 320px; }
   .status { display: none; }
 }

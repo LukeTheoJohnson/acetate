@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Strudel Auto-DJ · steer the set</title>
   <link rel="stylesheet" href="styles.css" />
+  <!-- Orbitron: synthy/retro wordmark for the menu title (menu-only, graceful fallback) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
   <!-- Strudel live-coding engine (exposes initStrudel/evaluate/hush globally) -->
   <script src="https://unpkg.com/@strudel/web@latest"></script>
 </head>
@@ -22,6 +26,7 @@
       <a data-nav="live" href="#live">Live</a>
       <a data-nav="vote" href="#vote">A&amp;R</a>
       <a data-nav="crate" href="#crate">Crate</a>
+      <a data-nav="remix" href="#remix">Remix</a>
     </nav>
     <!-- unified now-playing transport: one source at a time, stop from anywhere -->
     <div id="transport" class="transport" hidden>
@@ -32,34 +37,24 @@
     <p id="status" class="status">Loading…</p>
   </header>
 
-  <!-- ══ MENU: the central hub ═══════════════════════════════════════════ -->
+  <!-- ══ MENU: signal-bloom hub — a video-game channel select ════════════ -->
   <main class="view view-menu" data-view="menu">
+    <canvas id="menuViz" class="menu-viz" aria-hidden="true"></canvas>
+    <div class="menu-grain" aria-hidden="true"></div>
+    <div class="menu-hud"><span>STRUDEL <b>Auto·DJ</b></span><span>Signal <b>live</b></span></div>
+
     <div class="menu-hub">
-      <h2 class="menu-title">Where to?</h2>
-      <div class="menu-cards">
-        <a class="menu-card" href="#live">
-          <span class="menu-ic">🎛</span>
-          <strong>Live Set</strong>
-          <span class="menu-sub">Bring the DJ up and steer the crowd. It writes every note;
-            you set the mood and watch it build tracks in code.</span>
-          <span class="menu-tag" id="menuLiveState">idle</span>
-        </a>
-        <a class="menu-card" href="#vote">
-          <span class="menu-ic">🎧</span>
-          <strong>A&amp;R Session</strong>
-          <span class="menu-sub">The DJ pitches one change at a time. Keep the good, kill the
-            bad — killed ideas don’t come back.</span>
-          <span class="menu-tag">spike</span>
-        </a>
-        <a class="menu-card" href="#crate">
-          <span class="menu-ic">🗃</span>
-          <strong>The Crate</strong>
-          <span class="menu-sub">Play back the bangers you’ve saved. A standalone player —
-            no live set needed.</span>
-          <span class="menu-tag" id="menuCrateCount">empty</span>
-        </a>
+      <h1 class="menu-word">StrudelDJ</h1>
+
+      <div class="menu-channels" id="menuChannels" role="menu" aria-label="main menu">
+        <a class="channel" role="menuitem" href="#live">Live Set</a>
+        <a class="channel" role="menuitem" href="#vote">Tinker</a>
+        <a class="channel" role="menuitem" href="#crate">Crate</a>
+        <a class="channel" role="menuitem" href="#remix">Remix</a>
       </div>
     </div>
+
+    <div class="menu-foot"><span>↑↓ select</span><span>↵ enter</span><span>1–4 jump</span></div>
   </main>
 
   <!-- ══ LIVE: the DJ deck, the crowd control and the visualisation ══════ -->
@@ -119,8 +114,31 @@
           <div><span class="k">Energy</span><strong id="energyVal">+0</strong></div>
           <div><span class="k">Warmth</span><strong id="warmthVal">+0</strong></div>
         </div>
-        <p class="pad-hint">Up = the room lifts and the DJ builds. Side = how kindly: warm
-          builds &amp; softens, cold strips &amp; hardens. No knobs — the DJ writes every note.</p>
+
+        <!-- genre: pin the style, or let the DJ surprise you -->
+        <div class="ctrl-block genre-block">
+          <h4 class="ctrl-title">Genre <small>new tracks come out in this style</small></h4>
+          <select id="liveGenre" class="genre-select" aria-label="genre for new tracks">
+            <option value="">🎲 Surprise me</option>
+          </select>
+        </div>
+
+        <!-- per-lane opinion: granular feedback, one colour-coded fader per part -->
+        <div class="ctrl-block">
+          <h4 class="ctrl-title">Your take on each part <small>up = more · down = lose it</small></h4>
+          <div id="liveOpinion" class="opinion-bank" aria-label="per-part opinion faders"></div>
+        </div>
+
+        <!-- density dial: strip &lt;-&gt; pile on -->
+        <div class="ctrl-block density-block">
+          <h4 class="ctrl-title">Density</h4>
+          <input id="liveDensity" class="density" type="range" min="-100" max="100" value="0"
+                 aria-label="density dial: strip back to pile on" />
+          <div class="density-scale"><span>strip</span><span>hold</span><span>pile on</span></div>
+        </div>
+
+        <p class="pad-hint">Pad = the room (energy &amp; warmth). Faders = your call on each
+          part. Density = how busy overall. The DJ still writes every note.</p>
       </section>
 
       <section class="mind panel">
@@ -156,7 +174,7 @@
     </section>
   </main>
 
-  <!-- ══ A&R: turn-based vote spike — keep or kill each proposed change ═══ -->
+  <!-- ══ A&R: turn-based individual review — keep or kill each proposed change ═══ -->
   <main class="view view-vote" data-view="vote" hidden>
     <section class="vote-stage panel">
       <div class="vote-head">
@@ -171,9 +189,9 @@
       </div>
 
       <div id="voteEmpty" class="vote-empty">
-        Press <b>Start session</b>. The DJ builds a track one move at a time — an addition
-        or a rework, each mapped to the lines of code it touches. <b>Keep</b> the good,
-        <b>kill</b> the bad. Anything you kill won’t be pitched again.
+        Press <b>Start session</b>. The DJ builds a track one move at a time — a new part, a
+        rework, an FX, a doubled voice or a fill — each mapped to the lines of code it touches.
+        <b>Keep</b> the good, <b>kill</b> the bad. Anything you kill won’t be pitched again.
       </div>
 
       <div id="voteCard" class="vote-card" hidden>
@@ -190,6 +208,20 @@
         <canvas id="voteRoll" aria-label="pianoroll — the proposed change scrolls past as it plays"></canvas>
       </div>
 
+      <!-- A&R deck: turntable + A↔B compare, visible when a pitch is in play -->
+      <div id="voteDeck" class="vote-deck" hidden>
+        <div class="tt-platter">
+          <div class="tt-record">
+            <div id="ttLabel" class="tt-label">B</div>
+          </div>
+        </div>
+        <div class="tt-info">
+          <span id="ttBadge" class="tt-badge">proposed</span>
+          <button id="voteAB" class="btn tt-ab">↔ A/B compare</button>
+          <span id="ttHint" class="tt-hint">tap to hear original</span>
+        </div>
+      </div>
+
       <div id="voteControls" class="vote-actions" hidden>
         <button id="voteDown" class="btn vote-down">👎 Kill it</button>
         <button id="voteUp" class="btn vote-up">👍 Keep it</button>
@@ -202,14 +234,87 @@
     </section>
   </main>
 
-  <!-- ══ CRATE: saved-song playback, its own page ════════════════════════ -->
+  <!-- ══ CRATE: your record library, its own page ════════════════════════ -->
   <main class="view view-crate" data-view="crate" hidden>
     <section class="crate-page panel">
       <div class="crate-page-head">
-        <h2>🗃 The crate <small>saved bangers</small></h2>
-        <a class="btn ghost small" href="#live">▶ go live</a>
+        <h2>🗃 The crate <small>your record library</small></h2>
+        <div class="crate-tools">
+          <select id="crateSort" class="crate-sort" aria-label="sort records">
+            <option value="new">Newest</option>
+            <option value="hype">Top hype</option>
+            <option value="name">A–Z</option>
+          </select>
+          <button id="crateExport" class="btn ghost small" title="Download the crate as JSON">⬇ Export</button>
+          <label class="btn ghost small filelabel" title="Merge in a crate JSON">⬆ Import
+            <input id="crateImport" type="file" accept="application/json,.json" hidden />
+          </label>
+          <a class="btn ghost small" href="#remix">🎚 Remix</a>
+          <a class="btn ghost small" href="#live">▶ Go live</a>
+        </div>
       </div>
       <ul id="crate" class="crate"></ul>
+    </section>
+  </main>
+
+  <!-- ══ REMIX: a 2-deck DJ console — spin a saved record, fire vox over it ══ -->
+  <main class="view view-remix" data-view="remix" hidden>
+    <section class="remix-console panel">
+      <div class="remix-head">
+        <div>
+          <h2>🎛 Remix <small>DJ console</small></h2>
+          <p class="track-meta">Load a record onto Deck&nbsp;B, spin it, then finger the vox pads on Deck&nbsp;A over the loop.</p>
+        </div>
+        <span id="remixVocalState" class="remix-vocal idle">🎤 vocals load on play</span>
+      </div>
+
+      <!-- record shelf: pick a visual record to load onto Deck B -->
+      <div class="remix-shelf-wrap">
+        <div id="remixShelf" class="remix-shelf" aria-label="your records — click to load onto the deck"></div>
+      </div>
+
+      <div id="remixEmpty" class="vote-empty">
+        No records yet. Open <b>Live Set</b> or <b>Tinker</b>, save a track, and it drops into the shelf above ready to spin.
+      </div>
+
+      <div id="remixStage" class="remix-stage" hidden>
+        <div class="remix-decks">
+          <!-- DECK A: the vox sampler — a square pad grid of one-shot vocals -->
+          <section class="deck deck-a">
+            <div class="deck-label"><span class="deck-tag">Deck A</span> Vox sampler</div>
+            <div id="remixVox" class="vox-grid" aria-label="vocal one-shot pads"></div>
+            <p class="deck-hint">Tap a pad to stab that vocal once over the loop.</p>
+          </section>
+
+          <!-- DECK B: the base track — the loaded record spinning as a bed -->
+          <section class="deck deck-b">
+            <div class="deck-label"><span class="deck-tag">Deck B</span> Base track</div>
+            <div class="base-deck">
+              <div class="platter" id="remixPlatter" aria-hidden="true">
+                <div class="platter-art" id="remixArt"></div>
+              </div>
+              <div class="base-info">
+                <div class="remix-name" id="remixName">—</div>
+                <div class="remix-meta track-meta" id="remixMeta">—</div>
+                <div class="deck-buttons">
+                  <button id="remixStart" class="btn primary" disabled>▶ Play bed</button>
+                  <button id="remixSave" class="btn ghost" title="Save this remix as a new record" disabled>💾 Save</button>
+                </div>
+              </div>
+            </div>
+            <div id="remixRack" class="remix-rack" aria-label="deck FX"></div>
+            <label class="transition">
+              <span class="transition-label">Transition <small>filter the bed down for a drop</small></span>
+              <input id="remixTransition" class="transition-fader" type="range" min="0" max="100" value="100"
+                     aria-label="transition filter: closed to fully open" />
+            </label>
+          </section>
+        </div>
+
+        <div class="remix-roll">
+          <canvas id="remixRoll" aria-label="pianoroll — the remix scrolls past as it plays"></canvas>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -221,6 +326,7 @@
   <script src="src/viz.js"></script>
   <script src="src/log.js"></script>
   <script src="src/art.js"></script>
+  <script src="src/menu.js"></script>
   <script src="src/app.js"></script>
 </body>
 </html>
