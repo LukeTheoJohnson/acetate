@@ -160,7 +160,7 @@
       rng,
       name: Names.generate(rng),
       key: Rng.pick(rng, Theory.ROOTS),
-      scaleType: Rng.pick(rng, Theory.SCALES),
+      scaleType: Rng.pick(rng, Theory.scalesFor(genre)), // mood palette is genre-appropriate
       prog: Rng.pick(rng, Theory.PROGRESSIONS),
       genre: genre,
       bpm: Rng.int(rng, genre.bpmLo, genre.bpmHi),
@@ -217,6 +217,10 @@
     s.genre = genre;
     s.bpm = Rng.int(s.rng, genre.bpmLo, genre.bpmHi);
     s.cps = s.bpm / 240;
+    // shift the mood into the new genre's palette when the current colour doesn't
+    // belong there (keeps a compatible scale, re-picks an incompatible one).
+    const pal = Theory.scalesFor(genre);
+    if (pal.indexOf(s.scaleType) < 0) s.scaleType = Rng.pick(s.rng, pal);
     s.rev += 1; // a song-level musical change → shows up in _signature()
     return true;
   };
@@ -383,7 +387,7 @@
       if (d.length > 1) g.variant[Rng.pick(r, d)] += 1 + Rng.int(r, 0, 3);
       return '🎲 reworked the groove from the ground up';
     }
-    s.scaleType = Rng.pick(r, Theory.SCALES);
+    s.scaleType = Rng.pick(r, Theory.scalesFor(s.genre));
     s.rev += 1;
     return '🎲 shifted the mood — new scale colour';
   }
@@ -692,9 +696,9 @@
       const kr = lrng(0);
       // Pattern pools indexed by bucket (1..3). Euclidean notation gives organic feel.
       const trapKick = [
-        ['bd ~ ~ ~ ~ ~ ~ ~', 'bd ~ ~ ~ bd ~ ~ ~', 'bd(3,8)'],
-        ['bd ~ ~ ~ bd ~ bd ~', 'bd ~ bd ~ ~ ~ bd ~', 'bd ~ ~ bd ~ ~ bd ~'],
-        ['bd ~ bd bd ~ bd ~ bd', 'bd bd ~ bd ~ ~ bd ~', 'bd ~ bd ~ bd ~ bd bd'],
+        ['bd ~ ~ ~ ~ ~ ~ ~', 'bd ~ ~ ~ bd ~ ~ ~', 'bd(3,8)', 'bd ~ ~ bd ~ ~ ~ ~'],
+        ['bd ~ ~ ~ bd ~ bd ~', 'bd ~ bd ~ ~ ~ bd ~', 'bd ~ ~ bd ~ ~ bd ~', 'bd ~ ~ ~ bd ~ ~ bd'],
+        ['bd ~ bd bd ~ bd ~ bd', 'bd bd ~ bd ~ ~ bd ~', 'bd ~ bd ~ bd ~ bd bd', 'bd ~ bd ~ bd bd ~ bd'],
       ];
       const boomKick = [
         ['bd ~ ~ ~ bd ~ ~ ~', 'bd ~ bd ~ ~ ~ ~ ~'],
@@ -717,9 +721,12 @@
       const trapHats = [
         'hh*8',
         'hh*16',
+        'hh*12',
         'hh(11,16)',
         'hh(13,16)',
         'hh ~ [hh hh] ~ hh ~ [hh hh hh] ~',
+        'hh ~ hh hh ~ hh ~ hh',
+        '[hh hh] ~ hh ~ [hh hh] ~ hh ~',
       ];
       const boomHats = ['hh*8', 'hh(9,16)', 'hh ~ hh hh ~ hh hh ~', 'hh ~ hh ~ hh ~ hh ~'];
       const loFiHats = ['hh*8', 'hh ~ hh ~ hh ~ hh ~', 'hh hh ~ hh hh ~ hh ~'];
@@ -753,6 +760,10 @@
           'x ~ ~ x ~ ~ ~ ~',
           'x ~ x ~ ~ ~ x ~',
           'x ~ ~ ~ ~ ~ x ~',
+          'x ~ ~ x ~ ~ x ~',
+          'x ~ x ~ x ~ ~ ~',
+          'x ~ ~ ~ x ~ x ~',
+          'x ~ x x ~ ~ ~ ~',
         ];
         const struct = Rng.pick(br, structs808);
         bass = 'n("' + rootSeq + '").scale(' + scl(2) + ')' +
@@ -824,7 +835,7 @@
       let chord;
       if (voice === 0) {
         // Piano stab: hard transient, short tail — punchy trap chord hit
-        const stabPat = Rng.pick(chr, ['x ~ ~ ~', 'x ~ x ~', 'x ~ ~ x', 'x x ~ ~']);
+        const stabPat = Rng.pick(chr, ['x ~ ~ ~', 'x ~ x ~', 'x ~ ~ x', 'x x ~ ~', 'x ~ x x', '~ x ~ x']);
         chord = 'n("' + seq + '").scale(' + scl(3) + ')' +
           '.struct("' + stabPat + '")' +
           '.sound("sawtooth").lpf(' + Math.round(1800 + e * 1200) + ')' +

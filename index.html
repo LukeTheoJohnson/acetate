@@ -12,7 +12,7 @@
   <!-- Strudel live-coding engine (exposes initStrudel/evaluate/hush globally) -->
   <script src="https://unpkg.com/@strudel/web@latest"></script>
 </head>
-<body>
+<body data-view="menu">
   <header class="topbar">
     <div class="brand">
       <span class="logo">◈</span>
@@ -41,7 +41,6 @@
   <main class="view view-menu" data-view="menu">
     <canvas id="menuViz" class="menu-viz" aria-hidden="true"></canvas>
     <div class="menu-grain" aria-hidden="true"></div>
-    <div class="menu-hud"><span>STRUDEL <b>Auto·DJ</b></span><span>Signal <b>live</b></span></div>
 
     <div class="menu-hub">
       <h1 class="menu-word">StrudelDJ</h1>
@@ -53,8 +52,6 @@
         <a class="channel" role="menuitem" href="#remix">Remix</a>
       </div>
     </div>
-
-    <div class="menu-foot"><span>↑↓ select</span><span>↵ enter</span><span>1–4 jump</span></div>
   </main>
 
   <!-- ══ LIVE: the DJ deck, the crowd control and the visualisation ══════ -->

@@ -1612,6 +1612,7 @@
   }
 
   function showView(name) {
+    document.body.dataset.view = name; // CSS hides the top bar on the full-screen menu
     document.querySelectorAll('[data-view]').forEach((v) => {
       v.hidden = v.getAttribute('data-view') !== name;
     });

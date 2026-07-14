@@ -28,6 +28,10 @@ html, body {
 }
 
 /* ── top bar ─────────────────────────────────────────────────────────── */
+/* the menu is a full-screen video-game hub — no chrome; the top bar (nav +
+   transport + status) stays on every other view for navigation and stop. */
+body[data-view="menu"] .topbar { display: none; }
+body[data-view="menu"] .view-menu { height: 100%; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 14px 22px;
@@ -382,13 +386,6 @@ html, body {
   position: absolute; inset: 0; pointer-events: none; opacity: 0.05; z-index: 1;
   background-image: radial-gradient(#fff 0.5px, transparent 0.6px); background-size: 3px 3px;
 }
-.menu-hud {
-  position: absolute; top: 16px; left: 5vw; right: 5vw; z-index: 2;
-  display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 3px;
-  text-transform: uppercase; color: var(--m-muted);
-}
-.menu-hud b { color: var(--m-cyan); font-weight: 600; }
-
 .menu-hub {
   position: relative; z-index: 2; height: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -400,16 +397,16 @@ html, body {
   margin: 0; line-height: 0.9; text-align: center;
   font-family: 'Orbitron', 'Segoe UI', system-ui, sans-serif;
   font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase;
-  font-size: clamp(40px, 8.5vw, 104px);
+  font-size: clamp(56px, 12vw, 168px);
   background: linear-gradient(110deg, #fff, var(--m-cyan) 40%, var(--m-violet) 70%, var(--m-pink));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 
 /* channels: a true retro-game select — just words, one lit with a blinking cursor */
-.menu-channels { display: grid; gap: 14px; width: min(400px, 86vw); justify-items: center; }
+.menu-channels { display: grid; gap: 18px; width: min(460px, 88vw); justify-items: center; }
 .channel {
   position: relative; text-decoration: none; color: var(--m-muted);
-  font-size: clamp(20px, 3.4vw, 30px); letter-spacing: 3px; text-transform: uppercase;
+  font-size: clamp(26px, 4.6vw, 42px); letter-spacing: 3px; text-transform: uppercase;
   padding: 4px 12px; transition: color .14s, text-shadow .14s;
 }
 /* the small highlight: selected word lights up + a blinking arrow cursor */
@@ -420,13 +417,6 @@ html, body {
 }
 .channel:hover { color: var(--m-ink); }
 @keyframes chBlink { 50% { opacity: 0; } }
-
-.menu-foot {
-  position: absolute; bottom: 16px; left: 0; right: 0; z-index: 2;
-  display: flex; justify-content: center; gap: 18px;
-  font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--m-muted);
-}
-.menu-foot span { border: 1px solid var(--m-line); border-radius: 999px; padding: 4px 12px; }
 
 /* ── crate: saved-song playback page ─────────────────────────────────── */
 .view-crate { padding: 16px; height: calc(100% - 62px); display: flex; justify-content: center; }
