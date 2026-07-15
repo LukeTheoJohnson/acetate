@@ -93,7 +93,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // unified transport + production controls
   check('transport shows now playing on start',
     !doc.getElementById('transport').hidden && doc.getElementById('tpName').textContent.length > 0);
-  check('freeze enabled while running', !doc.getElementById('freezeBtn').disabled);
+  check('suggestion card shown after start',
+    !doc.getElementById('sgCard').hidden && doc.getElementById('sgDesc').textContent.length > 0);
   const crateBefore = JSON.parse(window.localStorage.getItem('sdj.crate') || '[]').length;
   doc.getElementById('saveBtn').click();
   const crateAfter = JSON.parse(window.localStorage.getItem('sdj.crate') || '[]').length;
@@ -129,18 +130,34 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     !!remixCode && balanced(remixCode) && remixCode.indexOf('stack(') >= 0, remixCode);
   check('remix nests the record as a bed', remixCode.indexOf(remixRec.code.split('\n')[1]) >= 0);
 
-  // crank the crowd up (pad energy to max) and let the loop evolve a few ticks
-  check('crowd pad rendered', !!doc.getElementById('pad'));
-  window.SDJ.setCrowd(1, 0); // full energy, neutral warmth
-  const before = evalCalls.length;
-  await new Promise((r) => setTimeout(r, 2500)); // ~2 loop ticks at 1s
+  // ---- turn-based live flow: approve commits + re-pitches, skip re-pitches ----
+  const partsBefore = window.SDJ.engine.state().activeCount;
+  const evalsBefore = evalCalls.length;
+  window.SDJ.live.approve();      // commit the current suggestion
+  await sleep(20);
+  check('approving re-pitches a fresh suggestion',
+    window.SDJ.live.pitching() !== false && !doc.getElementById('sgCard').hidden);
+  check('approving can grow the arrangement', window.SDJ.engine.state().activeCount >= partsBefore);
+  check('a decision logs a DJ move', doc.querySelectorAll('#log li').length >= 1);
+  check('the pitch history records the call', doc.querySelectorAll('#djFeed li').length >= 1);
+  window.SDJ.live.skip();         // skip re-pitches without committing
+  await sleep(20);
+  check('skipping re-pitches without dead-ending', !doc.getElementById('sgCard').hidden);
+  check('live audio stayed balanced', evalCalls.slice(evalsBefore).every(balanced));
 
-  check('evolves over time (more evaluates)', evalCalls.length > before, `before=${before} after=${evalCalls.length}`);
-  check('all evaluated code balanced', evalCalls.every(balanced));
-  check('DJ moves logged', doc.querySelectorAll('#log li').length >= 1);
-  check('set log captured ticks', !!(window.SDJ.SetLog && window.SDJ.SetLog.count() > 0),
-    'count=' + (window.SDJ.SetLog ? window.SDJ.SetLog.count() : 'none'));
-  check('set log stats compute', !!(window.SDJ.SetLog && window.SDJ.SetLog.stats().ticks >= 1));
+  // the part mixer biases the DJ: marking an active part "drop" makes the DJ pitch
+  // removing it (proposeChange now reads laneMood).
+  const be = new window.SDJ.DJEngine();
+  be.newSong(); be.voteReset();
+  be.song.genome.active = [true, true, true, false, false, false, false]; // kick/hats/bass on
+  be.song.laneMood = [0, 0, -1, 0, 0, 0, 0];                              // mark bass (lane 2) drop
+  let sawDrop = false;
+  for (let k = 0; k < 30; k++) {
+    const p = be.proposeChange();
+    if (p && p.kind === 'drop' && p.layer === 2) { sawDrop = true; break; }
+    be.acceptChange();
+  }
+  check('marking a part "drop" makes the DJ pitch removing it', sawDrop);
 
   // ---- engine-level banger detection (pure, deterministic) ----
   const engine = new window.SDJ.DJEngine();
@@ -192,39 +209,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let k = 0; k < 40; k++) { const pp = de.proposeChange(); if (!pp) { deadEnded = true; break; } de.rejectChange(); }
   check('A&R never dead-ends while a layer is playable', !deadEnded);
 
-  // ---- A&R DOM flow: turn-based individual review — kill a change, get re-pitched ----
-  const voteEvalStart = evalCalls.length;
-  doc.getElementById('voteStart').click();
-  await sleep(60); // audio already unlocked earlier, so the session opens right away
-  check('A&R card shown after start',
-    !doc.getElementById('voteCard').hidden && doc.getElementById('voteDesc').textContent.length > 0);
-  // the A&R audition carries the pianoroll too, but its code map stays clean
-  check('A&R audio carries the pianoroll',
-    evalCalls.slice(voteEvalStart).some((c) => c.includes('.pianoroll(')));
-  check('A&R code panel omits the pianoroll',
-    !doc.getElementById('voteCode').innerHTML.includes('pianoroll'));
-  check('A&R cover art rendered', doc.getElementById('voteArt').innerHTML.indexOf('<svg') === 0);
-  check('A&R code highlights the touched line', doc.getElementById('voteCode').innerHTML.includes('vc-hl'));
-  const histBefore = doc.querySelectorAll('#voteHistory li').length;
-  doc.getElementById('voteDown').click();
-  await sleep(20);
-  check('kill logs a decision and re-pitches',
-    doc.querySelectorAll('#voteHistory li').length === histBefore + 1 && !doc.getElementById('voteCard').hidden);
-
-  // walk several accepts so the DJ pitches the fuller vocabulary (FX / double /
-  // fill) and confirm every card stays valid (desc + cover art) — fill maps to a
-  // pseudo-lane, so this guards the card against the new move kinds.
-  let cardOk = true, kinds = 0;
-  for (let k = 0; k < 14; k++) {
-    doc.getElementById('voteUp').click();
-    await sleep(10);
-    if (doc.getElementById('voteCard').hidden) break; // settled — fine
-    kinds++;
-    if (!doc.getElementById('voteDesc').textContent.length ||
-        doc.getElementById('voteArt').innerHTML.indexOf('<svg') !== 0) { cardOk = false; break; }
+  // ---- save-when-full: approve until the arrangement fills, then the DJ offers a
+  // save you can decline (keep iterating) or take (banks the track) ----
+  let guard = 0, cardOk = true;
+  while (window.SDJ.live.pitching() !== 'save' && guard < 80) {
+    if (!doc.getElementById('sgDesc').textContent.length) { cardOk = false; break; }
+    window.SDJ.live.approve();  // keep approving to fill the arrangement
+    await sleep(6);
+    guard++;
+    if (doc.getElementById('sgCard').hidden) break;
   }
-  check('A&R cards stay valid across the fuller vocabulary', cardOk, `pitches=${kinds}`);
-  check('A&R evaluations stayed balanced', evalCalls.every(balanced));
+  check('every suggestion card stays valid (desc present)', cardOk);
+  check('a full arrangement triggers a save prompt',
+    window.SDJ.live.pitching() === 'save' && doc.getElementById('sgKind').classList.contains('k-save'),
+    'pitching=' + window.SDJ.live.pitching());
+  const cratePreDecline = JSON.parse(window.localStorage.getItem('sdj.crate') || '[]').length;
+  window.SDJ.live.skip(); // decline the save — keep iterating, bank nothing
+  await sleep(10);
+  check('declining the save banks nothing',
+    JSON.parse(window.localStorage.getItem('sdj.crate') || '[]').length === cratePreDecline);
+  // drive back to a save prompt and take it
+  guard = 0;
+  while (window.SDJ.live.pitching() !== 'save' && guard < 40) { window.SDJ.live.approve(); await sleep(6); guard++; }
+  const cratePreSave = JSON.parse(window.localStorage.getItem('sdj.crate') || '[]').length;
+  if (window.SDJ.live.pitching() === 'save') { window.SDJ.live.approve(); await sleep(10); }
+  check('accepting the save banks the track',
+    JSON.parse(window.localStorage.getItem('sdj.crate') || '[]').length === cratePreSave + 1);
+  check('live evaluations stayed balanced', evalCalls.every(balanced));
 
   // ---- highlight escapes mini-notation < > ----
   engine.song.stage = 6; engine.song.variation = 6;

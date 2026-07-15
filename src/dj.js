@@ -1003,7 +1003,10 @@
     if (!s.vtabu) s.vtabu = {};
     s.vprop = (s.vprop || 0) + 1;
     const snapshot = cloneGenome(g);
-    const intent = s.intent || 0;      // A&R density dial (0 until the UI sets it)
+    const intent = s.intent || 0;      // density dial (0 until the UI sets it)
+    const lm = s.laneMood || [];       // part-mixer opinion: <0 drop, >0 feature
+    const likes = (i) => (lm[i] || 0) > 0.3;
+    const dislikes = (i) => (lm[i] || 0) < -0.3;
     const act = activeCount(g);
 
     // Build the candidate moves. Adds bring the skeleton in first; once three
@@ -1017,23 +1020,33 @@
     const more = 1 + Math.max(0, intent) * 0.8, less = 1 + Math.max(0, -intent) * 0.8;
     const cands = [];
 
+    // adds — skip a part you've marked "drop"; strongly favour one you "feature".
     inactiveIdxs(g).forEach((i) => {
-      if (!s.banned['add:' + i]) {
-        cands.push({ kind: 'add', layer: i, dir: 1, w: 3 * more, banKey: 'add:' + i, desc: 'bring in ' + STAGES[i].label });
+      if (s.banned['add:' + i] || dislikes(i)) return;
+      cands.push({ kind: 'add', layer: i, dir: 1, w: 3 * more * (likes(i) ? 2.5 : 1), banKey: 'add:' + i, desc: 'bring in ' + STAGES[i].label });
+    });
+    // drops — a part you marked "drop" gets pitched for removal (never the kick).
+    droppableIdxs(g).forEach((i) => {
+      if (dislikes(i) && !s.banned['drop:' + i]) {
+        cands.push({ kind: 'drop', layer: i, dir: -1, w: 3.5, banKey: 'drop:' + i, desc: 'drop ' + STAGES[i].label });
       }
     });
     droppableIdxs(g).forEach((i) => {
-      cands.push({ kind: 'reshape', layer: i, dir: 0, w: 1 * less, banKey: 'reshape:' + i, desc: 'rework ' + STAGES[i].label });
+      cands.push({ kind: 'reshape', layer: i, dir: 0, w: 1 * less * (likes(i) ? 2 : 1), banKey: 'reshape:' + i, desc: 'rework ' + STAGES[i].label });
     });
-    if (act >= 3) {
+    // Skeleton first: only thicken (FX / doubled voices / a fill) once the
+    // arrangement is full, so the DJ builds the parts up before flourishing.
+    if (act >= MIN_FULL) {
       activeLanes.forEach((i) => {
+        if (dislikes(i)) return;           // don't deepen a part you want gone
+        const feat = likes(i) ? 2.5 : 1;   // feature a part → thicken it up first
         FX_BITS.forEach((b) => {
           if (!(g.fx[i] & b) && !s.banned['fx:' + i + ':' + b]) {
-            cands.push({ kind: 'fx', layer: i, bit: b, dir: 0, w: 1.3 * more, banKey: 'fx:' + i + ':' + b, desc: 'add ' + FX_NAMES[b] + ' to ' + STAGES[i].label });
+            cands.push({ kind: 'fx', layer: i, bit: b, dir: 0, w: 1.3 * more * feat, banKey: 'fx:' + i + ':' + b, desc: 'add ' + FX_NAMES[b] + ' to ' + STAGES[i].label });
           }
         });
         if (!g.double[i] && !s.banned['double:' + i]) {
-          cands.push({ kind: 'double', layer: i, dir: 0, w: 1.1 * more, banKey: 'double:' + i, desc: 'double up ' + STAGES[i].label });
+          cands.push({ kind: 'double', layer: i, dir: 0, w: 1.1 * more * feat, banKey: 'double:' + i, desc: 'double up ' + STAGES[i].label });
         }
       });
       if (g.fill === 0 && !s.banned['fill']) {
@@ -1053,6 +1066,8 @@
     if (pick.kind === 'add') {
       g.active[pick.layer] = true;
       g.variant[pick.layer] = Rng.int(r, 0, 5);
+    } else if (pick.kind === 'drop') {
+      g.active[pick.layer] = false;
     } else if (pick.kind === 'reshape') {
       g.variant[pick.layer] += 1 + Rng.int(r, 0, 2);
     } else if (pick.kind === 'fx') {

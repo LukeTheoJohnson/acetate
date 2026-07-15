@@ -2,24 +2,19 @@
 (function (SDJ) {
   'use strict';
 
-  const TICK_MS = 1000; // evolution cadence
   const CRATE_KEY = 'sdj.crate';
   const CRATE_CAP = 64;
+  const MIN_FULL = 6;   // active layers that make a track "full" — the DJ then offers a save
+  const SAVE_SNOOZE = 4; // pitches to wait before re-offering a save you declined
 
   const engine = new SDJ.DJEngine();
   let started = false; // Strudel initialised
   let running = false; // live set in progress
-  let frozen = false;  // evolution held on the current version (still playing)
-  let tickTimer = null;
+  let pitching = false; // a suggestion is on the card awaiting approve / skip
+  let saveCooldown = 0; // engine vprop count until which the save prompt stays snoozed
   let lastGoodCode = '';
   let previewing = -1; // crate index auditioning, or -1 (mutually exclusive with a live set)
-  let voteActive = false; // an A&R session is in progress
-  let voteBeforeCode = '';      // A/B compare: code before the proposed change
-  let voteAfterCode = '';       // A/B compare: code with the proposed change applied
-  let voteAfterLayerMap = [];   // _lastLayers for the after (proposed) render
-  let voteBeforeLayerMap = [];  // _lastLayers for the before (original) render
-  let voteShowingProposed = true; // true = B (proposed), false = A (original)
-  let nowPlaying = { kind: null, name: '' }; // the single audio source: 'live' | 'preview' | 'vote' | 'remix' | null
+  let nowPlaying = { kind: null, name: '' }; // the single audio source: 'live' | 'preview' | 'remix' | null
 
   let crateSort = 'new'; // crate page ordering: 'new' | 'hype' | 'name'
 
@@ -43,18 +38,13 @@
   function boot() {
     [
       'startBtn', 'skipBtn', 'code', 'log',
-      'trackName', 'trackMeta', 'stageChips', 'energyBar', 'approvalBar',
-      'hitBar', 'hitWrap', 'roll', 'crate', 'status',
+      'trackName', 'trackMeta', 'stageChips', 'roll', 'crate', 'status',
       // deck production controls + unified transport
-      'freezeBtn', 'saveBtn', 'transport', 'tpKind', 'tpName', 'tpStop',
-      // A&R vote spike (turn-based individual review)
-      'voteStart', 'voteSave', 'voteTitle', 'voteEmpty', 'voteCard', 'voteArt', 'voteKind',
-      'voteDesc', 'voteCode', 'voteControls', 'voteUp', 'voteDown',
-      'voteLayers', 'voteHistory', 'voteRoll', 'voteRollWrap',
-      'voteDeck', 'ttLabel', 'ttBadge', 'ttHint', 'voteAB',
-      // crowd pad + genre pills + density dial + part mixer + the DJ's-mind panel
-      'pad', 'puck', 'energyVal', 'warmthVal', 'livePartMix', 'liveDensity', 'liveGenrePills',
-      'djNow', 'djVerb', 'djMove', 'djConf', 'djConfVal', 'djTemp', 'djModes', 'djFeed',
+      'saveBtn', 'transport', 'tpKind', 'tpName', 'tpStop',
+      // the DJ's suggestion card + tuning (genre pills, density, part mixer) + calls panel
+      'sgEmpty', 'sgCard', 'sgKind', 'sgDesc', 'sgCode', 'sgActions', 'sgApprove', 'sgSkip',
+      'livePartMix', 'liveDensity', 'liveGenrePills',
+      'djNow', 'djVerb', 'djMove', 'djFeed',
       // set-log controls
       'logExport', 'logClear', 'logStat',
       // app-shell menu
@@ -70,19 +60,14 @@
     // The floor now hosts Strudel's own pianoroll (the crowd viz was retired).
     // We keep a 2d context on SDJ so the appended .pianoroll({ ctx }) can find it.
     SDJ._rollCtx = el.roll ? el.roll.getContext('2d') : null;
-    SDJ._voteRollCtx = el.voteRoll ? el.voteRoll.getContext('2d') : null;
     SDJ._remixRollCtx = el.remixRoll ? el.remixRoll.getContext('2d') : null;
 
     el.startBtn.addEventListener('click', onStartStop);
     el.skipBtn.addEventListener('click', onSkip);
-    if (el.freezeBtn) el.freezeBtn.addEventListener('click', toggleFreeze);
     if (el.saveBtn) el.saveBtn.addEventListener('click', onSaveCurrent);
     if (el.tpStop) el.tpStop.addEventListener('click', stopPlayback);
-    if (el.voteStart) el.voteStart.addEventListener('click', voteStart);
-    if (el.voteSave) el.voteSave.addEventListener('click', onVoteSave);
-    if (el.voteUp) el.voteUp.addEventListener('click', () => vote(true));
-    if (el.voteDown) el.voteDown.addEventListener('click', () => vote(false));
-    if (el.voteAB) el.voteAB.addEventListener('click', onVoteAB);
+    if (el.sgApprove) el.sgApprove.addEventListener('click', () => liveDecide(true));
+    if (el.sgSkip) el.sgSkip.addEventListener('click', () => liveDecide(false));
     if (el.logExport) el.logExport.addEventListener('click', onExportLog);
     if (el.logClear) el.logClear.addEventListener('click', onClearLog);
     // crate library tools
@@ -94,12 +79,10 @@
     if (el.remixSave) el.remixSave.addEventListener('click', onRemixSave);
     if (el.remixTransition) el.remixTransition.addEventListener('input', onTransition);
     window.addEventListener('hashchange', onRoute);
-    bindPad();
     buildControls();
     buildRemixRack();
     buildVoiceDeck();
-    placePuck();
-    renderMind(null);
+    resetMind();
     renderCrate();
     renderRemixShelf();
     syncDeckButtons();
@@ -158,40 +141,23 @@
   async function startSet() {
     if (!(await ensureAudio())) return;
     if (remixPlaying) stopRemix();                           // live replaces a remix
-    if (voteActive) stopVote();                              // live replaces an A&R session
     if (previewing >= 0) { previewing = -1; renderCrate(); } // live replaces any preview
     running = true;
-    setFrozen(false);
     sizeRoll(); // make sure the pianoroll canvas is sized before the first draw
     el.startBtn.textContent = '⏸ Stop the set';
     syncDeckButtons();
-    engine.newSong();
-    resetControls(); // fresh set opens with a neutral opinion on every part
-    resetMind();
-    loggedVerdictSeq = 0;
-    if (SDJ.SetLog) {
-      SDJ.SetLog.mark('set', {
-        name: engine.song.name, key: engine.song.key,
-        scale: engine.song.scaleType, bpm: engine.song.bpm,
-        banks: !!engine.banksLoaded,
-      });
-    }
-    evaluateCurrent(true);
-    updateUI();
     clearLog();
     updateLogStat();
+    freshTrack('set');
     logEvent('🎧 ' + engine.song.name + ' — building from the kick up…');
-    tickTimer = setInterval(loop, TICK_MS);
-    setStatus('Live. Drag the pad — up for energy, sideways for warmth.');
+    setStatus('Live. Approve or skip each change the DJ pitches.');
   }
 
   function stopSet() {
     running = false;
-    setFrozen(false);
+    hideSuggestion();
     el.startBtn.textContent = '▶ Start the set';
     syncDeckButtons();
-    if (tickTimer) clearInterval(tickTimer);
-    tickTimer = null;
     stopAll(); // hush + clear the transport
     clearRoll(); // wipe the roll so a later preview/session doesn't scroll stale notes
     if (SDJ.SetLog) SDJ.SetLog.mark('stop');
@@ -200,39 +166,148 @@
 
   function onSkip() {
     if (!running) return;
-    setFrozen(false);
-    logEvent('⏭ crowd wanted something new — fresh track');
-    engine.newSong();
-    resetMind();
-    loggedVerdictSeq = 0;
-    if (SDJ.SetLog) SDJ.SetLog.mark('song', { reason: 'skip', name: engine.song.name });
-    evaluateCurrent(true);
-    updateUI();
+    logEvent('⏭ fresh track');
+    freshTrack('skip');
     logEvent('🎧 ' + engine.song.name);
   }
 
-  // ---- the evolution loop ------------------------------------------------
-
-  function loop() {
-    if (!running || frozen) return;
-    if (engine.song) engine.song.laneMood = laneMoodIn.slice();
-    const res = engine.tick(getEnergy(), TICK_MS / 1000, getWarmth(), getIntent());
-    for (const e of res.events) logEvent(e);
-    if (res.changed) evaluateCurrent(false);
-    updateUI();
-    recordTick(res);
-
-    if (res.hit) {
-      if (SDJ.SetLog) SDJ.SetLog.mark('song', { reason: 'banger', name: engine.song.name, approval: Math.round(engine.song.approval) });
-      pushFeed('★', 'banked a banger — moving on', 'reset', 'up');
-      saveBanger();
-      engine.newSong();
-      resetMind();
-      loggedVerdictSeq = 0;
-      if (SDJ.SetLog) SDJ.SetLog.mark('song', { reason: 'next', name: engine.song.name });
-      evaluateCurrent(true);
-      logEvent('🎧 next up: ' + engine.song.name);
+  // Start a brand-new track: reset the board, play the bare kick, pitch the first
+  // change. Shared by Start, New, and moving on after a save.
+  function freshTrack(reason) {
+    engine.newSong();
+    engine.voteReset();      // clear the per-song ban / tabu the pitcher uses
+    resetControls();         // neutral board — parts on auto, density held
+    resetMind();
+    saveCooldown = 0;
+    if (SDJ.SetLog) {
+      SDJ.SetLog.mark(reason === 'set' ? 'set' : 'song', {
+        reason: reason, name: engine.song.name, key: engine.song.key,
+        scale: engine.song.scaleType, bpm: engine.song.bpm, banks: !!engine.banksLoaded,
+      });
     }
+    evaluateCurrent(true);   // play the bare track (just the kick)
+    updateUI();
+    livePitch();             // present the first suggestion
+  }
+
+  // ---- turn-based suggestions: the DJ pitches, you approve or skip ---------
+  // Nothing commits without you. proposeChange() applies a candidate to the
+  // genome and we audition it; Approve keeps it, Skip reverts + bans it. Once the
+  // arrangement is full the DJ offers a save you can take or wave off. The tuning
+  // controls (genre / density / part mixer) bias what gets pitched next.
+
+  let pitchLayer = -1; // the lane the current suggestion touches (lights its chip)
+
+  const PITCH_KINDS = {
+    add:     { label: 'new part',    cls: 'k-add' },
+    drop:    { label: 'drop a part', cls: 'k-drop' },
+    reshape: { label: 'rework',      cls: 'k-reshape' },
+    fx:      { label: 'effect',      cls: 'k-fx' },
+    double:  { label: 'thicken',     cls: 'k-double' },
+    fill:    { label: 'fill',        cls: 'k-fill' },
+    save:    { label: 'ready?',      cls: 'k-save' },
+  };
+
+  // Offer the next thing to judge. A full arrangement (and no snoozed save) gets a
+  // save prompt; otherwise a musical change; if nothing's left to change, a save.
+  function livePitch() {
+    if (!running) return;
+    const full = engine.state().activeCount >= MIN_FULL;
+    if (full && (engine.song.vprop || 0) >= saveCooldown) { presentSave(false); return; }
+    const p = engine.proposeChange();
+    if (!p) { presentSave(true); return; }
+    const code = engine.render();
+    const layerMap = (engine._lastLayers || []).slice();
+    play(withRoll(code), 'live', engine.song.name); // audition the proposed version
+    presentCard(p, code, layerMap);
+  }
+
+  function presentCard(p, code, layerMap) {
+    pitching = true;
+    pitchLayer = p.layer;
+    const kind = PITCH_KINDS[p.kind] || PITCH_KINDS.reshape;
+    showSuggestion(kind, p.desc ? p.desc.charAt(0).toUpperCase() + p.desc.slice(1) : '—',
+      pitchCodeHtml(code, p.layer, layerMap), '✓ Approve', '✗ Skip');
+    if (el.djVerb) el.djVerb.textContent = 'pitching';
+    if (el.djMove) el.djMove.textContent = p.desc || 'a change';
+    updateUI();
+  }
+
+  // settled=true when the whole vocabulary is exhausted (nothing left to pitch).
+  function presentSave(settled) {
+    pitching = 'save';
+    pitchLayer = -1;
+    showSuggestion(PITCH_KINDS.save,
+      settled ? 'That’s the whole track — save it to the crate?'
+              : 'This is sounding full — save it to the crate?',
+      '', '💾 Save it', 'Keep going');
+    if (el.djVerb) el.djVerb.textContent = 'holding';
+    if (el.djMove) el.djMove.textContent = 'ready when you are';
+    updateUI();
+  }
+
+  function showSuggestion(kind, desc, codeHtml, approveLabel, skipLabel) {
+    if (el.sgEmpty) el.sgEmpty.hidden = true;
+    if (el.sgCard) el.sgCard.hidden = false;
+    if (el.sgActions) el.sgActions.hidden = false;
+    if (el.sgKind) { el.sgKind.textContent = kind.label; el.sgKind.className = 'sg-kind ' + kind.cls; }
+    if (el.sgDesc) el.sgDesc.textContent = desc;
+    if (el.sgCode) { el.sgCode.innerHTML = codeHtml; el.sgCode.hidden = !codeHtml; }
+    if (el.sgApprove) el.sgApprove.textContent = approveLabel;
+    if (el.sgSkip) el.sgSkip.textContent = skipLabel;
+  }
+
+  function hideSuggestion() {
+    pitching = false;
+    pitchLayer = -1;
+    if (el.sgCard) el.sgCard.hidden = true;
+    if (el.sgActions) el.sgActions.hidden = true;
+    if (el.sgEmpty) el.sgEmpty.hidden = false;
+  }
+
+  // Approve (keep) or skip the pitched change / save prompt.
+  function liveDecide(keep) {
+    if (!running || !pitching) return;
+    if (pitching === 'save') {
+      if (keep) {
+        onSaveCurrent();          // bank the track…
+        logEvent('🎧 next up: fresh track');
+        freshTrack('next');       // …and roll a fresh one (the track's done)
+      } else {
+        saveCooldown = (engine.song.vprop || 0) + SAVE_SNOOZE; // snooze the prompt
+        pushFeed('→', 'kept going', 'declined the save', 'flat');
+        livePitch();
+      }
+      return;
+    }
+    if (!engine.song.pending) { livePitch(); return; }
+    const p = keep ? engine.acceptChange() : engine.rejectChange();
+    if (SDJ.SetLog) SDJ.SetLog.mark('vote', { v: keep ? 'up' : 'down', desc: p.desc });
+    pushFeed(keep ? '✓' : '↩', p.desc, keep ? 'approved' : 'skipped', keep ? 'up' : 'down');
+    logEvent((keep ? '✓ kept: ' : '✗ skipped: ') + p.desc);
+    if (!keep) evaluateCurrent(false); // reverted — reflect the committed track
+    pitching = false;
+    livePitch();
+  }
+
+  // Current code with the pitched layer's line(s) highlighted in its lane colour.
+  function pitchCodeHtml(code, layer, layerMap) {
+    const lines = code.split('\n');
+    const map = layerMap || engine._lastLayers || [];
+    const bodyStart = 2; // line 0 = setcps(...), line 1 = stack(
+    const colors = SDJ.LANE_COLORS;
+    const layerColor = (colors && layer != null && layer >= 0) ? colors[layer] : null;
+    let out = '';
+    for (let idx = 0; idx < lines.length; idx++) {
+      const k = idx - bodyStart;
+      const isLayer = k >= 0 && k < map.length && map[k] === layer;
+      const inner = highlight(lines[idx]) || ' ';
+      const style = (isLayer && layerColor)
+        ? ' style="border-left-color:' + layerColor + ';background:' + layerColor + '22"'
+        : '';
+      out += '<span class="sg-line' + (isLayer ? ' sg-hl' : '') + '"' + style + '>' + inner + '</span>';
+    }
+    return out;
   }
 
   function evaluateCurrent(isNew) {
@@ -253,9 +328,6 @@
   function withRoll(code) {       // the live deck's floor
     return SDJ._rollCtx ? code + rollTail('window.SDJ._rollCtx') : code;
   }
-  function withVoteRoll(code) {   // the A&R pitch audition
-    return SDJ._voteRollCtx ? code + rollTail('window.SDJ._voteRollCtx') : code;
-  }
 
   // Keep a canvas' backing store matched to its box (× dpr) so the roll is crisp.
   // A canvas is display:none — thus zero-sized — while its view/card is hidden,
@@ -269,15 +341,11 @@
     c.height = Math.round(h * dpr);
   }
   function sizeRoll() { sizeCanvas(el.roll); }
-  function sizeVoteRoll() { sizeCanvas(el.voteRoll); }
   function sizeRemixRoll() { sizeCanvas(el.remixRoll); }
-  function sizeRolls() { sizeRoll(); sizeVoteRoll(); sizeRemixRoll(); }
+  function sizeRolls() { sizeRoll(); sizeRemixRoll(); }
 
   function clearRoll() {
     if (SDJ._rollCtx && el.roll) SDJ._rollCtx.clearRect(0, 0, el.roll.width, el.roll.height);
-  }
-  function clearVoteRoll() {
-    if (SDJ._voteRollCtx && el.voteRoll) SDJ._voteRollCtx.clearRect(0, 0, el.voteRoll.width, el.voteRoll.height);
   }
   function clearRemixRoll() {
     if (SDJ._remixRollCtx && el.remixRoll) SDJ._remixRollCtx.clearRect(0, 0, el.remixRoll.width, el.remixRoll.height);
@@ -328,7 +396,7 @@
   }
 
   function flashEvalError(kind) {
-    const panel = kind === 'vote' ? el.voteCode : el.code;
+    const panel = el.code;
     if (panel) {
       panel.classList.remove('eval-error');
       void panel.offsetWidth; // reflow so the animation restarts on repeat failures
@@ -371,7 +439,6 @@
   // Global stop — from the header transport. Stops whatever is playing.
   function stopPlayback() {
     if (remixPlaying) stopRemix();
-    else if (voteActive) stopVote();
     else if (previewing >= 0) stopPreview();
     else if (running) stopSet();
     else stopAll();
@@ -386,39 +453,18 @@
     if (!el.transport) return;
     if (!nowPlaying.kind) { el.transport.hidden = true; return; }
     el.transport.hidden = false;
-    // 'frozen' is a display state of the live source, not a separate source
     const token = nowPlaying.kind === 'preview' ? 'preview'
-      : nowPlaying.kind === 'vote' ? 'vote'
       : nowPlaying.kind === 'remix' ? 'remix'
-      : frozen ? 'frozen' : 'live';
-    if (el.tpKind) { el.tpKind.textContent = token === 'vote' ? 'a&r' : token; el.tpKind.className = 'tp-kind ' + token; }
+      : 'live';
+    if (el.tpKind) { el.tpKind.textContent = token; el.tpKind.className = 'tp-kind ' + token; }
     if (el.tpName) el.tpName.textContent = nowPlaying.name || '—';
-    el.transport.classList.toggle('frozen', token === 'frozen');
   }
 
-  // ---- production controls: freeze evolution, save the current version ----
-
-  function setFrozen(v) {
-    frozen = !!v;
-    if (el.freezeBtn) {
-      el.freezeBtn.textContent = frozen ? '▶ Resume' : '⏸ Freeze';
-      el.freezeBtn.classList.toggle('active', frozen);
-    }
-    refreshTransport();
-  }
-
-  function toggleFreeze() {
-    if (!running) return;
-    setFrozen(!frozen);
-    if (SDJ.SetLog) SDJ.SetLog.mark(frozen ? 'freeze' : 'resume');
-    setStatus(frozen
-      ? 'Frozen — evolution held, this version keeps looping. Save it or resume.'
-      : 'Live again — the DJ is evolving.');
-  }
+  // ---- production controls: save the current track -----------------------
 
   function onSaveCurrent() {
     if (!running || !engine.song) {
-      setStatus('Start a set first, then save a version you like.');
+      setStatus('Start a set first, then save a track you like.');
       return;
     }
     saveToCrate('💾 saved “' + engine.song.name + '” to the crate', 'saved');
@@ -426,244 +472,7 @@
   }
 
   function syncDeckButtons() {
-    if (el.freezeBtn) el.freezeBtn.disabled = !running;
     if (el.saveBtn) el.saveBtn.disabled = !running;
-  }
-
-  // ---- A&R session: turn-based individual review -------------------------
-  // The DJ pitches one change at a time — a new part, a rework, an FX, a doubled
-  // voice or a fill — applies it so you hear it, and shows a card: a generative
-  // cover, a plain-English line, and the exact code lines it touched. Keep
-  // commits it; kill reverts it and bans that idea for the rest of the song.
-  // Runs through the same single-source transport (kind 'vote').
-
-  const VOTE_KINDS = {
-    add:     { label: 'new part', cls: 'add' },
-    reshape: { label: 'rework',   cls: 'reshape' },
-    fx:      { label: 'fx',       cls: 'fx' },
-    double:  { label: 'double',   cls: 'double' },
-    fill:    { label: 'fill',     cls: 'fill' },
-  };
-
-  async function voteStart() {
-    if (!(await ensureAudio())) return;
-    if (remixPlaying) stopRemix();
-    if (running) stopSet();
-    if (previewing >= 0) stopPreview();
-    voteActive = true;
-    engine.newSong();
-    engine.voteReset();
-    if (el.voteSave) el.voteSave.disabled = false;
-    if (el.voteHistory) el.voteHistory.innerHTML = '';
-    if (el.voteTitle) el.voteTitle.textContent = engine.song.name;
-    renderVote(); // play the bare track (just the kick) to open the session
-    updateVoteLayers();
-    if (SDJ.SetLog) SDJ.SetLog.mark('vote-start', { name: engine.song.name });
-    nextPitch(); // propose + present the first change
-    setStatus('A&R session — keep or kill each change the DJ pitches.');
-  }
-
-  function stopVote() {
-    voteActive = false;
-    if (engine.song) engine.song.pending = null;
-    if (el.voteSave) el.voteSave.disabled = true;
-    if (el.voteCard) el.voteCard.hidden = true;
-    if (el.voteControls) el.voteControls.hidden = true;
-    if (el.voteEmpty) el.voteEmpty.hidden = false;
-    if (el.voteRollWrap) el.voteRollWrap.hidden = true;
-    if (el.voteDeck) el.voteDeck.hidden = true;
-    voteBeforeCode = ''; voteAfterCode = '';
-    voteShowingProposed = true;
-    clearVoteRoll();
-    stopAll();
-  }
-
-  function renderVote() {
-    play(withVoteRoll(engine.render()), 'vote', engine.song ? engine.song.name : '');
-  }
-
-  // Temporarily swap the genome to a snapshot, render clean code, then restore.
-  // Produces the "A" (before) code for A/B without mutating state. Covers every
-  // genome field the vocabulary touches (fx / double / fill included).
-  function renderFromSnapshot(snap) {
-    const g = engine.song.genome;
-    const saved = {
-      active: g.active.slice(), variant: g.variant.slice(), energyIdx: g.energyIdx, bank: g.bank,
-      fx: g.fx.slice(), double: g.double.slice(), fill: g.fill,
-    };
-    g.active = snap.active.slice(); g.variant = snap.variant.slice();
-    g.energyIdx = snap.energyIdx; g.bank = snap.bank;
-    g.fx = snap.fx.slice(); g.double = snap.double.slice(); g.fill = snap.fill;
-    const code = engine.render();
-    g.active = saved.active; g.variant = saved.variant; g.energyIdx = saved.energyIdx; g.bank = saved.bank;
-    g.fx = saved.fx; g.double = saved.double; g.fill = saved.fill;
-    return code;
-  }
-
-  function updateTurntable() {
-    const proposed = voteShowingProposed;
-    if (el.ttLabel) {
-      el.ttLabel.textContent = proposed ? 'B' : 'A';
-      el.ttLabel.className = 'tt-label' + (proposed ? '' : ' side-a');
-    }
-    if (el.ttBadge) {
-      el.ttBadge.textContent = proposed ? 'proposed' : 'original';
-      el.ttBadge.className = 'tt-badge' + (proposed ? '' : ' side-a');
-    }
-    if (el.ttHint) {
-      el.ttHint.textContent = proposed ? 'tap to hear original' : 'tap to hear proposed';
-    }
-  }
-
-  function onVoteAB() {
-    if (!voteActive || !engine.song || !engine.song.pending) return;
-    voteShowingProposed = !voteShowingProposed;
-    const code = voteShowingProposed ? voteAfterCode : voteBeforeCode;
-    const layerMap = voteShowingProposed ? voteAfterLayerMap : voteBeforeLayerMap;
-    play(withVoteRoll(code), 'vote', engine.song ? engine.song.name : '');
-    if (el.voteCode) {
-      el.voteCode.innerHTML = voteCodeHtml(
-        code,
-        engine.song.pending ? engine.song.pending.layer : -1,
-        voteShowingProposed,
-        layerMap
-      );
-    }
-    updateTurntable();
-  }
-
-  function nextPitch() {
-    if (!voteActive) return;
-    const p = engine.proposeChange();
-    if (!p) { presentSettled(); updateVoteLayers(); return; }
-    const afterCode = engine.render(); // single render after mutation is applied
-    const afterLayerMap = (engine._lastLayers || []).slice();
-    play(withVoteRoll(afterCode), 'vote', engine.song ? engine.song.name : '');
-    presentCard(p, afterCode, afterLayerMap);
-    updateVoteLayers(); // light the pitched lane's chip alongside the card
-  }
-
-  function vote(keep) {
-    if (!voteActive || !engine.song || !engine.song.pending) return;
-    const p = keep ? engine.acceptChange() : engine.rejectChange();
-    addVoteHistory(keep, p.desc);
-    if (SDJ.SetLog) SDJ.SetLog.mark('vote', { v: keep ? 'up' : 'down', desc: p.desc });
-    if (!keep) renderVote(); // reverted — reflect it before the next pitch
-    updateVoteLayers();
-    nextPitch();
-  }
-
-  function presentCard(p, afterCode, afterLayerMap) {
-    // Capture the "before" version by temporarily rendering from the pre-change snapshot.
-    let beforeCode = afterCode;
-    let beforeLayerMap = afterLayerMap;
-    if (engine.song && engine.song.pending) {
-      beforeCode = renderFromSnapshot(engine.song.pending.snapshot);
-      beforeLayerMap = (engine._lastLayers || []).slice();
-      engine._lastLayers = afterLayerMap; // restore to proposed state
-    }
-    voteAfterCode = afterCode;
-    voteAfterLayerMap = afterLayerMap;
-    voteBeforeCode = beforeCode;
-    voteBeforeLayerMap = beforeLayerMap;
-    voteShowingProposed = true;
-
-    if (el.voteEmpty) el.voteEmpty.hidden = true;
-    if (el.voteCard) el.voteCard.hidden = false;
-    if (el.voteControls) el.voteControls.hidden = false;
-    if (el.voteRollWrap) el.voteRollWrap.hidden = false;
-    if (el.voteDeck) el.voteDeck.hidden = false;
-    sizeVoteRoll(); // the canvas was zero-sized while the wrap was hidden
-    const kind = VOTE_KINDS[p.kind] || VOTE_KINDS.reshape;
-    if (el.voteKind) {
-      el.voteKind.textContent = kind.label;
-      el.voteKind.className = 'vc-kind ' + kind.cls;
-    }
-    // the engine already produces a plain-English line for every kind
-    if (el.voteDesc) el.voteDesc.textContent = p.desc ? p.desc.charAt(0).toUpperCase() + p.desc.slice(1) : '—';
-    if (el.voteArt && SDJ.Art) {
-      const artLayer = Math.min(p.layer, (SDJ.LANE_COLORS || []).length - 1); // fill (7) borrows a lane's art
-      el.voteArt.innerHTML = SDJ.Art.cover(artLayer, engine.song.genome.variant[artLayer] || 0, engine.song.seed);
-    }
-    if (el.voteCode) el.voteCode.innerHTML = voteCodeHtml(afterCode, p.layer, true, afterLayerMap);
-    updateTurntable();
-  }
-
-  function presentSettled() {
-    renderVote();
-    if (el.voteCard) el.voteCard.hidden = true;
-    if (el.voteControls) el.voteControls.hidden = true;
-    if (el.voteRollWrap) el.voteRollWrap.hidden = true;
-    if (el.voteDeck) el.voteDeck.hidden = true;
-    clearVoteRoll();
-    if (el.voteEmpty) {
-      el.voteEmpty.hidden = false;
-      el.voteEmpty.innerHTML =
-        'That’s the track — nothing left to pitch. <b>Keep version</b> to save it, or start a fresh session.';
-    }
-    setStatus('The track’s settled — keep it or start again.');
-  }
-
-  function onVoteSave() {
-    if (!voteActive || !engine.song) return;
-    saveToCrate('💾 kept “' + engine.song.name + '” from the A&R session', 'a&r');
-    setStatus('Saved “' + engine.song.name + '” to the crate.');
-  }
-
-  // Current code with the proposed layer's line(s) highlighted.
-  // doHighlight=false when showing the A (original) side — no lines to mark yet.
-  // layerMap overrides engine._lastLayers so A and B each use their own map.
-  function voteCodeHtml(code, layer, doHighlight, layerMap) {
-    const lines = code.split('\n');
-    const map = layerMap || engine._lastLayers || [];
-    const bodyStart = 2; // line 0 = setcps(...), line 1 = stack(
-    const colors = SDJ.LANE_COLORS;
-    const layerColor = (colors && layer != null && layer >= 0) ? colors[layer] : null;
-    let out = '';
-    for (let idx = 0; idx < lines.length; idx++) {
-      const k = idx - bodyStart;
-      const isLayer = doHighlight !== false && k >= 0 && k < map.length && map[k] === layer;
-      const inner = highlight(lines[idx]) || ' ';
-      // Apply the layer's pianoroll lane colour inline so the highlight matches the roll.
-      const style = (isLayer && layerColor)
-        ? ' style="border-left-color:' + layerColor + ';background:' + layerColor + '22"'
-        : '';
-      out += '<span class="vc-line' + (isLayer ? ' vc-hl' : '') + '"' + style + '>' + inner + '</span>';
-    }
-    return out;
-  }
-
-  function updateVoteLayers() {
-    if (!el.voteLayers || !engine.song) return;
-    const st = engine.state();
-    const pend = engine.song.pending;
-    // Chips show the *committed* track; the lane the DJ is currently pitching gets
-    // a pulsing tint in its own lane colour (matching the code highlight and the
-    // pianoroll lane), so "bring in the chords" visibly points at CHORDS before
-    // you keep it. proposeChange() has already mutated the genome, so committed
-    // state comes from the pre-pitch snapshot, not the live active array.
-    const committed = pend ? pend.snapshot.active : st.activeLayers;
-    const pitchLayer = pend ? pend.layer : -1;
-    el.voteLayers.innerHTML = '';
-    st.stageKeys.forEach((keyName, i) => {
-      const c = document.createElement('span');
-      const pitching = i === pitchLayer;
-      c.className = 'chip' + (committed[i] ? ' on' : '') + (pitching ? ' pitching' : '');
-      if (pitching && SDJ.LANE_COLORS) c.style.setProperty('--pitch', SDJ.LANE_COLORS[i]);
-      c.textContent = keyName;
-      el.voteLayers.appendChild(c);
-    });
-  }
-
-  function addVoteHistory(keep, desc) {
-    if (!el.voteHistory) return;
-    const li = document.createElement('li');
-    li.className = 'vh-row ' + (keep ? 'up' : 'down');
-    li.innerHTML =
-      '<span class="vh-glyph">' + (keep ? '👍' : '👎') + '</span>' +
-      '<span class="vh-desc">' + escapeHtml(desc) + '</span>';
-    el.voteHistory.prepend(li);
-    while (el.voteHistory.childElementCount > 40) el.voteHistory.lastChild.remove();
   }
 
   // ---- the crate: a reusable record library ------------------------------
@@ -736,11 +545,6 @@
     if (logMsg) logEvent(logMsg);
     renderCrate();
     renderRemixShelf();
-  }
-
-  // crowd-approved banger — auto-saved from the loop
-  function saveBanger() {
-    saveToCrate('💾 the crowd went off — saved “' + engine.song.name + '” to the crate', 'banger');
   }
 
   function loadCrate() {
@@ -895,7 +699,6 @@
     setStatus('Loading sounds…');
     if (!(await ensureAudio())) return;
     if (remixPlaying) stopRemix(); // one source at a time
-    if (voteActive) stopVote();
     if (running) stopSet();
     previewing = i;
     play(entry.code, 'preview', entry.name);
@@ -1020,8 +823,7 @@
     setStatus('Loading sounds…');
     if (!(await ensureAudio())) return;
     await ensureVocals();
-    if (voteActive) stopVote();     // one source at a time
-    if (running) stopSet();
+    if (running) stopSet();         // one source at a time
     if (previewing >= 0) stopPreview();
     sizeRemixRoll();
     remixEvaluate();
@@ -1226,22 +1028,16 @@
     updateRemixButtons();
   }
 
-  // ---- crowd pad: two emotional axes, never a musical parameter ----------
-  // Y = energy (flat..going off) is the reward the DJ climbs; X = warmth
-  // (cold..warm) only biases HOW it searches. This is the whole control
-  // surface — the DJ still authors every note.
+  // ---- tuning that biases the DJ's next suggestion ----------------------
+  // Neither of these changes the audio on its own — they steer what the DJ
+  // pitches next: the part mixer sets a per-lane opinion (drop / auto / feature)
+  // and the density dial sets how busy the arrangement should get.
 
-  let energyIn = 0.1; // -1..1, the fitness signal (this is today's "mood")
-  let warmthIn = 0;   // -1..1, colours the search
   let intentIn = 0;   // -1..1, density dial (strip <-> pile on)
-  const laneMoodIn = [0, 0, 0, 0, 0, 0, 0]; // -1..1 per lane: granular opinion
+  const laneMoodIn = [0, 0, 0, 0, 0, 0, 0]; // -1..1 per lane: drop / auto / feature
 
-  function getEnergy() { return energyIn; }
-  function getWarmth() { return warmthIn; }
-  function getIntent() { return intentIn; }
-
-  // Push the current per-lane opinion + density onto whatever song is live, so a
-  // fader move lands immediately (the loops also re-apply this each tick).
+  // Push the current per-lane opinion + density onto the live song so the next
+  // proposeChange() reads them.
   function applyControls() {
     if (engine.song) {
       engine.song.laneMood = laneMoodIn.slice();
@@ -1249,57 +1045,7 @@
     }
   }
 
-  // Set the crowd programmatically. The pad drag calls this too, and it's
-  // exposed on SDJ so any action the pad can take is available without the UI.
-  function setCrowd(energy, warmth) {
-    energyIn = clamp(energy, -1, 1);
-    warmthIn = clamp(warmth, -1, 1);
-    placePuck();
-  }
-
-  function placePuck() {
-    if (!el.puck) return;
-    el.puck.style.left = ((warmthIn + 1) / 2) * 100 + '%';
-    el.puck.style.top = (1 - (energyIn + 1) / 2) * 100 + '%';
-    el.energyVal.textContent = (energyIn >= 0 ? '+' : '') + Math.round(energyIn * 100);
-    el.warmthVal.textContent = (warmthIn >= 0 ? '+' : '') + Math.round(warmthIn * 100);
-    const glow = 0.3 + ((energyIn + 1) / 2) * 0.5;
-    el.puck.style.boxShadow =
-      '0 0 0 2px rgba(255,255,255,0.25), 0 0 22px 6px rgba(255,77,141,' + glow.toFixed(2) + ')';
-  }
-
-  function bindPad() {
-    if (!el.pad) return;
-    let dragging = false;
-    const fromEvent = (ev) => {
-      const r = el.pad.getBoundingClientRect();
-      const p = ev.touches ? ev.touches[0] : ev;
-      const x = clamp((p.clientX - r.left) / r.width, 0, 1);
-      const y = clamp((p.clientY - r.top) / r.height, 0, 1);
-      setCrowd(1 - y * 2, x * 2 - 1); // up = energy, right = warmth
-    };
-    el.pad.addEventListener('mousedown', (e) => { dragging = true; fromEvent(e); });
-    window.addEventListener('mousemove', (e) => { if (dragging) fromEvent(e); });
-    window.addEventListener('mouseup', () => { dragging = false; });
-    el.pad.addEventListener('touchstart', (e) => { dragging = true; fromEvent(e); e.preventDefault(); }, { passive: false });
-    el.pad.addEventListener('touchmove', (e) => { if (dragging) { fromEvent(e); e.preventDefault(); } }, { passive: false });
-    window.addEventListener('touchend', () => { dragging = false; });
-    // keyboard nudges for accessibility (the pad is focusable)
-    el.pad.addEventListener('keydown', (e) => {
-      const step = 0.1;
-      if (e.key === 'ArrowUp') setCrowd(energyIn + step, warmthIn);
-      else if (e.key === 'ArrowDown') setCrowd(energyIn - step, warmthIn);
-      else if (e.key === 'ArrowRight') setCrowd(energyIn, warmthIn + step);
-      else if (e.key === 'ArrowLeft') setCrowd(energyIn, warmthIn - step);
-      else return;
-      e.preventDefault();
-    });
-  }
-
-  // ---- per-part opinion faders + density dial ---------------------------
-  // The seven colour-coded faders are the granular feedback surface: each is the
-  // crowd's opinion on one part (up = feature it, down = lose it). The density
-  // dial biases how busy the whole track gets. Both feed the engine every tick.
+  // ---- tuning controls: part mixer + density dial + genre pills ----------
 
   function buildControls() {
     buildPartMix(el.livePartMix, (i, v) => { laneMoodIn[i] = v; applyControls(); });
@@ -1352,11 +1098,14 @@
       ? ((SDJ.Theory.GENRES.find((g) => g.id === engine.genrePref) || {}).label || 'that style')
       : 'Surprise me';
     if (running && reskinned) {
-      setFrozen(false);
-      evaluateCurrent(false); // re-render the live arrangement in the new genre + tempo
+      // drop any un-judged pitch, re-render the committed arrangement in the new
+      // style, then pitch fresh so the suggestion matches the new genre.
+      if (pitching && pitching !== 'save' && engine.song.pending) engine.rejectChange();
+      evaluateCurrent(false);
       updateUI();
       if (SDJ.SetLog) SDJ.SetLog.mark('song', { reason: 'genre', name: engine.song.name });
       logEvent('🎚 re-skinned as ' + engine.song.genre.label + ' · ' + engine.song.bpm + ' bpm');
+      livePitch();
     } else {
       setStatus(label + ' — takes effect on the next track.');
     }
@@ -1420,8 +1169,7 @@
     const st = engine.state();
     el.trackName.textContent = st.name;
     el.trackMeta.textContent =
-      st.key + ' ' + st.scaleType + ' · ' + st.bpm + ' BPM · ' +
-      st.activeCount + '/7 · ' + st.mode;
+      st.key + ' ' + st.scaleType + ' · ' + st.bpm + ' BPM · ' + st.activeCount + '/7 parts';
     if (el.stageChips.childElementCount !== st.stageKeys.length) {
       el.stageChips.innerHTML = '';
       st.stageKeys.forEach((k) => {
@@ -1431,67 +1179,25 @@
         el.stageChips.appendChild(c);
       });
     }
+    // Chips show the COMMITTED arrangement — when a suggestion is applied but not
+    // yet judged, that comes from the pre-pitch snapshot; the pitched lane pulses.
+    const pend = engine.song.pending;
+    const committed = (pend && pitching && pitching !== 'save') ? pend.snapshot.active : st.activeLayers;
     Array.from(el.stageChips.children).forEach((c, i) => {
-      c.classList.toggle('on', !!(st.activeLayers && st.activeLayers[i]));
+      c.classList.toggle('on', !!(committed && committed[i]));
+      const isPitch = i === pitchLayer;
+      c.classList.toggle('pitching', isPitch);
+      if (isPitch && SDJ.LANE_COLORS) c.style.setProperty('--pitch', SDJ.LANE_COLORS[i]);
     });
-    el.energyBar.style.width = Math.round(st.energy * 100) + '%';
-    el.approvalBar.style.width = Math.round(st.approval) + '%';
-    el.hitBar.style.width = Math.round(st.hitProgress * 100) + '%';
-    el.hitWrap.classList.toggle('armed', st.hitProgress > 0.05);
-    renderMind(st);
   }
 
-  // ---- the DJ's mind: surface the reasoning the engine already produces ---
-  // The wow isn't more knobs — it's watching the machine want something and
-  // work for it. All of this data already flows out of tick()/state().
-
-  let lastVerdictSeq = 0;
+  // ---- the DJ's calls: current status + a running approve/skip history ----
 
   function resetMind() {
-    lastVerdictSeq = 0;
     if (el.djFeed) el.djFeed.innerHTML = '';
-    renderMind(null);
-  }
-
-  function renderMind(st) {
-    if (!el.djNow) return;
-    if (!st) {
-      el.djVerb.textContent = 'warming up';
-      el.djMove.textContent = 'reading the room…';
-      el.djNow.classList.remove('settled');
-      el.djConf.style.width = '0%';
-      el.djConfVal.textContent = '—';
-      el.djTemp.textContent = 'temp 0.40';
-      el.djModes.querySelectorAll('.mchip').forEach((c) => c.classList.remove('on'));
-      return;
-    }
-    // current move — auditioning vs holding
-    const move = st.move;
-    const settled = st.mode === 'locked in' || !move || /locked in|teasing|held/.test(move);
-    el.djNow.classList.toggle('settled', settled);
-    el.djVerb.textContent = settled ? 'holding' : 'auditioning';
-    el.djMove.textContent = move || 'holding the groove';
-
-    // confidence = inverse of exploration temperature
-    const conf = Math.round((1 - st.temp) * 100);
-    el.djConf.style.width = conf + '%';
-    el.djConfVal.textContent = conf + '%';
-    el.djTemp.textContent = 'temp ' + st.temp.toFixed(2);
-
-    // read of the room
-    el.djModes.querySelectorAll('.mchip').forEach((c) =>
-      c.classList.toggle('on', c.dataset.m === st.mode)
-    );
-
-    // reasoning feed — one row per newly-judged mutation, with the delta
-    if (st.verdictSeq > lastVerdictSeq && st.lastVerdict) {
-      lastVerdictSeq = st.verdictSeq;
-      const v = st.lastVerdict;
-      const d = Math.round(v.delta);
-      const glyph = v.kind === 'kept' ? '✓' : v.kind === 'reverted' ? '↩' : '~';
-      const tone = v.kind === 'kept' ? 'up' : v.kind === 'reverted' ? 'down' : 'flat';
-      pushFeed(glyph, v.desc, (d >= 0 ? '+' : '') + d + ' approval', tone);
-    }
+    if (el.djVerb) el.djVerb.textContent = 'warming up';
+    if (el.djMove) el.djMove.textContent = 'press start to begin…';
+    if (el.djNow) el.djNow.classList.remove('settled');
   }
 
   function pushFeed(glyph, msg, why, tone) {
@@ -1572,37 +1278,6 @@
   // move-repetition read cleanly. Everything is guarded so a missing log.js
   // never breaks the app.
 
-  let loggedVerdictSeq = 0;
-
-  function recordTick(res) {
-    if (!SDJ.SetLog || !engine.song) return;
-    const st = engine.state();
-    const g = engine.song.genome;
-    const newV = st.verdictSeq > loggedVerdictSeq && !!st.lastVerdict;
-    if (newV) loggedVerdictSeq = st.verdictSeq;
-    SDJ.SetLog.record({
-      song: st.name,
-      e: Math.round(getEnergy() * 100) / 100,
-      w: Math.round(getWarmth() * 100) / 100,
-      ap: Math.round(st.approval),
-      tmp: Math.round(st.temp * 100) / 100,
-      md: st.mode,
-      fs: st.flatStreak,
-      av: st.aversion,
-      act: g.active.map((a) => (a ? 1 : 0)).join(''),
-      vr: g.variant.slice(),
-      en: g.energyIdx,
-      bk: g.bank,
-      pr: engine.song.prog.join(' '),
-      sc: st.scaleType,
-      mv: st.move || null,
-      vk: newV ? st.lastVerdict.kind : null,
-      vd: newV ? Math.round(st.lastVerdict.delta * 10) / 10 : null,
-      ch: !!res.changed,
-    });
-    updateLogStat();
-  }
-
   function updateLogStat() {
     if (!el.logStat || !SDJ.SetLog) return;
     const s = SDJ.SetLog.stats();
@@ -1625,7 +1300,6 @@
 
   function onClearLog() {
     if (SDJ.SetLog) SDJ.SetLog.clear();
-    loggedVerdictSeq = 0;
     updateLogStat();
     logEvent('🧹 cleared the set log');
   }
@@ -1635,7 +1309,7 @@
   // module, so state persists as you move between the menu, the live deck and
   // the crate — navigating is just showing a different section.
 
-  const VIEWS = ['menu', 'live', 'vote', 'crate', 'remix'];
+  const VIEWS = ['menu', 'live', 'crate', 'remix'];
 
   function currentRoute() {
     const h = (location.hash || '').replace(/^#\/?/, '');
@@ -1652,7 +1326,6 @@
     });
     // navigation never stops audio — the header transport is the single stop.
     if (name === 'live') sizeRoll(); // the canvas was zero-sized while hidden
-    if (name === 'vote') sizeVoteRoll();
     if (name === 'crate') renderCrate();
     if (name === 'remix') enterRemix();
     if (name === 'menu') updateMenu();
@@ -1690,8 +1363,13 @@
 
   // expose the controls so every action the UI can take is available
   // programmatically (agent-native parity, and the headless test drives them)
-  SDJ.setCrowd = setCrowd;
   SDJ.engine = engine; // the live engine, for headless drive + agent-native reads
+  // the live turn-based flow: approve / skip the current pitch (agent-native)
+  SDJ.live = {
+    approve: function () { liveDecide(true); },
+    skip: function () { liveDecide(false); },
+    pitching: function () { return pitching; },
+  };
   SDJ.setDensity = function (v) {
     intentIn = clamp(v, -1, 1);
     if (el.liveDensity) el.liveDensity.value = String(Math.round(intentIn * 100));

@@ -245,6 +245,36 @@ body[data-view="menu"] .view-menu { height: 100%; }
   box-shadow: 0 0 14px -3px var(--cool);
 }
 
+/* the DJ's suggestion card — the turn-based approve / skip surface */
+.sg-empty { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.sg-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+  background: linear-gradient(160deg, #14141f, #0c0c16);
+}
+.sg-kind {
+  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.6px; padding: 3px 9px; border-radius: 999px; color: #08121a;
+  background: var(--muted);
+}
+.sg-kind.k-add { background: var(--good); }
+.sg-kind.k-drop { background: var(--hot); color: #fff; }
+.sg-kind.k-reshape { background: var(--warm); }
+.sg-kind.k-fx { background: var(--cool); }
+.sg-kind.k-double { background: #a64dff; color: #fff; }
+.sg-kind.k-fill { background: #c3ccff; }
+.sg-kind.k-save { background: linear-gradient(135deg, var(--good), var(--cool)); }
+.sg-desc { font-size: 15px; color: var(--ink); margin: 9px 0; line-height: 1.35; }
+.sg-code {
+  margin: 0; font-size: 10.5px; line-height: 1.5; color: var(--ink);
+  background: #0a0a12; border-radius: 8px; padding: 8px 0; max-height: 168px; overflow: auto;
+  white-space: pre; font-family: var(--font);
+}
+.sg-code[hidden] { display: none; }
+.sg-line { display: block; padding: 0 8px; border-left: 2px solid transparent; }
+.sg-hl { border-left-color: var(--cool); }
+.sg-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.sg-actions .btn { width: 100%; justify-content: center; }
+
 /* ── the DJ's mind: watch it decide ──────────────────────────────────── */
 .mind { gap: 10px; min-height: 0; flex: 1; }
 .now {

@@ -24,7 +24,6 @@
     <nav class="topnav">
       <a data-nav="menu" href="#menu">Menu</a>
       <a data-nav="live" href="#live">Live</a>
-      <a data-nav="vote" href="#vote">A&amp;R</a>
       <a data-nav="crate" href="#crate">Crate</a>
       <a data-nav="remix" href="#remix">Remix</a>
     </nav>
@@ -47,7 +46,6 @@
 
       <div class="menu-channels" id="menuChannels" role="menu" aria-label="main menu">
         <a class="channel" role="menuitem" href="#live">Live Set</a>
-        <a class="channel" role="menuitem" href="#vote">Tinker</a>
         <a class="channel" role="menuitem" href="#crate">Crate</a>
         <a class="channel" role="menuitem" href="#remix">Remix</a>
       </div>
@@ -65,19 +63,12 @@
         </div>
         <div class="deck-buttons">
           <button id="startBtn" class="btn primary">▶ Start the set</button>
-          <button id="freezeBtn" class="btn ghost" title="Hold this version — stop the DJ evolving" disabled>⏸ Freeze</button>
-          <button id="saveBtn" class="btn ghost" title="Save the current version to the crate" disabled>💾 Save</button>
-          <button id="skipBtn" class="btn ghost" title="Force a fresh track">⏭ New</button>
+          <button id="saveBtn" class="btn ghost" title="Save this track to the crate" disabled>💾 Save</button>
+          <button id="skipBtn" class="btn ghost" title="Start a fresh track">⏭ New</button>
         </div>
       </div>
 
       <div id="stageChips" class="chips" aria-label="arrangement layers"></div>
-
-      <div class="meters">
-        <label>Energy <span class="bar"><i id="energyBar"></i></span></label>
-        <label>Crowd approval <span class="bar approval"><i id="approvalBar"></i></span></label>
-        <label id="hitWrap" class="hit">Banger lock <span class="bar hitbar"><i id="hitBar"></i></span></label>
-      </div>
 
       <pre id="code" class="code" aria-label="live Strudel code">// the DJ hasn't started yet</pre>
 
@@ -97,23 +88,21 @@
     <!-- ── STEER: the crowd (2-axis emotion pad) + the DJ's mind ──────── -->
     <div class="steer">
       <section class="padcol panel">
-        <h3>Steer the room</h3>
-        <!-- hero: the vibe in one gesture — up = energy, sideways = warmth -->
-        <div id="pad" class="pad hero" aria-label="crowd mood pad: up for energy, sideways for warmth" tabindex="0">
-          <i class="pad-axis h"></i>
-          <i class="pad-axis v"></i>
-          <span class="pad-cap up">🔥 going off</span>
-          <span class="pad-cap down">🧊 flat</span>
-          <span class="pad-cap left">cold</span>
-          <span class="pad-cap right">warm</span>
-          <span id="puck" class="puck"></span>
+        <h3>The DJ suggests</h3>
+        <!-- turn-based: the DJ pitches one change; nothing commits until you approve -->
+        <div id="sgEmpty" class="sg-empty">Press ▶ Start. The DJ builds from the kick up, pitching
+          one change at a time — approve what you like, skip what you don’t. Nothing changes until you say so.</div>
+        <div id="sgCard" class="sg-card" hidden>
+          <div class="sg-kind" id="sgKind">new part</div>
+          <div class="sg-desc" id="sgDesc">—</div>
+          <pre class="sg-code" id="sgCode" aria-label="the lines this change touches"></pre>
         </div>
-        <div class="pad-readout">
-          <div><span class="k">Energy</span><strong id="energyVal">+0</strong></div>
-          <div><span class="k">Warmth</span><strong id="warmthVal">+0</strong></div>
+        <div id="sgActions" class="sg-actions" hidden>
+          <button id="sgSkip" class="btn vote-down">✗ Skip</button>
+          <button id="sgApprove" class="btn vote-up">✓ Approve</button>
         </div>
 
-        <!-- genre: pin the style as pills (built from Theory.GENRES) -->
+        <!-- tuning: bias what the DJ pitches next -->
         <div class="ctrl-block">
           <h4 class="ctrl-title">Genre <small>new tracks come out in this style</small></h4>
           <div id="liveGenrePills" class="genre-pills" role="radiogroup" aria-label="genre for new tracks"></div>
@@ -135,25 +124,15 @@
       </section>
 
       <section class="mind panel">
-        <h3>🧠 The DJ's mind</h3>
+        <h3>🧠 The DJ's calls</h3>
         <div id="djNow" class="now">
           <span class="spinner"></span>
           <div>
             <div id="djVerb" class="now-verb">warming up</div>
-            <div id="djMove" class="now-move">reading the room…</div>
+            <div id="djMove" class="now-move">press start to begin…</div>
           </div>
         </div>
-        <div class="gauge">
-          <label>Confidence <b id="djConfVal">—</b></label>
-          <span class="bar conf"><i id="djConf"></i></span>
-        </div>
-        <div id="djModes" class="mind-modes">
-          <span class="mchip" data-m="searching">searching</span>
-          <span class="mchip" data-m="building">building</span>
-          <span class="mchip" data-m="locked in">locked in</span>
-          <span id="djTemp" class="tempchip">temp 0.40</span>
-        </div>
-        <div class="feed-head">Why it kept or reverted each move</div>
+        <div class="feed-head">What you kept and skipped</div>
         <ul id="djFeed" class="feed"></ul>
       </section>
     </div>
@@ -167,65 +146,6 @@
     </section>
   </main>
 
-  <!-- ══ A&R: turn-based individual review — keep or kill each proposed change ═══ -->
-  <main class="view view-vote" data-view="vote" hidden>
-    <section class="vote-stage panel">
-      <div class="vote-head">
-        <div>
-          <h2 id="voteTitle">A&amp;R session</h2>
-          <p id="voteMeta" class="track-meta">the DJ pitches one change at a time — you call it</p>
-        </div>
-        <div class="deck-buttons">
-          <button id="voteStart" class="btn primary">▶ Start session</button>
-          <button id="voteSave" class="btn ghost" title="Keep this version — save to the crate" disabled>💾 Keep version</button>
-        </div>
-      </div>
-
-      <div id="voteEmpty" class="vote-empty">
-        Press <b>Start session</b>. The DJ builds a track one move at a time — a new part, a
-        rework, an FX, a doubled voice or a fill — each mapped to the lines of code it touches.
-        <b>Keep</b> the good, <b>kill</b> the bad. Anything you kill won’t be pitched again.
-      </div>
-
-      <div id="voteCard" class="vote-card" hidden>
-        <div class="vc-art" id="voteArt" aria-hidden="true"></div>
-        <div class="vc-main">
-          <div class="vc-kind" id="voteKind">new addition</div>
-          <div class="vc-desc" id="voteDesc">—</div>
-          <pre class="vc-code" id="voteCode" aria-label="the lines this change touches"></pre>
-        </div>
-      </div>
-
-      <!-- the pitched change scrolls past on Strudel's own pianoroll before you judge it -->
-      <div id="voteRollWrap" class="vote-roll" hidden>
-        <canvas id="voteRoll" aria-label="pianoroll — the proposed change scrolls past as it plays"></canvas>
-      </div>
-
-      <!-- A&R deck: turntable + A↔B compare, visible when a pitch is in play -->
-      <div id="voteDeck" class="vote-deck" hidden>
-        <div class="tt-platter">
-          <div class="tt-record">
-            <div id="ttLabel" class="tt-label">B</div>
-          </div>
-        </div>
-        <div class="tt-info">
-          <span id="ttBadge" class="tt-badge">proposed</span>
-          <button id="voteAB" class="btn tt-ab">↔ A/B compare</button>
-          <span id="ttHint" class="tt-hint">tap to hear original</span>
-        </div>
-      </div>
-
-      <div id="voteControls" class="vote-actions" hidden>
-        <button id="voteDown" class="btn vote-down">👎 Kill it</button>
-        <button id="voteUp" class="btn vote-up">👍 Keep it</button>
-      </div>
-
-      <div class="vote-foot">
-        <div id="voteLayers" class="vote-layers" aria-label="arrangement so far"></div>
-        <ul id="voteHistory" class="vote-history" aria-label="decisions"></ul>
-      </div>
-    </section>
-  </main>
 
   <!-- ══ CRATE: your record library, its own page ════════════════════════ -->
   <main class="view view-crate" data-view="crate" hidden>
