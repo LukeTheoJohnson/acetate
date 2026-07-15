@@ -203,38 +203,47 @@ body[data-view="menu"] .view-menu { height: 100%; }
 .pad-readout strong { font-size: 16px; }
 .pad-readout div:first-child strong { color: var(--cool); }
 .pad-readout div:last-child strong { color: var(--warm); }
-.pad-hint { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin: 8px 2px 0; }
+.pad.hero { box-shadow: 0 0 34px -10px rgba(122, 92, 255, 0.45); }
 
 /* ── per-part opinion faders + density dial ──────────────────────────── */
 .ctrl-block { margin-top: 12px; }
 .ctrl-title { margin: 0 0 8px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
 .ctrl-title small { text-transform: none; letter-spacing: 0; font-weight: normal; opacity: 0.75; margin-left: 6px; }
 
-.opinion-bank { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; align-items: end; }
-.fader { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-/* neutral-centre cue: a faint mid line the fader sits over */
-.fader::before {
-  content: ""; position: absolute; top: 43px; left: 15%; right: 15%; height: 1px;
-  background: rgba(255, 255, 255, 0.14); pointer-events: none;
+/* part mixer: one row per lane — an explicit drop / auto / feature choice */
+.part-mix { display: flex; flex-direction: column; gap: 5px; }
+.pm-row { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 8px; }
+.pm-key { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+.pm-seg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+  background: #0c0c16; border: 1px solid var(--line); border-radius: 8px; padding: 3px;
 }
-.fader-range {
-  -webkit-appearance: slider-vertical; appearance: slider-vertical;
-  writing-mode: vertical-lr; direction: rtl;
-  width: 22px; height: 88px; margin: 0; cursor: ns-resize;
-  accent-color: var(--hot); background: transparent;
+.pm-btn {
+  font-family: var(--font); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--muted); background: transparent; border: 0; border-radius: 6px;
+  padding: 5px 2px; cursor: pointer; transition: color .12s, background .12s, box-shadow .12s;
 }
-.fader-range:focus-visible { outline: 1px solid var(--cool); outline-offset: 2px; }
-.fader-key { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+.pm-btn:hover { color: var(--ink); }
+.pm-btn.on { color: #0a0a12; font-weight: 700; }
+.pm-seg .pm-btn.on:first-child { background: var(--hot); box-shadow: 0 0 12px -2px var(--hot); }        /* drop */
+.pm-seg .pm-btn.on:nth-child(2) { background: #3a3a52; color: var(--ink); }                              /* auto */
+.pm-seg .pm-btn.on:last-child { background: var(--pm, var(--good)); box-shadow: 0 0 12px -2px var(--pm, var(--good)); } /* feature */
 
 .density-block { margin-top: 14px; }
 .density { width: 100%; accent-color: var(--warm); cursor: ew-resize; }
 .density-scale { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
-.genre-block { margin-top: 14px; }
-.genre-select {
-  width: 100%; font-family: var(--font); font-size: 12px; color: var(--ink);
-  background: #1d1d30; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; cursor: pointer;
+/* genre pills: pin the style with one tap, one lit at a time */
+.genre-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  font-family: var(--font); font-size: 11px; color: var(--muted);
+  background: #14141f; border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 12px; cursor: pointer; transition: color .12s, border-color .12s, background .12s;
 }
-.genre-select:focus { outline: none; border-color: var(--hot); }
+.pill:hover { color: var(--ink); border-color: #3a3a52; }
+.pill.on {
+  color: #0a0a12; font-weight: 700; background: var(--cool); border-color: var(--cool);
+  box-shadow: 0 0 14px -3px var(--cool);
+}
 
 /* ── the DJ's mind: watch it decide ──────────────────────────────────── */
 .mind { gap: 10px; min-height: 0; flex: 1; }

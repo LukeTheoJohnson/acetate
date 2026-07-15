@@ -97,8 +97,9 @@
     <!-- ── STEER: the crowd (2-axis emotion pad) + the DJ's mind ──────── -->
     <div class="steer">
       <section class="padcol panel">
-        <h3>You are the crowd</h3>
-        <div id="pad" class="pad" aria-label="crowd mood pad: up for energy, sideways for warmth" tabindex="0">
+        <h3>Steer the room</h3>
+        <!-- hero: the vibe in one gesture — up = energy, sideways = warmth -->
+        <div id="pad" class="pad hero" aria-label="crowd mood pad: up for energy, sideways for warmth" tabindex="0">
           <i class="pad-axis h"></i>
           <i class="pad-axis v"></i>
           <span class="pad-cap up">🔥 going off</span>
@@ -112,30 +113,25 @@
           <div><span class="k">Warmth</span><strong id="warmthVal">+0</strong></div>
         </div>
 
-        <!-- genre: pin the style, or let the DJ surprise you -->
-        <div class="ctrl-block genre-block">
-          <h4 class="ctrl-title">Genre <small>new tracks come out in this style</small></h4>
-          <select id="liveGenre" class="genre-select" aria-label="genre for new tracks">
-            <option value="">🎲 Surprise me</option>
-          </select>
-        </div>
-
-        <!-- per-lane opinion: granular feedback, one colour-coded fader per part -->
+        <!-- genre: pin the style as pills (built from Theory.GENRES) -->
         <div class="ctrl-block">
-          <h4 class="ctrl-title">Your take on each part <small>up = more · down = lose it</small></h4>
-          <div id="liveOpinion" class="opinion-bank" aria-label="per-part opinion faders"></div>
+          <h4 class="ctrl-title">Genre <small>new tracks come out in this style</small></h4>
+          <div id="liveGenrePills" class="genre-pills" role="radiogroup" aria-label="genre for new tracks"></div>
         </div>
 
-        <!-- density dial: strip &lt;-&gt; pile on -->
+        <!-- density: one dial — how busy the arrangement gets -->
         <div class="ctrl-block density-block">
-          <h4 class="ctrl-title">Density</h4>
+          <h4 class="ctrl-title">Density <small>how many layers</small></h4>
           <input id="liveDensity" class="density" type="range" min="-100" max="100" value="0"
                  aria-label="density dial: strip back to pile on" />
           <div class="density-scale"><span>strip</span><span>hold</span><span>pile on</span></div>
         </div>
 
-        <p class="pad-hint">Pad = the room (energy &amp; warmth). Faders = your call on each
-          part. Density = how busy overall. The DJ still writes every note.</p>
+        <!-- the parts: one row each — drop / auto / feature -->
+        <div class="ctrl-block">
+          <h4 class="ctrl-title">The parts <small>drop · auto · feature</small></h4>
+          <div id="livePartMix" class="part-mix" aria-label="per-part emphasis"></div>
+        </div>
       </section>
 
       <section class="mind panel">

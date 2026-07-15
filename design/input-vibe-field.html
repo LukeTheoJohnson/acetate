@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spike — The Vibe Field</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ── tokens ────────────────────────────────────────────────────── */
+    :root {
+      --bg:        #06040d;
+      --bg2:       #090913;
+      --panel:     #12121d;
+      --border:    #24243a;
+      --ink:       #e7e7f5;
+      --muted:     #8a8aa6;
+      --violet:    #7a5cff;
+      --cyan:      #22d3ee;
+      --pink:      #ff3d81;
+      --blue:      #45b6ff;
+      --green:     #38e0a6;
+      --amber:     #ff9f45;
+
+      --field-size: 540px;
+      --puck-r: 18px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* radial glow backdrop */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 30% 20%, rgba(122,92,255,.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 50% at 75% 75%, rgba(34,211,238,.10) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 60% 10%, rgba(255,61,129,.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── layout ─────────────────────────────────────────────────────── */
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    /* ── header ─────────────────────────────────────────────────────── */
+    .spike-header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 36px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+    .spike-label {
+      font-family: 'Orbitron', ui-monospace, monospace;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      border: 1px solid var(--cyan);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .spike-title {
+      font-family: 'Orbitron', ui-monospace, monospace;
+      font-weight: 900;
+      font-size: 22px;
+      color: var(--ink);
+      letter-spacing: .04em;
+    }
+    .spike-title span { color: var(--violet); }
+
+    /* ── main stage ─────────────────────────────────────────────────── */
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      grid-template-rows: auto 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ── genre strip ─────────────────────────────────────────────────── */
+    .genre-strip {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .genre-label {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .genre-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .genre-chip {
+      cursor: pointer;
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--muted);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+      letter-spacing: .06em;
+      transition: all .18s ease;
+      user-select: none;
+    }
+    .genre-chip:hover { border-color: var(--violet); color: var(--ink); }
+    .genre-chip.active {
+      border-color: transparent;
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(0,0,0,.4);
+    }
+    /* per-genre accent */
+    .genre-chip[data-genre="Trap"].active    { background: linear-gradient(135deg, #3a1f6e, #6a34c8); box-shadow: 0 0 16px rgba(122,92,255,.5); }
+    .genre-chip[data-genre="Boom Bap"].active{ background: linear-gradient(135deg, #1a3a1a, #2e7d32); box-shadow: 0 0 16px rgba(56,224,166,.5); }
+    .genre-chip[data-genre="Drill"].active   { background: linear-gradient(135deg, #3a0a0a, #c62828); box-shadow: 0 0 16px rgba(255,61,129,.5); }
+    .genre-chip[data-genre="Lo-Fi"].active   { background: linear-gradient(135deg, #1a2a3a, #2563a8); box-shadow: 0 0 16px rgba(69,182,255,.5); }
+    .genre-chip[data-genre="R&B"].active     { background: linear-gradient(135deg, #3a1a2a, #b5445e); box-shadow: 0 0 16px rgba(255,61,129,.4); }
+
+    /* ── vibe field ─────────────────────────────────────────────────── */
+    .field-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .field-outer {
+      position: relative;
+      width: var(--field-size);
+      height: var(--field-size);
+    }
+
+    /* axis labels outside the field */
+    .ax-label {
+      position: absolute;
+      font-size: 11px;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      user-select: none;
+      pointer-events: none;
+    }
+    .ax-label.top    { top: -22px; left: 50%; transform: translateX(-50%); color: var(--amber); }
+    .ax-label.bottom { bottom: -22px; left: 50%; transform: translateX(-50%); color: var(--blue); }
+    .ax-label.left   { left: -64px; top: 50%; transform: translateY(-50%); text-align: right; }
+    .ax-label.right  { right: -64px; top: 50%; transform: translateY(-50%); }
+
+    .field-canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      cursor: crosshair;
+      /* subtle outer glow, controlled by JS */
+      box-shadow:
+        0 0 0 1px rgba(122,92,255,.15),
+        0 0 40px rgba(122,92,255,.08);
+      transition: box-shadow .3s ease;
+    }
+    .field-canvas-wrap.active-drag {
+      box-shadow:
+        0 0 0 1px rgba(122,92,255,.4),
+        0 0 60px rgba(122,92,255,.2);
+    }
+
+    #fieldCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* puck */
+    .puck {
+      position: absolute;
+      width: calc(var(--puck-r) * 2);
+      height: calc(var(--puck-r) * 2);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff 0%, var(--violet) 55%, #3a1c8c 100%);
+      border: 2px solid rgba(255,255,255,.8);
+      box-shadow:
+        0 0 0 4px rgba(122,92,255,.35),
+        0 0 20px rgba(122,92,255,.7),
+        0 0 40px rgba(122,92,255,.3);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: box-shadow .12s ease;
+      z-index: 10;
+    }
+    .puck.dragging {
+      box-shadow:
+        0 0 0 6px rgba(122,92,255,.5),
+        0 0 32px rgba(122,92,255,.9),
+        0 0 60px rgba(122,92,255,.4);
+    }
+
+    /* density ring around puck */
+    .density-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid rgba(34,211,238,.5);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: width .2s ease, height .2s ease, border-color .2s ease;
+      z-index: 9;
+    }
+
+    /* ── density secondary control ──────────────────────────────────── */
+    .density-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: var(--field-size);
+    }
+    .density-tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      white-space: nowrap;
+      width: 56px;
+      text-align: right;
+    }
+    .density-track {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      position: relative;
+      cursor: pointer;
+    }
+    .density-fill {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+      pointer-events: none;
+      transition: width .05s;
+    }
+    .density-thumb {
+      position: absolute;
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      background: var(--cyan);
+      border-radius: 50%;
+      border: 2px solid #fff;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px rgba(34,211,238,.6);
+      cursor: grab;
+      transition: box-shadow .12s;
+    }
+    .density-thumb:active { cursor: grabbing; box-shadow: 0 0 16px rgba(34,211,238,.9); }
+    .density-val {
+      font-size: 11px;
+      color: var(--cyan);
+      width: 52px;
+      text-align: left;
+    }
+
+    /* ── right column: readout + caption ───────────────────────────── */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* generation intent readout */
+    .readout {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      backdrop-filter: blur(8px);
+    }
+    .readout-title {
+      font-family: 'Orbitron', ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--violet);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .readout-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--violet);
+      box-shadow: 0 0 8px var(--violet);
+      animation: pulse-dot 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .4; transform: scale(.7); }
+    }
+
+    .readout-row {
+      display: grid;
+      grid-template-columns: 100px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(36,36,58,.6);
+    }
+    .readout-row:last-child { border-bottom: none; }
+    .rr-key {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .rr-bar-wrap {
+      height: 4px;
+      background: rgba(36,36,58,.9);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+    .rr-bar {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      border-radius: 2px;
+      transition: left .12s ease, width .12s ease, background .3s ease;
+    }
+    /* positive bar grows right from centre; negative grows left */
+    .rr-val {
+      font-size: 12px;
+      font-weight: 700;
+      text-align: right;
+      white-space: nowrap;
+      min-width: 56px;
+      transition: color .2s;
+    }
+
+    /* genre row special */
+    .rr-genre-chip {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+
+    /* landmark list in readout — which region the puck is in */
+    .readout-landmark {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .landmark-pin {
+      font-size: 16px;
+      line-height: 1;
+    }
+    .landmark-name {
+      font-family: 'Orbitron', ui-monospace, monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+    .landmark-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── caption ────────────────────────────────────────────────────── */
+    .caption {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .caption h3 {
+      font-family: 'Orbitron', ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 10px;
+    }
+    .caption p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .caption p + p { margin-top: 8px; }
+    .caption strong { color: var(--ink); }
+
+    /* ── tooltip / landmark hover ───────────────────────────────────── */
+    .field-tooltip {
+      position: absolute;
+      background: rgba(18,18,29,.95);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 11px;
+      color: var(--ink);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s;
+      z-index: 20;
+      white-space: nowrap;
+      backdrop-filter: blur(6px);
+    }
+    .field-tooltip.visible { opacity: 1; }
+
+    /* ── crosshair lines ─────────────────────────────────────────────── */
+    /* drawn on canvas; no extra DOM needed */
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <header class="spike-header">
+    <span class="spike-label">Spike</span>
+    <h1 class="spike-title">The <span>Vibe</span> Field</h1>
+  </header>
+
+  <!-- genre strip -->
+  <div class="stage">
+    <div class="genre-strip">
+      <span class="genre-label">Genre</span>
+      <div class="genre-chips" id="genreChips" role="radiogroup" aria-label="Genre selection">
+        <button class="genre-chip active" data-genre="Trap"    role="radio" aria-checked="true">Trap</button>
+        <button class="genre-chip"        data-genre="Boom Bap" role="radio" aria-checked="false">Boom Bap</button>
+        <button class="genre-chip"        data-genre="Drill"   role="radio" aria-checked="false">Drill</button>
+        <button class="genre-chip"        data-genre="Lo-Fi"   role="radio" aria-checked="false">Lo-Fi</button>
+        <button class="genre-chip"        data-genre="R&amp;B" role="radio" aria-checked="false">R&amp;B</button>
+      </div>
+    </div>
+
+    <!-- vibe field -->
+    <div class="field-col">
+      <div class="field-outer" id="fieldOuter">
+        <span class="ax-label top">Going off  ▲</span>
+        <span class="ax-label bottom">▼  Flat / chilled</span>
+        <span class="ax-label left">Dark ◀</span>
+        <span class="ax-label right">▶ Bright</span>
+
+        <div class="field-canvas-wrap" id="fieldWrap">
+          <canvas id="fieldCanvas"></canvas>
+          <!-- puck + density ring live inside the wrap so they clip correctly -->
+          <div class="density-ring"  id="densityRing"></div>
+          <div class="puck"          id="puck"></div>
+        </div>
+
+        <div class="field-tooltip" id="tooltip"></div>
+      </div>
+
+      <!-- density secondary control -->
+      <div class="density-row">
+        <span class="density-tag">Density</span>
+        <div class="density-track" id="densityTrack" role="slider" aria-label="Density" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+          <div class="density-fill"  id="densityFill"></div>
+          <div class="density-thumb" id="densityThumb"></div>
+        </div>
+        <span class="density-val"  id="densityValLabel">0 (hold)</span>
+      </div>
+    </div>
+
+    <!-- right: readout + caption -->
+    <div class="right-col">
+      <div class="readout">
+        <div class="readout-title">Generation Intent</div>
+
+        <div class="readout-row" id="rrGenre">
+          <span class="rr-key">Genre</span>
+          <div><!-- no bar for genre --></div>
+          <span class="rr-val" id="rrGenreVal"><span class="rr-genre-chip" id="rrGenreChip">Trap</span></span>
+        </div>
+
+        <div class="readout-row">
+          <span class="rr-key">Energy</span>
+          <div class="rr-bar-wrap" id="rrEnergyBarWrap"><div class="rr-bar" id="rrEnergyBar"></div></div>
+          <span class="rr-val" id="rrEnergyVal">0.00</span>
+        </div>
+
+        <div class="readout-row">
+          <span class="rr-key">Mood</span>
+          <div class="rr-bar-wrap" id="rrMoodBarWrap"><div class="rr-bar" id="rrMoodBar"></div></div>
+          <span class="rr-val" id="rrMoodVal">0.00 (neutral)</span>
+        </div>
+
+        <div class="readout-row">
+          <span class="rr-key">Density</span>
+          <div class="rr-bar-wrap" id="rrDensityBarWrap"><div class="rr-bar" id="rrDensityBar"></div></div>
+          <span class="rr-val" id="rrDensityVal">0.00 (hold)</span>
+        </div>
+
+        <div class="readout-landmark" id="readoutLandmark">
+          <span class="landmark-pin" id="landmarkPin">◈</span>
+          <div>
+            <div class="landmark-name" id="landmarkName">Centre</div>
+            <div class="landmark-desc" id="landmarkDesc">Neutral state — balanced energy and mood</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="caption">
+        <h3>Why this is clearer</h3>
+        <p>
+          One gesture — drag the puck — simultaneously sets <strong>energy</strong> and <strong>mood</strong>,
+          eliminating the conceptual overlap between the old pad, per-part faders, and density slider.
+          The field is a named emotional <strong>territory</strong>: you navigate to a vibe, not a pair of numbers.
+        </p>
+        <p>
+          The trade-off: per-part emphasis (kick/bass/lead etc.) is dropped from the primary gesture.
+          Density is demoted to a single secondary slider. Genre is a quick chip selection that
+          tints the field's landmark palette, keeping visual <strong>context</strong> without competing with the main control.
+        </p>
+      </div>
+    </div>
+  </div><!-- /stage -->
+</div><!-- /wrap -->
+
+<script>
+/* ── state ─────────────────────────────────────────────────────────── */
+const state = {
+  genre: 'Trap',
+  energy: 0,   // -1..+1  (Y axis: up = +1)
+  mood:   0,   // -1..+1  (X axis: right = +1)
+  density: 0,  // -1..+1
+};
+
+/* ── genre config ──────────────────────────────────────────────────── */
+const GENRES = {
+  'Trap': {
+    tint: [122, 92, 255],          // violet
+    landmarks: [
+      { x: -.72, y: .72, label: 'sinister',   desc: 'Dark, threatening energy — the menace' },
+      { x: -.38, y: .85, label: 'menacing',   desc: 'High-energy hostility — peak aggression' },
+      { x:  .30, y: .78, label: 'euphoric',   desc: 'Hard-driving brightness — the drop' },
+      { x:  .70, y: .45, label: 'hypnotic',   desc: 'Warm, locked-in groove' },
+      { x:  .15, y: .10, label: 'cruising',   desc: 'Moderate energy, balanced tone' },
+      { x: -.65, y: -.30, label: 'haunted',   desc: 'Low-energy darkness — brooding' },
+      { x:  .55, y: -.55, label: 'hazy',      desc: 'Warm but low — late-night drift' },
+      { x: -.25, y: -.72, label: 'hollow',    desc: 'Sparse and cold — stripped bare' },
+    ],
+  },
+  'Boom Bap': {
+    tint: [56, 224, 166],          // green
+    landmarks: [
+      { x: -.70, y: .68, label: 'raw',        desc: 'Gritty, high-energy aggression' },
+      { x:  .15, y: .80, label: 'peak',       desc: 'Hype at full tilt — crowd going off' },
+      { x:  .72, y: .50, label: 'soulful',    desc: 'Uplifting, sample-driven warmth' },
+      { x:  .60, y: -.10, label: 'smooth',    desc: 'Relaxed, warm groove' },
+      { x: -.55, y: -.25, label: 'gritty',    desc: 'Low-energy roughness — lo-fi dirt' },
+      { x: -.30, y: .30, label: 'b-boy',      desc: 'Classic, energetic, centred' },
+      { x:  .30, y: -.62, label: 'hazy',      desc: 'Warm haze — low and slow' },
+      { x: -.70, y: -.65, label: 'desolate',  desc: 'Cold, quiet, stripped back' },
+    ],
+  },
+  'Drill': {
+    tint: [255, 61, 129],          // pink / red
+    landmarks: [
+      { x: -.80, y: .75, label: 'menacing',   desc: 'Maximum threat — peak drill energy' },
+      { x: -.40, y: .88, label: 'hostile',    desc: 'Aggressive and relentless' },
+      { x:  .20, y: .72, label: 'heavy',      desc: 'Dark but powerful — the drill anthem' },
+      { x:  .65, y: .40, label: 'ominous',    desc: 'Eerily warm — the unsettling hook' },
+      { x: -.15, y: .10, label: 'rolling',    desc: 'Mid-energy menace — the verse' },
+      { x: -.70, y: -.30, label: 'bleak',     desc: 'Cold and sparse — zero warmth' },
+      { x:  .50, y: -.50, label: 'sliding',   desc: 'Low energy, minor warmth' },
+      { x: -.25, y: -.75, label: 'silence',   desc: 'Stripped — barely breathing' },
+    ],
+  },
+  'Lo-Fi': {
+    tint: [69, 182, 255],          // blue
+    landmarks: [
+      { x: -.68, y: .55, label: 'restless',   desc: 'Anxious, busy, unsettled warmth' },
+      { x:  .15, y: .70, label: 'alive',      desc: 'Energetic and warm — study session peak' },
+      { x:  .75, y: .40, label: 'dreamy',     desc: 'Warm, airy, floating' },
+      { x:  .68, y: -.30, label: 'cosy',      desc: 'Warm and slow — the quintessential lo-fi zone' },
+      { x:  .20, y: -.65, label: 'drowsy',    desc: 'Low energy warmth — fading out' },
+      { x: -.30, y: -.50, label: 'rainy',     desc: 'Cold and quiet — window-fog mood' },
+      { x: -.70, y: -.70, label: 'lonely',    desc: 'Sparse, cold, 3am' },
+      { x: -.20, y: .20, label: 'focus',      desc: 'Balanced, mid-energy working zone' },
+    ],
+  },
+  'R&B': {
+    tint: [255, 61, 129],          // pink
+    landmarks: [
+      { x: -.60, y: .65, label: 'brooding',   desc: 'Intense dark energy — the confrontation' },
+      { x:  .15, y: .75, label: 'passion',    desc: 'High energy warmth — the chorus' },
+      { x:  .78, y: .50, label: 'glow',       desc: 'Full warmth and lift — euphoric' },
+      { x:  .72, y: -.10, label: 'sultry',    desc: 'Warm and low — the slow jam zone' },
+      { x:  .35, y: -.55, label: 'longing',   desc: 'Aching warmth at low energy' },
+      { x: -.30, y: -.50, label: 'hollow',    desc: 'Dark and depleted — the void' },
+      { x: -.72, y: -.65, label: 'cold',      desc: 'Stripped and icy — the breakdown' },
+      { x: -.20, y: .20, label: 'tension',    desc: 'Mid-energy dark build — the bridge' },
+    ],
+  },
+};
+
+/* ── elements ──────────────────────────────────────────────────────── */
+const canvas     = document.getElementById('fieldCanvas');
+const ctx        = canvas.getContext('2d');
+const fieldWrap  = document.getElementById('fieldWrap');
+const puckEl     = document.getElementById('puck');
+const ringEl     = document.getElementById('densityRing');
+const tooltip    = document.getElementById('tooltip');
+const fieldOuter = document.getElementById('fieldOuter');
+
+const densityTrack = document.getElementById('densityTrack');
+const densityFill  = document.getElementById('densityFill');
+const densityThumb = document.getElementById('densityThumb');
+const densityValLabel = document.getElementById('densityValLabel');
+
+const rrGenreChip   = document.getElementById('rrGenreChip');
+const rrEnergyBar   = document.getElementById('rrEnergyBar');
+const rrEnergyVal   = document.getElementById('rrEnergyVal');
+const rrMoodBar     = document.getElementById('rrMoodBar');
+const rrMoodVal     = document.getElementById('rrMoodVal');
+const rrDensityBar  = document.getElementById('rrDensityBar');
+const rrDensityVal  = document.getElementById('rrDensityVal');
+const landmarkPin   = document.getElementById('landmarkPin');
+const landmarkName  = document.getElementById('landmarkName');
+const landmarkDesc  = document.getElementById('landmarkDesc');
+
+/* ── canvas sizing ─────────────────────────────────────────────────── */
+function resizeCanvas() {
+  const r = fieldWrap.getBoundingClientRect();
+  canvas.width  = r.width  * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  canvas.style.width  = r.width  + 'px';
+  canvas.style.height = r.height + 'px';
+  drawField();
+}
+
+/* ── colour helpers ────────────────────────────────────────────────── */
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+function lerpColour(a, b, t) {
+  return a.map((v,i) => Math.round(v + (b[i]-v)*t));
+}
+function rgba(arr, a) {
+  return `rgba(${arr[0]},${arr[1]},${arr[2]},${a})`;
+}
+
+/* ── draw the field ─────────────────────────────────────────────────── */
+const DARK_CORNER  = [6,4,13];
+const LIGHT_CORNER = [9,9,19];
+
+function drawField() {
+  const W = canvas.width, H = canvas.height;
+  const dpr = devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+
+  const g = GENRES[state.genre];
+  const tint = g.tint;
+
+  /* --- base gradient: dark (TL/BL corners) to tinted (TR/BR) --- */
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0,   rgba(DARK_CORNER, 1));
+  grad.addColorStop(.5,  rgba(lerpColour(DARK_CORNER, tint, .08), 1));
+  grad.addColorStop(1,   rgba(lerpColour(DARK_CORNER, tint, .22), 1));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  /* --- subtle energy-band rows (horizontal banding) --- */
+  const energyGrad = ctx.createLinearGradient(0, H, 0, 0);
+  energyGrad.addColorStop(0,   'rgba(69,182,255,0.00)');
+  energyGrad.addColorStop(.35, 'rgba(69,182,255,0.03)');
+  energyGrad.addColorStop(.65, 'rgba(255,159,69,0.04)');
+  energyGrad.addColorStop(1,   'rgba(255,61,129,0.10)');
+  ctx.fillStyle = energyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  /* --- mood band (vertical) --- */
+  const moodGrad = ctx.createLinearGradient(0, 0, W, 0);
+  moodGrad.addColorStop(0,   'rgba(122,92,255,0.12)');
+  moodGrad.addColorStop(.5,  'rgba(0,0,0,0)');
+  moodGrad.addColorStop(1,   rgba(tint, .07));
+  ctx.fillStyle = moodGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  /* --- crosshair at puck position --- */
+  const px = ((state.mood  + 1) / 2) * W;
+  const py = ((1 - (state.energy + 1) / 2)) * H;
+
+  ctx.save();
+  ctx.strokeStyle = rgba(tint, .18);
+  ctx.lineWidth = 1 * dpr;
+  ctx.setLineDash([4 * dpr, 6 * dpr]);
+  // vertical
+  ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+  // horizontal
+  ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  /* --- centre crosshair (faint) --- */
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1 * dpr;
+  ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+  ctx.restore();
+
+  /* --- landmark labels --- */
+  const activeLm = nearestLandmark();
+  g.landmarks.forEach(lm => {
+    const lx = ((lm.x + 1) / 2) * W;
+    const ly = ((1 - (lm.y + 1) / 2)) * H;
+    const isActive = activeLm && activeLm.label === lm.label;
+    const dist = Math.hypot(state.mood - lm.x, state.energy - lm.y);
+    const alpha = isActive ? .90 : Math.max(.18, .55 - dist * .35);
+    const scale = isActive ? 1 : .92;
+
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.scale(scale, scale);
+
+    /* dot */
+    ctx.beginPath();
+    ctx.arc(0, 0, 3 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = rgba(tint, alpha * .7);
+    ctx.fill();
+
+    /* label text */
+    ctx.font = `${isActive ? 700 : 400} ${(isActive ? 12 : 11) * dpr}px ui-monospace, Menlo, Consolas, monospace`;
+    ctx.fillStyle = rgba(tint, alpha);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(lm.label, 0, -6 * dpr);
+
+    /* glow behind active label */
+    if (isActive) {
+      ctx.shadowColor = rgba(tint, .9);
+      ctx.shadowBlur  = 10 * dpr;
+      ctx.fillText(lm.label, 0, -6 * dpr);
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  });
+
+  /* --- puck glow halo on canvas --- */
+  const halo = ctx.createRadialGradient(px, py, 0, px, py, 60 * dpr);
+  halo.addColorStop(0,   rgba(tint, .22));
+  halo.addColorStop(.5,  rgba(tint, .08));
+  halo.addColorStop(1,   rgba(tint, 0));
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/* ── nearest landmark ──────────────────────────────────────────────── */
+function nearestLandmark() {
+  const lms = GENRES[state.genre].landmarks;
+  let best = null, bestDist = Infinity;
+  lms.forEach(lm => {
+    const d = Math.hypot(state.mood - lm.x, state.energy - lm.y);
+    if (d < bestDist) { bestDist = d; best = lm; }
+  });
+  return bestDist < .65 ? best : null;
+}
+
+/* ── place the puck DOM element ─────────────────────────────────────── */
+function placePuck() {
+  const W = fieldWrap.offsetWidth;
+  const H = fieldWrap.offsetHeight;
+  const x = ((state.mood + 1) / 2) * W;
+  const y = ((1 - (state.energy + 1) / 2)) * H;
+  puckEl.style.left = x + 'px';
+  puckEl.style.top  = y + 'px';
+
+  /* density ring size */
+  const absD = Math.abs(state.density);
+  const ringSize = 36 + absD * 60; // 36px at 0, up to 96px
+  const ringAlpha = .3 + absD * .5;
+  const ringColour = state.density > 0
+    ? `rgba(255,159,69,${ringAlpha})`   // amber = busy
+    : `rgba(69,182,255,${ringAlpha})`;  // blue = sparse
+  ringEl.style.width  = ringSize + 'px';
+  ringEl.style.height = ringSize + 'px';
+  ringEl.style.left   = x + 'px';
+  ringEl.style.top    = y + 'px';
+  ringEl.style.borderColor = ringColour;
+}
+
+/* ── update readout ─────────────────────────────────────────────────── */
+const MOOD_LABELS   = [[-1,'dark/menacing'],[-.5,'shadowy'],[ 0,'neutral'],[ .5,'bright-warm'],[ 1,'euphoric']];
+const ENERGY_LABELS = [[-1,'flat/drained'],[-.5,'relaxed'],[ 0,'balanced'],[ .5,'energised'],  [ 1,'going off']];
+
+function closestLabel(arr, v) {
+  return arr.reduce((a,b) => Math.abs(b[0]-v) < Math.abs(a[0]-v) ? b : a)[1];
+}
+
+function barStyle(v, colour) {
+  /* v: -1..+1. Bar grows from centre (50%). */
+  const pct = v * 50;
+  if (v >= 0) return { left: '50%', width: pct + '%', bg: colour };
+  return { left: (50 + pct) + '%', width: (-pct) + '%', bg: colour };
+}
+
+const genreColours = {
+  'Trap':     '#7a5cff',
+  'Boom Bap': '#38e0a6',
+  'Drill':    '#ff3d81',
+  'Lo-Fi':    '#45b6ff',
+  'R&B':      '#ff3d81',
+};
+const genreBgs = {
+  'Trap':     'rgba(122,92,255,.18)',
+  'Boom Bap': 'rgba(56,224,166,.18)',
+  'Drill':    'rgba(255,61,129,.18)',
+  'Lo-Fi':    'rgba(69,182,255,.18)',
+  'R&B':      'rgba(255,61,129,.18)',
+};
+
+function updateReadout() {
+  const g = state.genre;
+  const col = genreColours[g];
+
+  /* genre chip */
+  rrGenreChip.textContent = g;
+  rrGenreChip.style.background = genreBgs[g];
+  rrGenreChip.style.color      = col;
+  rrGenreChip.style.border     = `1px solid ${col}`;
+
+  /* energy */
+  const eb = barStyle(state.energy, '#ff9f45');
+  rrEnergyBar.style.left       = eb.left;
+  rrEnergyBar.style.width      = eb.width;
+  rrEnergyBar.style.background = eb.bg;
+  const eLbl = closestLabel(ENERGY_LABELS, state.energy);
+  rrEnergyVal.textContent      = (state.energy >= 0 ? '+' : '') + state.energy.toFixed(2) + ' (' + eLbl + ')';
+  rrEnergyVal.style.color      = '#ff9f45';
+
+  /* mood */
+  const mb = barStyle(state.mood, col);
+  rrMoodBar.style.left       = mb.left;
+  rrMoodBar.style.width      = mb.width;
+  rrMoodBar.style.background = mb.bg;
+  const mLbl = closestLabel(MOOD_LABELS, state.mood);
+  rrMoodVal.textContent      = (state.mood >= 0 ? '+' : '') + state.mood.toFixed(2) + ' (' + mLbl + ')';
+  rrMoodVal.style.color      = col;
+
+  /* density */
+  const db = barStyle(state.density, '#22d3ee');
+  rrDensityBar.style.left       = db.left;
+  rrDensityBar.style.width      = db.width;
+  rrDensityBar.style.background = db.bg;
+  const dLbl = state.density > .15 ? 'pile on' : state.density < -.15 ? 'strip back' : 'hold';
+  rrDensityVal.textContent = (state.density >= 0 ? '+' : '') + state.density.toFixed(2) + ' (' + dLbl + ')';
+  rrDensityVal.style.color = '#22d3ee';
+
+  /* landmark */
+  const lm = nearestLandmark();
+  if (lm) {
+    landmarkPin.textContent  = '◈';
+    landmarkPin.style.color  = col;
+    landmarkName.textContent = lm.label;
+    landmarkName.style.color = col;
+    landmarkDesc.textContent = lm.desc;
+  } else {
+    landmarkPin.textContent  = '·';
+    landmarkPin.style.color  = '#8a8aa6';
+    landmarkName.textContent = 'Between zones';
+    landmarkName.style.color = '#8a8aa6';
+    landmarkDesc.textContent = 'Moving through the field — no landmark locked';
+  }
+}
+
+/* ── puck drag ─────────────────────────────────────────────────────── */
+let dragging = false;
+
+function eventToFieldCoords(e) {
+  const r = fieldWrap.getBoundingClientRect();
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  const rx = Math.max(0, Math.min(1, (cx - r.left) / r.width));
+  const ry = Math.max(0, Math.min(1, (cy - r.top)  / r.height));
+  return {
+    mood:   parseFloat((rx * 2 - 1).toFixed(3)),
+    energy: parseFloat(((1 - ry) * 2 - 1).toFixed(3)),
+  };
+}
+
+function applyFieldCoords(coords) {
+  state.mood   = coords.mood;
+  state.energy = coords.energy;
+  drawField();
+  placePuck();
+  updateReadout();
+}
+
+fieldWrap.addEventListener('mousedown', e => {
+  dragging = true;
+  puckEl.classList.add('dragging');
+  fieldWrap.classList.add('active-drag');
+  applyFieldCoords(eventToFieldCoords(e));
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  applyFieldCoords(eventToFieldCoords(e));
+});
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  puckEl.classList.remove('dragging');
+  fieldWrap.classList.remove('active-drag');
+});
+
+/* touch */
+fieldWrap.addEventListener('touchstart', e => {
+  e.preventDefault();
+  dragging = true;
+  puckEl.classList.add('dragging');
+  fieldWrap.classList.add('active-drag');
+  applyFieldCoords(eventToFieldCoords(e));
+}, { passive: false });
+window.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  e.preventDefault();
+  applyFieldCoords(eventToFieldCoords(e));
+}, { passive: false });
+window.addEventListener('touchend', () => {
+  dragging = false;
+  puckEl.classList.remove('dragging');
+  fieldWrap.classList.remove('active-drag');
+});
+
+/* keyboard nudge on field wrap */
+fieldWrap.setAttribute('tabindex', '0');
+fieldWrap.setAttribute('role', 'application');
+fieldWrap.setAttribute('aria-label', 'Vibe field: use arrow keys to move energy and mood');
+fieldWrap.addEventListener('keydown', e => {
+  const step = e.shiftKey ? .05 : .02;
+  if (e.key === 'ArrowUp')    { state.energy = Math.min(1, state.energy + step); e.preventDefault(); }
+  if (e.key === 'ArrowDown')  { state.energy = Math.max(-1, state.energy - step); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { state.mood   = Math.min(1, state.mood + step); e.preventDefault(); }
+  if (e.key === 'ArrowLeft')  { state.mood   = Math.max(-1, state.mood - step); e.preventDefault(); }
+  drawField(); placePuck(); updateReadout();
+});
+
+/* ── density slider ─────────────────────────────────────────────────── */
+let densityDragging = false;
+
+function applyDensityX(clientX) {
+  const r = densityTrack.getBoundingClientRect();
+  const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+  state.density = parseFloat((t * 2 - 1).toFixed(3));
+  updateDensityUI();
+  placePuck();
+  drawField();
+  updateReadout();
+}
+
+function updateDensityUI() {
+  const pct = (state.density + 1) / 2 * 100;   // 0..100
+  const centre = 50;
+  /* fill from centre */
+  if (state.density >= 0) {
+    densityFill.style.left  = centre + '%';
+    densityFill.style.width = (pct - centre) + '%';
+  } else {
+    densityFill.style.left  = pct + '%';
+    densityFill.style.width = (centre - pct) + '%';
+  }
+  densityThumb.style.left = pct + '%';
+  densityTrack.setAttribute('aria-valuenow', Math.round(state.density * 100));
+
+  const lbl = state.density > .15 ? 'pile on' : state.density < -.15 ? 'strip back' : 'hold';
+  densityValLabel.textContent = (state.density >= 0 ? '+' : '') + state.density.toFixed(2) + ' (' + lbl + ')';
+}
+
+densityTrack.addEventListener('mousedown', e => { densityDragging = true; applyDensityX(e.clientX); });
+window.addEventListener('mousemove', e => { if (densityDragging) applyDensityX(e.clientX); });
+window.addEventListener('mouseup',   ()  => { densityDragging = false; });
+densityTrack.addEventListener('touchstart', e => { e.preventDefault(); densityDragging = true; applyDensityX(e.touches[0].clientX); }, { passive: false });
+window.addEventListener('touchmove',  e => { if (densityDragging) { e.preventDefault(); applyDensityX(e.touches[0].clientX); } }, { passive: false });
+window.addEventListener('touchend',   ()  => { densityDragging = false; });
+densityTrack.addEventListener('keydown', e => {
+  const step = e.shiftKey ? .1 : .04;
+  if (e.key === 'ArrowRight') state.density = Math.min(1,  state.density + step);
+  if (e.key === 'ArrowLeft')  state.density = Math.max(-1, state.density - step);
+  updateDensityUI(); placePuck(); drawField(); updateReadout();
+});
+
+/* ── genre chips ─────────────────────────────────────────────────────── */
+document.getElementById('genreChips').addEventListener('click', e => {
+  const chip = e.target.closest('.genre-chip');
+  if (!chip) return;
+  document.querySelectorAll('.genre-chip').forEach(c => {
+    c.classList.remove('active');
+    c.setAttribute('aria-checked', 'false');
+  });
+  chip.classList.add('active');
+  chip.setAttribute('aria-checked', 'true');
+  state.genre = chip.dataset.genre;
+  drawField();
+  updateReadout();
+});
+
+/* ── landmark tooltip on hover ───────────────────────────────────────── */
+fieldWrap.addEventListener('mousemove', e => {
+  if (dragging) { tooltip.classList.remove('visible'); return; }
+  const r = fieldWrap.getBoundingClientRect();
+  const mx = (e.clientX - r.left) / r.width  * 2 - 1;
+  const my = (1 - (e.clientY - r.top)  / r.height) * 2 - 1;
+  const lms = GENRES[state.genre].landmarks;
+  let best = null, bestDist = Infinity;
+  lms.forEach(lm => {
+    const d = Math.hypot(mx - lm.x, my - lm.y);
+    if (d < bestDist) { bestDist = d; best = lm; }
+  });
+  if (best && bestDist < .25) {
+    tooltip.textContent = best.label + ' — ' + best.desc;
+    tooltip.classList.add('visible');
+    /* position tooltip near mouse */
+    const tx = e.clientX - r.left + 12;
+    const ty = e.clientY - r.top  - 28;
+    tooltip.style.left = Math.min(tx, r.width - 220) + 'px';
+    tooltip.style.top  = Math.max(ty, 4) + 'px';
+  } else {
+    tooltip.classList.remove('visible');
+  }
+});
+fieldWrap.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+
+/* ── init ────────────────────────────────────────────────────────────── */
+function init() {
+  resizeCanvas();
+  placePuck();
+  updateDensityUI();
+  updateReadout();
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); placePuck(); });
+window.addEventListener('load', init);
+</script>
+</body>
+</html>

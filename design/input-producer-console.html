@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spike — The Producer Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep:    #06040d;
+    --bg-base:    #090913;
+    --panel:      #12121d;
+    --border:     #24243a;
+    --ink:        #e7e7f5;
+    --muted:      #8a8aa6;
+    --violet:     #7a5cff;
+    --cyan:       #22d3ee;
+    --pink:       #ff3d81;
+    --blue:       #45b6ff;
+    --green:      #38e0a6;
+    --amber:      #ff9f45;
+    --mono:       ui-monospace, Menlo, Consolas, monospace;
+    --display:    'Orbitron', sans-serif;
+    --radius-sm:  8px;
+    --radius-md:  12px;
+    --radius-lg:  16px;
+  }
+
+  html, body {
+    background: var(--bg-deep);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+    background:
+      radial-gradient(ellipse 80% 40% at 50% 0%, rgba(122,92,255,0.08) 0%, transparent 70%),
+      var(--bg-deep);
+  }
+
+  /* ── HEADER ── */
+  .spike-header {
+    width: 100%;
+    max-width: 1100px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
+
+  .spike-label {
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--violet);
+  }
+
+  .spike-title {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    text-shadow: 0 0 24px rgba(122,92,255,0.5);
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    width: 100%;
+    max-width: 1100px;
+  }
+
+  .console-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .readout-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .panel-label {
+    font-family: var(--display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── GENRE PILLS ── */
+  .genre-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .genre-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .genre-pill:hover {
+    border-color: var(--violet);
+    color: var(--ink);
+  }
+
+  .genre-pill.active {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .genre-pill[data-genre="Trap"].active        { border-color: var(--pink);   background: rgba(255,61,129,0.12); box-shadow: 0 0 18px rgba(255,61,129,0.2); }
+  .genre-pill[data-genre="Boom Bap"].active    { border-color: var(--amber);  background: rgba(255,159,69,0.12); box-shadow: 0 0 18px rgba(255,159,69,0.2); }
+  .genre-pill[data-genre="Drill"].active       { border-color: var(--violet); background: rgba(122,92,255,0.12); box-shadow: 0 0 18px rgba(122,92,255,0.2); }
+  .genre-pill[data-genre="Lo-Fi"].active       { border-color: var(--green);  background: rgba(56,224,166,0.12); box-shadow: 0 0 18px rgba(56,224,166,0.2); }
+  .genre-pill[data-genre="R&B"].active         { border-color: var(--cyan);   background: rgba(34,211,238,0.12); box-shadow: 0 0 18px rgba(34,211,238,0.2); }
+
+  .genre-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .genre-pill[data-genre="Trap"]     .genre-dot { background: var(--pink); }
+  .genre-pill[data-genre="Boom Bap"] .genre-dot { background: var(--amber); }
+  .genre-pill[data-genre="Drill"]    .genre-dot { background: var(--violet); }
+  .genre-pill[data-genre="Lo-Fi"]    .genre-dot { background: var(--green); }
+  .genre-pill[data-genre="R&B"]      .genre-dot { background: var(--cyan); }
+
+  .genre-meta {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 10px;
+    line-height: 1.4;
+  }
+
+  /* ── SLIDERS ── */
+  .slider-section {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .slider-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .slider-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+
+  .slider-value-badge {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    min-width: 80px;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+
+  .slider-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+  }
+
+  .slider-wrap {
+    position: relative;
+    height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  .slider-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .slider-fill {
+    position: absolute;
+    height: 100%;
+    border-radius: 3px;
+    pointer-events: none;
+    transition: width 0.05s, left 0.05s;
+  }
+
+  .slider-fill.from-center {
+    top: 0;
+  }
+
+  .slider-center-tick {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 1px;
+    height: 10px;
+    background: rgba(255,255,255,0.2);
+    pointer-events: none;
+    border-radius: 1px;
+  }
+
+  input[type=range] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+    z-index: 2;
+  }
+
+  .slider-thumb-vis {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-deep);
+    pointer-events: none;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    transition: box-shadow 0.15s;
+  }
+
+  .slider-block:has(input:focus) .slider-thumb-vis,
+  .slider-block:has(input:active) .slider-thumb-vis {
+    box-shadow: 0 0 0 3px rgba(122,92,255,0.35), 0 0 18px rgba(122,92,255,0.4);
+  }
+
+  /* intensity colour = cyan */
+  .slider-intensity .slider-fill   { background: linear-gradient(90deg, var(--cyan), #7a5cff); }
+  .slider-intensity .slider-thumb-vis { background: var(--cyan); box-shadow: 0 0 10px rgba(34,211,238,0.5); }
+  .slider-intensity .slider-value-badge { border-color: rgba(34,211,238,0.4); color: var(--cyan); }
+
+  /* mood colour = gradient pink→green */
+  .slider-mood .slider-fill { background: linear-gradient(90deg, var(--pink), var(--green)); }
+  .slider-mood .slider-thumb-vis { background: var(--ink); box-shadow: 0 0 10px rgba(255,255,255,0.25); }
+  .slider-mood .slider-value-badge { border-color: rgba(231,231,245,0.3); }
+
+  /* ── PART MIXER ── */
+  .mixer-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .channel {
+    display: grid;
+    grid-template-columns: 28px 100px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: rgba(255,255,255,0.025);
+    cursor: default;
+    transition: border-color 0.15s, background 0.15s;
+    user-select: none;
+  }
+
+  .channel:hover { background: rgba(255,255,255,0.04); border-color: var(--border); }
+
+  .channel.out {
+    opacity: 0.45;
+    border-color: rgba(255,61,129,0.25);
+    background: rgba(255,61,129,0.04);
+  }
+
+  .channel.featured {
+    border-color: rgba(56,224,166,0.35);
+    background: rgba(56,224,166,0.06);
+  }
+
+  .ch-colour {
+    width: 12px;
+    height: 28px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .ch-name {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* toggle: OUT / auto / FEATURE */
+  .ch-toggle {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+
+  .ch-btn {
+    padding: 4px 9px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.14s;
+    text-transform: uppercase;
+  }
+
+  .ch-btn:hover { color: var(--ink); border-color: rgba(255,255,255,0.25); }
+
+  .ch-btn.active-out     { background: rgba(255,61,129,0.18); border-color: var(--pink);  color: var(--pink); }
+  .ch-btn.active-auto    { background: rgba(122,92,255,0.15); border-color: var(--violet); color: var(--violet); }
+  .ch-btn.active-feature { background: rgba(56,224,166,0.15); border-color: var(--green);  color: var(--green); }
+
+  .ch-state-label {
+    font-size: 10px;
+    color: var(--muted);
+    width: 54px;
+    text-align: right;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .channel.out      .ch-state-label { color: var(--pink); }
+  .channel.featured .ch-state-label { color: var(--green); }
+
+  /* ── READOUT PANEL ── */
+  .readout-panel {
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .readout-title {
+    font-family: var(--display);
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 2px;
+  }
+
+  .readout-line {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .readout-line:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .rl-key {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .rl-val {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 600;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  #rl-genre  { color: var(--ink); }
+  #rl-intensity { color: var(--cyan); }
+  #rl-mood   { color: var(--ink); }
+  #rl-parts  { color: var(--green); font-size: 11px; font-weight: 500; line-height: 1.7; }
+
+  /* ── WHY PANEL ── */
+  .why-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+  }
+
+  .why-title {
+    font-family: var(--display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+  }
+
+  .why-body {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  .why-body strong { color: var(--ink); }
+
+  /* ── MISC ── */
+  .section-step {
+    font-family: var(--display);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--violet);
+    background: rgba(122,92,255,0.12);
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-right: 6px;
+    display: inline-block;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<header class="spike-header">
+  <span class="spike-label">Spike</span>
+  <span class="spike-title">The Producer Console</span>
+</header>
+
+<div class="layout">
+
+  <!-- ═══════════════════ LEFT: CONSOLE ═══════════════════ -->
+  <div class="console-col">
+
+    <!-- GENRE -->
+    <div class="panel">
+      <div class="panel-label"><span class="section-step">01</span> Style</div>
+      <div class="genre-row" id="genre-row">
+        <button class="genre-pill active" data-genre="Trap">
+          <span class="genre-dot"></span>Trap
+        </button>
+        <button class="genre-pill" data-genre="Boom Bap">
+          <span class="genre-dot"></span>Boom Bap
+        </button>
+        <button class="genre-pill" data-genre="Drill">
+          <span class="genre-dot"></span>Drill
+        </button>
+        <button class="genre-pill" data-genre="Lo-Fi">
+          <span class="genre-dot"></span>Lo-Fi
+        </button>
+        <button class="genre-pill" data-genre="R&B">
+          <span class="genre-dot"></span>R&amp;B
+        </button>
+      </div>
+      <p class="genre-meta" id="genre-meta">Trap — 140 bpm · punchy hi-hats · heavy 808 sub bass · dark &amp; aggressive palette</p>
+    </div>
+
+    <!-- FEEL SLIDERS -->
+    <div class="panel">
+      <div class="panel-label"><span class="section-step">02</span> Feel</div>
+      <div class="slider-section">
+
+        <!-- INTENSITY -->
+        <div class="slider-block slider-intensity">
+          <div class="slider-header">
+            <span class="slider-name">Intensity</span>
+            <span class="slider-value-badge" id="intensity-badge">+0.0 · balanced</span>
+          </div>
+          <div class="slider-labels">
+            <span>Soft &amp; sparse</span>
+            <span>Hard &amp; full</span>
+          </div>
+          <div class="slider-wrap">
+            <div class="slider-track" id="intensity-track">
+              <div class="slider-fill from-center" id="intensity-fill"></div>
+              <div class="slider-center-tick"></div>
+              <div class="slider-thumb-vis" id="intensity-thumb"></div>
+            </div>
+            <input type="range" id="intensity-input" min="-100" max="100" value="0">
+          </div>
+        </div>
+
+        <!-- MOOD -->
+        <div class="slider-block slider-mood">
+          <div class="slider-header">
+            <span class="slider-name">Mood</span>
+            <span class="slider-value-badge" id="mood-badge">+0.0 · neutral</span>
+          </div>
+          <div class="slider-labels">
+            <span>Dark &amp; menacing</span>
+            <span>Bright &amp; warm</span>
+          </div>
+          <div class="slider-wrap">
+            <div class="slider-track" id="mood-track">
+              <div class="slider-fill from-center" id="mood-fill"></div>
+              <div class="slider-center-tick"></div>
+              <div class="slider-thumb-vis" id="mood-thumb"></div>
+            </div>
+            <input type="range" id="mood-input" min="-100" max="100" value="0">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PART MIXER -->
+    <div class="panel">
+      <div class="panel-label"><span class="section-step">03</span> Parts</div>
+      <div class="mixer-grid" id="mixer-grid">
+        <!-- channels rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════ RIGHT: READOUT + WHY ═══════════════════ -->
+  <div class="readout-col">
+    <div class="readout-panel">
+      <div class="readout-title">Generation intent</div>
+
+      <div class="readout-line">
+        <span class="rl-key">Style</span>
+        <span class="rl-val" id="rl-genre">Trap</span>
+      </div>
+      <div class="readout-line">
+        <span class="rl-key">Intensity</span>
+        <span class="rl-val" id="rl-intensity">+0.0 (balanced)</span>
+      </div>
+      <div class="readout-line">
+        <span class="rl-key">Mood</span>
+        <span class="rl-val" id="rl-mood">+0.0 (neutral)</span>
+      </div>
+      <div class="readout-line">
+        <span class="rl-key">Parts</span>
+        <span class="rl-val" id="rl-parts">all auto (DJ decides)</span>
+      </div>
+    </div>
+
+    <div class="why-panel">
+      <div class="why-title">Why this is clearer</div>
+      <div class="why-body">
+        <strong>Collapsing energy + density into one Intensity axis</strong> removes the most common source of confusion — both controls pulled in the same direction. The part mixer replaces seven anonymous faders with an explicit three-state choice (out / auto / feature), making the DJ's latitude visible rather than hidden. <strong>Trade-off:</strong> merging two axes loses independent control — you can't have a hard-hitting but sparse arrangement, though that edge case is rare enough that the gained clarity outweighs it.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── GENRE ──────────────────────────────────────────────────────────────────
+const GENRE_META = {
+  'Trap':     'Trap — 140 bpm · punchy hi-hats · heavy 808 sub bass · dark &amp; aggressive palette',
+  'Boom Bap': 'Boom Bap — 90 bpm · swung kick &amp; snare · sampled chords · classic NYC warmth',
+  'Drill':    'Drill — 145 bpm · sliding 808s · triplet hi-hats · menacing minor palette',
+  'Lo-Fi':    'Lo-Fi — 75 bpm · dusty vinyl crackle · soft jazz chords · late-night warmth',
+  'R&B':      'R&amp;B — 95 bpm · smooth bass groove · lush chords · silky atmosphere',
+};
+
+let state = {
+  genre: 'Trap',
+  intensity: 0,
+  mood: 0,
+  parts: {
+    kick:        'auto',
+    hats:        'auto',
+    bass:        'auto',
+    clap:        'auto',
+    chords:      'auto',
+    lead:        'auto',
+    atmosphere:  'auto',
+  }
+};
+
+const PART_COLOURS = {
+  kick:       '#ff3d81',
+  hats:       '#ff9f45',
+  bass:       '#7a5cff',
+  clap:       '#45b6ff',
+  chords:     '#22d3ee',
+  lead:       '#38e0a6',
+  atmosphere: '#8a8aa6',
+};
+
+const PART_NAMES = {
+  kick: 'Kick', hats: 'Hats', bass: 'Bass',
+  clap: 'Clap', chords: 'Chords', lead: 'Lead', atmosphere: 'Atmos',
+};
+
+// Genre pills
+document.getElementById('genre-row').addEventListener('click', e => {
+  const pill = e.target.closest('.genre-pill');
+  if (!pill) return;
+  document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  state.genre = pill.dataset.genre;
+  document.getElementById('genre-meta').innerHTML = GENRE_META[state.genre] || '';
+  updateReadout();
+});
+
+// ── SLIDERS ──────────────────────────────────────────────────────────────────
+function renderSlider(inputId, fillId, thumbId, value) {
+  const pct = (value + 100) / 200; // 0..1
+  const fill = document.getElementById(fillId);
+  const thumb = document.getElementById(thumbId);
+
+  if (value >= 0) {
+    fill.style.left   = '50%';
+    fill.style.width  = (pct * 100 - 50) + '%';
+  } else {
+    fill.style.left   = (pct * 100) + '%';
+    fill.style.width  = (50 - pct * 100) + '%';
+  }
+  thumb.style.left = (pct * 100) + '%';
+}
+
+function intensityLabel(v) {
+  if (v < -0.6) return 'very soft & sparse';
+  if (v < -0.2) return 'soft & light';
+  if (v < 0.2)  return 'balanced';
+  if (v < 0.6)  return 'hard & busy';
+  return 'very hard & full';
+}
+
+function moodLabel(v) {
+  if (v < -0.6) return 'very dark';
+  if (v < -0.2) return 'dark';
+  if (v < 0.2)  return 'neutral';
+  if (v < 0.6)  return 'bright';
+  return 'very bright';
+}
+
+document.getElementById('intensity-input').addEventListener('input', function () {
+  state.intensity = this.value / 100;
+  renderSlider('intensity-input', 'intensity-fill', 'intensity-thumb', +this.value);
+  const label = intensityLabel(state.intensity);
+  const sign = state.intensity > 0 ? '+' : '';
+  document.getElementById('intensity-badge').textContent =
+    sign + state.intensity.toFixed(1) + ' · ' + label;
+  updateReadout();
+});
+
+document.getElementById('mood-input').addEventListener('input', function () {
+  state.mood = this.value / 100;
+  renderSlider('mood-input', 'mood-fill', 'mood-thumb', +this.value);
+  const label = moodLabel(state.mood);
+  const sign = state.mood > 0 ? '+' : '';
+  document.getElementById('mood-badge').textContent =
+    sign + state.mood.toFixed(1) + ' · ' + label;
+  updateReadout();
+});
+
+// init slider visuals
+renderSlider('intensity-input', 'intensity-fill', 'intensity-thumb', 0);
+renderSlider('mood-input', 'mood-fill', 'mood-thumb', 0);
+
+// ── MIXER ──────────────────────────────────────────────────────────────────
+function buildMixer() {
+  const grid = document.getElementById('mixer-grid');
+  grid.innerHTML = '';
+  Object.keys(state.parts).forEach(key => {
+    const colour = PART_COLOURS[key];
+    const name   = PART_NAMES[key];
+    const ch = document.createElement('div');
+    ch.className = 'channel';
+    ch.dataset.part = key;
+    ch.innerHTML = `
+      <div class="ch-colour" style="background:${colour};box-shadow:0 0 8px ${colour}55;"></div>
+      <span class="ch-name">${name}</span>
+      <div class="ch-toggle">
+        <button class="ch-btn active-out"    data-part="${key}" data-val="out">Out</button>
+        <button class="ch-btn active-auto"   data-part="${key}" data-val="auto">Auto</button>
+        <button class="ch-btn active-feature" data-part="${key}" data-val="feature">Feature</button>
+      </div>
+      <span class="ch-state-label">auto</span>
+    `;
+    grid.appendChild(ch);
+  });
+  updateMixerUI();
+}
+
+function updateMixerUI() {
+  Object.keys(state.parts).forEach(key => {
+    const ch = document.querySelector(`.channel[data-part="${key}"]`);
+    if (!ch) return;
+    const val = state.parts[key];
+    ch.className = 'channel' + (val === 'out' ? ' out' : val === 'feature' ? ' featured' : '');
+
+    ch.querySelectorAll('.ch-btn').forEach(b => {
+      const isActive = b.dataset.val === val;
+      b.classList.toggle('active-out',     isActive && val === 'out');
+      b.classList.toggle('active-auto',    isActive && val === 'auto');
+      b.classList.toggle('active-feature', isActive && val === 'feature');
+      if (!isActive) b.classList.remove('active-out', 'active-auto', 'active-feature');
+    });
+
+    const stateLabel = ch.querySelector('.ch-state-label');
+    stateLabel.textContent = val === 'out' ? 'dropped' : val === 'feature' ? 'featured' : 'auto';
+  });
+}
+
+document.getElementById('mixer-grid').addEventListener('click', e => {
+  const btn = e.target.closest('.ch-btn');
+  if (!btn) return;
+  const part = btn.dataset.part;
+  const val  = btn.dataset.val;
+  state.parts[part] = val;
+  updateMixerUI();
+  updateReadout();
+});
+
+buildMixer();
+
+// ── READOUT ────────────────────────────────────────────────────────────────
+function updateReadout() {
+  document.getElementById('rl-genre').textContent = state.genre;
+
+  const iSign = state.intensity >= 0 ? '+' : '';
+  document.getElementById('rl-intensity').textContent =
+    iSign + state.intensity.toFixed(2) + '  (' + intensityLabel(state.intensity) + ')';
+
+  const mSign = state.mood >= 0 ? '+' : '';
+  document.getElementById('rl-mood').textContent =
+    mSign + state.mood.toFixed(2) + '  (' + moodLabel(state.mood) + ')';
+
+  const featured = Object.keys(state.parts).filter(k => state.parts[k] === 'feature').map(k => PART_NAMES[k]);
+  const out      = Object.keys(state.parts).filter(k => state.parts[k] === 'out').map(k => PART_NAMES[k]);
+  const autoKeys = Object.keys(state.parts).filter(k => state.parts[k] === 'auto');
+
+  const lines = [];
+  if (featured.length) lines.push('FEATURED: ' + featured.join(', '));
+  if (out.length)      lines.push('OUT: ' + out.join(', '));
+  if (autoKeys.length === 7) {
+    document.getElementById('rl-parts').textContent = 'all auto (DJ decides)';
+  } else {
+    lines.push('auto: ' + (autoKeys.length ? autoKeys.map(k => PART_NAMES[k]).join(', ') : 'none'));
+    document.getElementById('rl-parts').textContent = lines.join('\n');
+  }
+}
+
+updateReadout();
+</script>
+</body>
+</html>

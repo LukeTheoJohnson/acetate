@@ -52,8 +52,8 @@
       'voteDesc', 'voteCode', 'voteControls', 'voteUp', 'voteDown',
       'voteLayers', 'voteHistory', 'voteRoll', 'voteRollWrap',
       'voteDeck', 'ttLabel', 'ttBadge', 'ttHint', 'voteAB',
-      // crowd pad + per-part opinion faders + density dial + the DJ's-mind panel
-      'pad', 'puck', 'energyVal', 'warmthVal', 'liveOpinion', 'liveDensity', 'liveGenre',
+      // crowd pad + genre pills + density dial + part mixer + the DJ's-mind panel
+      'pad', 'puck', 'energyVal', 'warmthVal', 'livePartMix', 'liveDensity', 'liveGenrePills',
       'djNow', 'djVerb', 'djMove', 'djConf', 'djConfVal', 'djTemp', 'djModes', 'djFeed',
       // set-log controls
       'logExport', 'logClear', 'logStat',
@@ -1302,26 +1302,43 @@
   // dial biases how busy the whole track gets. Both feed the engine every tick.
 
   function buildControls() {
-    buildOpinionBank(el.liveOpinion, (i, v) => { laneMoodIn[i] = v; applyControls(); });
+    buildPartMix(el.livePartMix, (i, v) => { laneMoodIn[i] = v; applyControls(); });
     if (el.liveDensity) {
       el.liveDensity.addEventListener('input', () => { intentIn = (+el.liveDensity.value) / 100; applyControls(); });
     }
-    buildGenreSelect();
+    buildGenrePills();
   }
 
   // Populate the genre picker from Theory.GENRES (the leading "surprise me" option
   // lives in the HTML) and wire it. Pinning a genre makes every fresh track come
   // out in that style — next track, and right away if a set is already running.
-  function buildGenreSelect() {
-    if (!el.liveGenre) return;
-    SDJ.Theory.GENRES.forEach((g) => {
-      const o = document.createElement('option');
-      o.value = g.id;
-      o.textContent = g.label;
-      el.liveGenre.appendChild(o);
+  function buildGenrePills() {
+    if (!el.liveGenrePills) return;
+    const mk = (id, label) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pill';
+      b.dataset.genre = id;
+      b.textContent = label;
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => setGenre(id));
+      el.liveGenrePills.appendChild(b);
+    };
+    mk('', '🎲 Surprise me');
+    SDJ.Theory.GENRES.forEach((g) => mk(g.id, g.label));
+    reflectGenre();
+  }
+
+  // Light the pill matching the pinned genre ('' = surprise me). Called on build
+  // and whenever setGenre runs, so a headless SDJ.setGenre() lights the right one.
+  function reflectGenre() {
+    if (!el.liveGenrePills) return;
+    const cur = engine.genrePref || '';
+    el.liveGenrePills.querySelectorAll('.pill').forEach((b) => {
+      const on = b.dataset.genre === cur;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
     });
-    el.liveGenre.value = engine.genrePref || '';
-    el.liveGenre.addEventListener('change', () => setGenre(el.liveGenre.value));
   }
 
   // Pin the genre (''/null = surprise me). Exposed on SDJ so an agent can set the
@@ -1330,7 +1347,7 @@
   // straight away instead of dropping back to a bare kick.
   function setGenre(id) {
     const reskinned = engine.setGenre(id);
-    if (el.liveGenre) el.liveGenre.value = engine.genrePref || '';
+    reflectGenre();
     const label = engine.genrePref
       ? ((SDJ.Theory.GENRES.find((g) => g.id === engine.genrePref) || {}).label || 'that style')
       : 'Surprise me';
@@ -1345,40 +1362,54 @@
     }
   }
 
-  // Build a bank of colour-coded per-lane opinion faders into `container`.
-  // onChange(i, v) fires with the lane index and a value in -1..1. Reused by the
-  // live deck and the A&R session (both steer the same laneMood mechanism).
-  function buildOpinionBank(container, onChange) {
-    if (!container) return [];
+  // Build the part mixer: one row per arrangement lane, each a 3-state segmented
+  // control — drop (−1) / auto (0, the DJ decides) / feature (+1). Replaces the
+  // seven fiddly faders with an explicit, legible choice. onChange(i, v) fires
+  // with the lane index and value in {-1, 0, 1}. Each row exposes set(v) so the
+  // headless SDJ.setOpinion() and resetControls() can drive the visual too.
+  function buildPartMix(container, onChange) {
+    if (!container) return;
     const stages = SDJ.STAGES || [];
     const colors = SDJ.LANE_COLORS || [];
     container.innerHTML = '';
-    const inputs = [];
+    container._rows = [];
     stages.forEach((st, i) => {
-      const wrap = document.createElement('div');
-      wrap.className = 'fader';
-      const input = document.createElement('input');
-      input.type = 'range'; input.min = '-100'; input.max = '100'; input.value = '0';
-      input.className = 'fader-range';
-      input.style.accentColor = colors[i] || '#fff';
-      input.setAttribute('aria-label', 'opinion on ' + st.key);
-      input.addEventListener('input', () => onChange(i, (+input.value) / 100));
+      const row = document.createElement('div');
+      row.className = 'pm-row';
       const key = document.createElement('span');
-      key.className = 'fader-key'; key.textContent = st.key;
+      key.className = 'pm-key'; key.textContent = st.key;
       key.style.color = colors[i] || '#fff';
-      wrap.appendChild(input); wrap.appendChild(key);
-      container.appendChild(wrap);
-      inputs.push(input);
+      const seg = document.createElement('div');
+      seg.className = 'pm-seg';
+      const defs = [
+        { v: -1, label: 'drop', title: 'drop ' + st.label },
+        { v: 0, label: 'auto', title: 'let the DJ decide' },
+        { v: 1, label: 'feature', title: 'feature ' + st.label },
+      ];
+      const set = (v) => btns.forEach((b, k) => b.classList.toggle('on', defs[k].v === v));
+      const btns = defs.map((d) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pm-btn';
+        b.textContent = d.label;
+        b.title = d.title;
+        b.style.setProperty('--pm', colors[i] || '#fff');
+        b.addEventListener('click', () => { set(d.v); onChange(i, d.v); });
+        seg.appendChild(b);
+        return b;
+      });
+      set(0); // default: auto (the DJ decides)
+      row.appendChild(key); row.appendChild(seg);
+      container.appendChild(row);
+      container._rows.push({ set: set });
     });
-    container._inputs = inputs;
-    return inputs;
   }
 
   // Zero the live faders + dial and the input state (a fresh set).
   function resetControls() {
     for (let i = 0; i < laneMoodIn.length; i++) laneMoodIn[i] = 0;
     intentIn = 0;
-    if (el.liveOpinion && el.liveOpinion._inputs) el.liveOpinion._inputs.forEach((inp) => { inp.value = '0'; });
+    if (el.livePartMix && el.livePartMix._rows) el.livePartMix._rows.forEach((r) => r.set(0));
     if (el.liveDensity) el.liveDensity.value = '0';
   }
 
@@ -1669,8 +1700,10 @@
   SDJ.setOpinion = function (i, v) {
     if (i < 0 || i >= laneMoodIn.length) return;
     laneMoodIn[i] = clamp(v, -1, 1);
-    if (el.liveOpinion && el.liveOpinion._inputs && el.liveOpinion._inputs[i]) {
-      el.liveOpinion._inputs[i].value = String(Math.round(laneMoodIn[i] * 100));
+    // snap the mixer display to the nearest of drop / auto / feature
+    if (el.livePartMix && el.livePartMix._rows && el.livePartMix._rows[i]) {
+      const snap = laneMoodIn[i] > 0.33 ? 1 : laneMoodIn[i] < -0.33 ? -1 : 0;
+      el.livePartMix._rows[i].set(snap);
     }
     applyControls();
   };

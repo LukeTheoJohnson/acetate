@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spike — Mood Tags</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep:    #06040d;
+    --bg-mid:     #090913;
+    --panel:      #12121d;
+    --border:     #24243a;
+    --ink:        #e7e7f5;
+    --muted:      #8a8aa6;
+    --violet:     #7a5cff;
+    --cyan:       #22d3ee;
+    --pink:       #ff3d81;
+    --blue:       #45b6ff;
+    --green:      #38e0a6;
+    --amber:      #ff9f45;
+
+    --font-mono: ui-monospace, Menlo, Consolas, monospace;
+    --font-display: 'Orbitron', sans-serif;
+    --radius-tag: 10px;
+    --radius-panel: 14px;
+    --transition: 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg-deep);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  /* ─── STARFIELD ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, rgba(122,92,255,.35) 0%, transparent 100%),
+      radial-gradient(1px 1px at 73% 9%,  rgba(34,211,238,.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 44% 66%, rgba(255,61,129,.20) 0%, transparent 100%),
+      radial-gradient(1px 1px at 88% 52%, rgba(69,182,255,.20) 0%, transparent 100%),
+      radial-gradient(1px 1px at 31% 84%, rgba(56,224,166,.15) 0%, transparent 100%),
+      radial-gradient(2px 2px at 57% 33%, rgba(255,159,69,.18) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── LAYOUT ─── */
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ─── HEADER ─── */
+  .spike-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .spike-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: clamp(20px, 3vw, 30px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    background: linear-gradient(135deg, var(--violet) 0%, var(--cyan) 60%, var(--green) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15;
+  }
+
+  /* ─── SECTION LABEL ─── */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  /* ─── TAG GROUPS ─── */
+  .tag-group {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    padding: 18px 20px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tag-group::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  }
+  .tag-group.genre-group::before  { background: linear-gradient(90deg, var(--violet), var(--blue)); }
+  .tag-group.mood-group::before   { background: linear-gradient(90deg, var(--pink), var(--amber)); }
+  .tag-group.energy-group::before { background: linear-gradient(90deg, var(--cyan), var(--green)); }
+  .tag-group.texture-group::before{ background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .tag-group.spot-group::before   { background: linear-gradient(90deg, var(--amber), var(--pink)); }
+
+  /* ─── TAGS FLEX ─── */
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ─── SINGLE TAG ─── */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(18,18,29,0.6);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    transition:
+      color var(--transition),
+      border-color var(--transition),
+      background var(--transition),
+      box-shadow var(--transition),
+      transform var(--transition);
+    position: relative;
+    white-space: nowrap;
+  }
+  .tag:hover {
+    color: var(--ink);
+    border-color: rgba(255,255,255,0.18);
+    transform: translateY(-1px);
+  }
+  .tag:active { transform: translateY(0) scale(0.97); }
+
+  .tag-icon {
+    font-size: 14px;
+    line-height: 1;
+    transition: transform var(--transition);
+  }
+  .tag:hover .tag-icon { transform: scale(1.15); }
+
+  /* selected states per group accent */
+  .tag.sel-genre {
+    color: #c4b5fd;
+    border-color: var(--violet);
+    background: rgba(122,92,255,0.15);
+    box-shadow: 0 0 12px rgba(122,92,255,0.4), inset 0 0 10px rgba(122,92,255,0.08);
+  }
+  .tag.sel-mood {
+    color: #fda4af;
+    border-color: var(--pink);
+    background: rgba(255,61,129,0.12);
+    box-shadow: 0 0 12px rgba(255,61,129,0.38), inset 0 0 10px rgba(255,61,129,0.08);
+  }
+  .tag.sel-energy {
+    color: #67e8f9;
+    border-color: var(--cyan);
+    background: rgba(34,211,238,0.12);
+    box-shadow: 0 0 12px rgba(34,211,238,0.38), inset 0 0 10px rgba(34,211,238,0.08);
+  }
+  .tag.sel-texture {
+    color: #6ee7b7;
+    border-color: var(--green);
+    background: rgba(56,224,166,0.12);
+    box-shadow: 0 0 12px rgba(56,224,166,0.38), inset 0 0 10px rgba(56,224,166,0.08);
+  }
+  .tag.sel-spotlight {
+    color: #fcd34d;
+    border-color: var(--amber);
+    background: rgba(255,159,69,0.12);
+    box-shadow: 0 0 12px rgba(255,159,69,0.38), inset 0 0 10px rgba(255,159,69,0.08);
+  }
+
+  /* ─── BOTTOM STRIP: RECIPE + READOUT ─── */
+  .output-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .recipe-panel, .readout-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .recipe-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--violet), var(--pink), var(--cyan));
+  }
+  .readout-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+  }
+
+  /* ─── RECIPE SENTENCE ─── */
+  .recipe-sentence {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--muted);
+    min-height: 52px;
+    transition: color 250ms;
+  }
+
+  .rword {
+    display: inline;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    transition: color var(--transition), text-shadow var(--transition);
+  }
+  .rword.genre-w  { color: #c4b5fd; text-shadow: 0 0 14px rgba(122,92,255,.5); }
+  .rword.mood-w   { color: #fda4af; text-shadow: 0 0 14px rgba(255,61,129,.5); }
+  .rword.energy-w { color: #67e8f9; text-shadow: 0 0 14px rgba(34,211,238,.5); }
+  .rword.texture-w{ color: #6ee7b7; text-shadow: 0 0 14px rgba(56,224,166,.5); }
+  .rword.spot-w   { color: #fcd34d; text-shadow: 0 0 14px rgba(255,159,69,.5); }
+  .rword.empty    { color: var(--border); text-shadow: none; font-style: italic; font-weight: 400; }
+
+  /* ─── READOUT ─── */
+  .readout-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .readout-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .readout-key {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    width: 76px;
+    flex-shrink: 0;
+  }
+  .readout-val {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--ink);
+    letter-spacing: 0.03em;
+    transition: color var(--transition), text-shadow var(--transition);
+  }
+  .readout-val.has-val { font-weight: 700; }
+  .readout-val.no-val  { color: var(--border); font-style: italic; }
+
+  .readout-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .readout-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width var(--transition), background var(--transition), transform var(--transition);
+    transform-origin: left;
+  }
+  .readout-bar.bar-energy { background: linear-gradient(90deg, var(--cyan), var(--green)); }
+  .readout-bar.bar-mood   { background: linear-gradient(90deg, var(--pink), var(--violet)); }
+  .readout-bar.bar-density{ background: linear-gradient(90deg, var(--amber), var(--pink)); }
+
+  /* centre tick for ternary bars */
+  .readout-bar-wrap .centre-tick {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: rgba(255,255,255,0.18);
+  }
+
+  /* ─── SPOTLIGHT CHIPS row ─── */
+  .spotlight-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* ─── CAPTION ─── */
+  .caption-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--violet);
+    border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+    padding: 18px 22px;
+  }
+  .caption-title {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--violet);
+    margin-bottom: 8px;
+  }
+  .caption-body {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  .caption-body strong { color: var(--ink); font-weight: 600; }
+
+  /* ─── PULSE ANIMATION on selection ─── */
+  @keyframes tagPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.25); }
+    50%  { box-shadow: 0 0 0 6px rgba(255,255,255,0.0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  }
+  .tag.just-selected { animation: tagPulse 380ms ease-out forwards; }
+
+  /* ─── SCROLL-IN ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .tag-group, .output-strip, .caption-block {
+    animation: fadeUp 350ms ease-out both;
+  }
+  .tag-group:nth-child(3) { animation-delay: 40ms; }
+  .tag-group:nth-child(4) { animation-delay: 80ms; }
+  .tag-group:nth-child(5) { animation-delay: 120ms; }
+  .tag-group:nth-child(6) { animation-delay: 160ms; }
+  .tag-group:nth-child(7) { animation-delay: 200ms; }
+  .output-strip           { animation-delay: 240ms; }
+  .caption-block          { animation-delay: 280ms; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 720px) {
+    .output-strip { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Header -->
+  <div>
+    <div class="spike-label">Spike &mdash; Mood Tags &nbsp;·&nbsp; Strudel Auto-DJ Input Prototype</div>
+    <h1 class="page-title" style="margin-top:10px;">Compose Your Track in Words</h1>
+  </div>
+
+  <!-- GENRE -->
+  <div class="tag-group genre-group">
+    <div class="section-label"><span class="dot"></span> Genre</div>
+    <div class="tags" id="genre-tags">
+      <button class="tag" data-group="genre" data-val="Trap"    data-energy="0.4"  data-mood="-0.3" data-density="0.3"><span class="tag-icon">🔺</span> Trap</button>
+      <button class="tag" data-group="genre" data-val="Boom Bap" data-energy="0.1" data-mood="0.0" data-density="-0.1"><span class="tag-icon">🥁</span> Boom Bap</button>
+      <button class="tag" data-group="genre" data-val="Drill"   data-energy="0.7"  data-mood="-0.7" data-density="0.5"><span class="tag-icon">⚡</span> Drill</button>
+      <button class="tag" data-group="genre" data-val="Lo-Fi"   data-energy="-0.5" data-mood="0.3"  data-density="-0.4"><span class="tag-icon">🌙</span> Lo-Fi</button>
+      <button class="tag" data-group="genre" data-val="R&amp;B" data-energy="-0.2" data-mood="0.5"  data-density="0.0"><span class="tag-icon">✨</span> R&amp;B</button>
+    </div>
+  </div>
+
+  <!-- MOOD -->
+  <div class="tag-group mood-group">
+    <div class="section-label"><span class="dot"></span> Mood / Colour</div>
+    <div class="tags" id="mood-tags">
+      <button class="tag" data-group="mood" data-val="menacing"  data-num="-1.0"><span class="tag-icon">🖤</span> Menacing</button>
+      <button class="tag" data-group="mood" data-val="sinister"  data-num="-0.7"><span class="tag-icon">🌑</span> Sinister</button>
+      <button class="tag" data-group="mood" data-val="cold"      data-num="-0.4"><span class="tag-icon">🧊</span> Cold</button>
+      <button class="tag" data-group="mood" data-val="hazy"      data-num="-0.1"><span class="tag-icon">🌫</span> Hazy</button>
+      <button class="tag" data-group="mood" data-val="soulful"   data-num="0.3"><span class="tag-icon">💫</span> Soulful</button>
+      <button class="tag" data-group="mood" data-val="dreamy"    data-num="0.5"><span class="tag-icon">🌸</span> Dreamy</button>
+      <button class="tag" data-group="mood" data-val="warm"      data-num="0.7"><span class="tag-icon">🔥</span> Warm</button>
+      <button class="tag" data-group="mood" data-val="euphoric"  data-num="1.0"><span class="tag-icon">🌟</span> Euphoric</button>
+    </div>
+  </div>
+
+  <!-- ENERGY -->
+  <div class="tag-group energy-group">
+    <div class="section-label"><span class="dot"></span> Energy / Drive</div>
+    <div class="tags" id="energy-tags">
+      <button class="tag" data-group="energy" data-val="chilled"     data-num="-1.0"><span class="tag-icon">🛋</span> Chilled</button>
+      <button class="tag" data-group="energy" data-val="laid-back"   data-num="-0.5"><span class="tag-icon">😌</span> Laid-Back</button>
+      <button class="tag" data-group="energy" data-val="steady"      data-num="0.0"><span class="tag-icon">🔁</span> Steady</button>
+      <button class="tag" data-group="energy" data-val="driving"     data-num="0.5"><span class="tag-icon">🚗</span> Driving</button>
+      <button class="tag" data-group="energy" data-val="hyped"       data-num="0.8"><span class="tag-icon">💥</span> Hyped</button>
+      <button class="tag" data-group="energy" data-val="going off"   data-num="1.0"><span class="tag-icon">🚀</span> Going Off</button>
+    </div>
+  </div>
+
+  <!-- TEXTURE / DENSITY -->
+  <div class="tag-group texture-group">
+    <div class="section-label"><span class="dot"></span> Texture / Density</div>
+    <div class="tags" id="texture-tags">
+      <button class="tag" data-group="texture" data-val="skeletal"      data-num="-1.0"><span class="tag-icon">🦴</span> Skeletal</button>
+      <button class="tag" data-group="texture" data-val="sparse"        data-num="-0.5"><span class="tag-icon">🌿</span> Sparse</button>
+      <button class="tag" data-group="texture" data-val="balanced"      data-num="0.0"><span class="tag-icon">⚖</span> Balanced</button>
+      <button class="tag" data-group="texture" data-val="layered"       data-num="0.5"><span class="tag-icon">📚</span> Layered</button>
+      <button class="tag" data-group="texture" data-val="wall-of-sound" data-num="1.0"><span class="tag-icon">🏔</span> Wall of Sound</button>
+    </div>
+  </div>
+
+  <!-- SPOTLIGHT -->
+  <div class="tag-group spot-group">
+    <div class="section-label"><span class="dot"></span> Spotlight a Part &nbsp;<span style="font-size:9px;opacity:0.5">(toggle on/off · pick any)</span></div>
+    <div class="tags spotlight-chips" id="spot-tags">
+      <button class="tag" data-group="spotlight" data-val="kick"><span class="tag-icon">🥁</span> Kick</button>
+      <button class="tag" data-group="spotlight" data-val="hats"><span class="tag-icon">🎩</span> Hats</button>
+      <button class="tag" data-group="spotlight" data-val="bass"><span class="tag-icon">🔊</span> Bass</button>
+      <button class="tag" data-group="spotlight" data-val="clap"><span class="tag-icon">👏</span> Clap</button>
+      <button class="tag" data-group="spotlight" data-val="chords"><span class="tag-icon">🎹</span> Chords</button>
+      <button class="tag" data-group="spotlight" data-val="lead"><span class="tag-icon">🎸</span> Lead</button>
+      <button class="tag" data-group="spotlight" data-val="atmosphere"><span class="tag-icon">🌊</span> Atmosphere</button>
+    </div>
+  </div>
+
+  <!-- OUTPUT STRIP -->
+  <div class="output-strip">
+
+    <!-- RECIPE SENTENCE -->
+    <div class="recipe-panel">
+      <div class="section-label"><span class="dot"></span> Your Track Brief</div>
+      <div class="recipe-sentence" id="recipe-sentence">
+        <span>Select tags above to compose your brief&hellip;</span>
+      </div>
+    </div>
+
+    <!-- GENERATION INTENT READOUT -->
+    <div class="readout-panel">
+      <div class="section-label"><span class="dot"></span> Generation Intent</div>
+      <div class="readout-grid">
+
+        <div class="readout-row">
+          <span class="readout-key">Genre</span>
+          <span class="readout-val no-val" id="ro-genre">&mdash;</span>
+        </div>
+
+        <div class="readout-row">
+          <span class="readout-key">Energy</span>
+          <span class="readout-val no-val" id="ro-energy-val">&mdash;</span>
+          <div class="readout-bar-wrap">
+            <div class="centre-tick"></div>
+            <div class="readout-bar bar-energy" id="ro-energy-bar" style="width:50%;transform:scaleX(0)"></div>
+          </div>
+        </div>
+
+        <div class="readout-row">
+          <span class="readout-key">Mood</span>
+          <span class="readout-val no-val" id="ro-mood-val">&mdash;</span>
+          <div class="readout-bar-wrap">
+            <div class="centre-tick"></div>
+            <div class="readout-bar bar-mood" id="ro-mood-bar" style="width:50%;transform:scaleX(0)"></div>
+          </div>
+        </div>
+
+        <div class="readout-row">
+          <span class="readout-key">Density</span>
+          <span class="readout-val no-val" id="ro-density-val">&mdash;</span>
+          <div class="readout-bar-wrap">
+            <div class="centre-tick"></div>
+            <div class="readout-bar bar-density" id="ro-density-bar" style="width:50%;transform:scaleX(0)"></div>
+          </div>
+        </div>
+
+        <div class="readout-row" id="ro-spot-row">
+          <span class="readout-key">Spotlight</span>
+          <span class="readout-val no-val" id="ro-spot-val">&mdash;</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CAPTION -->
+  <div class="caption-block">
+    <div class="caption-title">Why this is clearer</div>
+    <p class="caption-body">
+      Instead of abstract faders — a crowd pad, a density slider, seven per-part knobs —
+      this paradigm lets you <strong>describe the track you want</strong> the way you'd describe it to
+      a friend: "something hazy and laid-back, Lo-Fi, sparse, with the chords out front."
+      Every word maps to the same numeric parameters under the hood, but the mental model
+      is <strong>intent</strong> rather than engineering.
+      The trade-off is precision: you cannot set energy to exactly +0.37, but that granularity
+      rarely matters when the AI is interpreting mood — the word "driving" is faster to
+      reach and easier to remember than a half-pushed fader.
+    </p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─── STATE ──────────────────────────────────────────────────────────────────
+  const state = {
+    genre:    null,   // { val, energy, mood, density }
+    mood:     null,   // { val, num }
+    energy:   null,   // { val, num }
+    texture:  null,   // { val, num }
+    spotlight: new Set()
+  };
+
+  // ─── TAG CLICK WIRING ───────────────────────────────────────────────────────
+  document.querySelectorAll('.tag').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const group = btn.dataset.group;
+      const selClass = 'sel-' + group;
+
+      if (group === 'spotlight') {
+        // toggle
+        if (btn.classList.contains(selClass)) {
+          btn.classList.remove(selClass);
+          state.spotlight.delete(btn.dataset.val);
+        } else {
+          btn.classList.add(selClass);
+          state.spotlight.add(btn.dataset.val);
+          pulse(btn);
+        }
+      } else {
+        // single-select in group
+        document.querySelectorAll('[data-group="' + group + '"]').forEach(function (b) {
+          b.classList.remove(selClass);
+        });
+        btn.classList.add(selClass);
+        pulse(btn);
+
+        if (group === 'genre') {
+          state.genre = {
+            val: btn.dataset.val,
+            energy: parseFloat(btn.dataset.energy),
+            mood: parseFloat(btn.dataset.mood),
+            density: parseFloat(btn.dataset.density)
+          };
+        } else if (group === 'mood') {
+          state.mood = { val: btn.dataset.val, num: parseFloat(btn.dataset.num) };
+        } else if (group === 'energy') {
+          state.energy = { val: btn.dataset.val, num: parseFloat(btn.dataset.num) };
+        } else if (group === 'texture') {
+          state.texture = { val: btn.dataset.val, num: parseFloat(btn.dataset.num) };
+        }
+      }
+
+      render();
+    });
+  });
+
+  function pulse(el) {
+    el.classList.remove('just-selected');
+    void el.offsetWidth; // reflow
+    el.classList.add('just-selected');
+    setTimeout(function () { el.classList.remove('just-selected'); }, 400);
+  }
+
+  // ─── RENDER ─────────────────────────────────────────────────────────────────
+  function render() {
+    renderRecipe();
+    renderReadout();
+  }
+
+  // helper to format a signed number with explicit +/-
+  function fmt(n) {
+    if (n === null || n === undefined) return null;
+    return (n >= 0 ? '+' : '') + n.toFixed(2);
+  }
+
+  // blend genre hint with explicit word value (explicit wins 70%, genre hint 30%)
+  function blended(explicit, genreHint) {
+    if (explicit !== null && genreHint !== null) {
+      return explicit * 0.7 + genreHint * 0.3;
+    }
+    if (explicit !== null) return explicit;
+    if (genreHint !== null) return genreHint;
+    return null;
+  }
+
+  function renderRecipe() {
+    const el = document.getElementById('recipe-sentence');
+
+    const hasAny = state.genre || state.mood || state.energy || state.texture || state.spotlight.size;
+    if (!hasAny) {
+      el.innerHTML = '<span style="color:var(--border);font-style:italic;">Select tags above to compose your brief…</span>';
+      return;
+    }
+
+    const ph = function (cls, text, fallback) {
+      if (text) return '<span class="rword ' + cls + '">' + text.toUpperCase() + '</span>';
+      return '<span class="rword empty">' + fallback + '</span>';
+    };
+
+    // article helper
+    const aOrAn = function (word) {
+      if (!word) return 'A';
+      return 'AEIOU'.indexOf(word[0].toUpperCase()) >= 0 ? 'An' : 'A';
+    };
+
+    const moodWord   = state.mood    ? state.mood.val    : null;
+    const energyWord = state.energy  ? state.energy.val  : null;
+    const genreWord  = state.genre   ? state.genre.val   : null;
+    const texWord    = state.texture ? state.texture.val : null;
+    const spots      = Array.from(state.spotlight);
+
+    let html = '';
+
+    // Opening
+    if (moodWord && energyWord) {
+      html += aOrAn(moodWord) + '&nbsp;' + ph('mood-w', moodWord, '') + ','
+            + '&nbsp;' + ph('energy-w', energyWord, '') + '&nbsp;';
+    } else if (moodWord) {
+      html += aOrAn(moodWord) + '&nbsp;' + ph('mood-w', moodWord, '') + '&nbsp;';
+    } else if (energyWord) {
+      html += aOrAn(energyWord) + '&nbsp;' + ph('energy-w', energyWord, '') + '&nbsp;';
+    } else {
+      html += 'A&nbsp;';
+    }
+
+    // Genre
+    html += ph('genre-w', genreWord, '[GENRE]') + ' track';
+
+    // Texture
+    if (texWord) {
+      html += ",&nbsp;" + ph('texture-w', texWord, '');
+    }
+
+    // Spotlight
+    if (spots.length === 1) {
+      html += ', with the&nbsp;' + ph('spot-w', spots[0], '') + ' spotlighted';
+    } else if (spots.length === 2) {
+      html += ', featuring&nbsp;' + ph('spot-w', spots[0], '') + ' &amp;&nbsp;' + ph('spot-w', spots[1], '');
+    } else if (spots.length > 2) {
+      const init = spots.slice(0, -1).map(function (s) { return ph('spot-w', s, ''); }).join(',&nbsp;');
+      html += ', featuring&nbsp;' + init + '&nbsp;&amp;&nbsp;' + ph('spot-w', spots[spots.length - 1], '');
+    }
+
+    html += '.';
+    el.innerHTML = html;
+  }
+
+  function renderReadout() {
+    const g  = state.genre;
+    const m  = state.mood;
+    const e  = state.energy;
+    const t  = state.texture;
+    const sp = Array.from(state.spotlight);
+
+    // ─ Genre ─
+    const roGenre = document.getElementById('ro-genre');
+    if (g) {
+      roGenre.textContent = g.val;
+      roGenre.className = 'readout-val has-val';
+      roGenre.style.color = 'var(--violet)';
+      roGenre.style.textShadow = '0 0 10px rgba(122,92,255,.5)';
+    } else {
+      roGenre.textContent = '—';
+      roGenre.className = 'readout-val no-val';
+      roGenre.style.color = '';
+      roGenre.style.textShadow = '';
+    }
+
+    // ─ Energy ─
+    const energyNum = blended(e ? e.num : null, g ? g.energy : null);
+    updateNumericRow('ro-energy', energyNum, e ? e.val : (g ? '(from genre)' : null), 'var(--cyan)');
+
+    // ─ Mood ─
+    const moodNum = blended(m ? m.num : null, g ? g.mood : null);
+    updateNumericRow('ro-mood', moodNum, m ? m.val : (g ? '(from genre)' : null), 'var(--pink)');
+
+    // ─ Density ─
+    const densNum = blended(t ? t.num : null, g ? g.density : null);
+    updateNumericRow('ro-density', densNum, t ? t.val : (g ? '(from genre)' : null), 'var(--amber)');
+
+    // ─ Spotlight ─
+    const roSpot = document.getElementById('ro-spot-val');
+    if (sp.length) {
+      roSpot.textContent = sp.join(', ');
+      roSpot.className = 'readout-val has-val';
+      roSpot.style.color = 'var(--amber)';
+      roSpot.style.textShadow = '0 0 10px rgba(255,159,69,.5)';
+    } else {
+      roSpot.textContent = '—';
+      roSpot.className = 'readout-val no-val';
+      roSpot.style.color = '';
+      roSpot.style.textShadow = '';
+    }
+  }
+
+  function updateNumericRow(idPrefix, num, label, colour) {
+    const valEl = document.getElementById(idPrefix + '-val');
+    const barEl = document.getElementById(idPrefix + '-bar');
+
+    if (num !== null) {
+      const display = (label && !label.startsWith('(')) ? label + ' (' + fmt(num) + ')' : fmt(num);
+      valEl.textContent = display;
+      valEl.className = 'readout-val has-val';
+      valEl.style.color = colour;
+      valEl.style.textShadow = '0 0 10px ' + colour.replace(')', ',.45)').replace('var(--', 'var(--');
+
+      // bar: map -1..+1 to 0..100% width, starting from centre (50%)
+      // positive: bar grows right from 50%; negative: bar grows left from 50%
+      // We do it via transform: the wrap is clipped, bar is full width, we translate
+      // Actually simpler: use width = abs(num)*50%, and offset via margin or position
+      // Use CSS: place left edge at centre if positive, right edge at centre if negative
+      const absW = Math.abs(num) * 50;
+      if (num >= 0) {
+        barEl.style.width = absW + '%';
+        barEl.style.marginLeft = '50%';
+      } else {
+        barEl.style.width = absW + '%';
+        barEl.style.marginLeft = (50 - absW) + '%';
+      }
+      barEl.style.transform = 'scaleX(1)';
+      barEl.style.opacity = '1';
+    } else {
+      valEl.textContent = '—';
+      valEl.className = 'readout-val no-val';
+      valEl.style.color = '';
+      valEl.style.textShadow = '';
+      barEl.style.transform = 'scaleX(0)';
+      barEl.style.opacity = '0';
+    }
+  }
+
+})();
+</script>
+</body>
+</html>

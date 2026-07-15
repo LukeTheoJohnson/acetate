@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spike — The Performance Pad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #06040d;
+    --bg2:       #090913;
+    --panel:     #12121d;
+    --border:    #24243a;
+    --ink:       #e7e7f5;
+    --muted:     #8a8aa6;
+    --violet:    #7a5cff;
+    --cyan:      #22d3ee;
+    --pink:      #ff3d81;
+    --blue:      #45b6ff;
+    --green:     #38e0a6;
+    --amber:     #ff9f45;
+    --mono:      ui-monospace, Menlo, Consolas, monospace;
+    --display:   'Orbitron', sans-serif;
+    --accent:    var(--violet);
+    --accent2:   var(--cyan);
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+  }
+
+  /* ── HEADER ── */
+  .spike-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+  .spike-label {
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .spike-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.05em;
+  }
+  .spike-title span {
+    color: var(--violet);
+    text-shadow: 0 0 18px var(--violet);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto;
+    gap: 16px;
+    align-items: start;
+  }
+
+  /* ── PAD AREA ── */
+  .pad-area {
+    grid-row: 1 / 2;
+    grid-column: 1 / 2;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* genre ring */
+  .genre-strip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .genre-strip-label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    margin-right: 4px;
+  }
+  .genre-btn {
+    flex: 1;
+    padding: 8px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .genre-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+    border-radius: 8px;
+  }
+  .genre-btn:hover { color: var(--ink); border-color: var(--accent); }
+  .genre-btn.active {
+    color: var(--ink);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+    text-shadow: 0 0 12px var(--accent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 0 14px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  /* XY pad wrapper */
+  .pad-wrapper {
+    position: relative;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--panel);
+    box-shadow: 0 0 40px rgba(122,92,255,0.1), inset 0 0 60px rgba(0,0,0,0.4);
+    cursor: crosshair;
+    user-select: none;
+    touch-action: none;
+  }
+  .pad-wrapper::after {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to right, rgba(122,92,255,0.04) 0%, transparent 50%, rgba(34,211,238,0.04) 100%),
+      linear-gradient(to bottom, rgba(255,61,129,0.04) 0%, transparent 50%, rgba(56,224,166,0.06) 100%);
+    pointer-events: none;
+  }
+
+  #pad-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* axis labels */
+  .axis-label {
+    position: absolute;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    pointer-events: none;
+    opacity: 0.6;
+  }
+  .axis-label.left   { left: 10px; top: 50%; transform: translateY(-50%) rotate(-90deg); transform-origin: center; }
+  .axis-label.right  { right: 10px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center; }
+  .axis-label.top    { top: 8px; left: 50%; transform: translateX(-50%); }
+  .axis-label.bottom { bottom: 8px; left: 50%; transform: translateX(-50%); }
+
+  /* LATCH button */
+  .latch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .latch-btn {
+    padding: 8px 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .latch-btn .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all 0.2s;
+  }
+  .latch-btn.active {
+    border-color: var(--amber);
+    color: var(--amber);
+    box-shadow: 0 0 12px rgba(255,159,69,0.3);
+  }
+  .latch-btn.active .dot {
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+  .latch-hint {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  /* density strip */
+  .density-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .density-label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    min-width: 60px;
+  }
+  .density-track {
+    flex: 1;
+    height: 36px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    position: relative;
+    cursor: ew-resize;
+    overflow: hidden;
+  }
+  .density-fill {
+    position: absolute;
+    top: 0; left: 50%; bottom: 0;
+    background: linear-gradient(to right, var(--violet), var(--cyan));
+    border-radius: 10px;
+    transition: width 0.05s, left 0.05s;
+  }
+  .density-track.negative .density-fill {
+    background: linear-gradient(to left, var(--violet), var(--pink));
+  }
+  .density-thumb {
+    position: absolute;
+    top: 50%; transform: translateY(-50%);
+    width: 4px; height: 24px;
+    background: var(--ink);
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--violet);
+    transition: left 0.05s;
+  }
+  .density-val {
+    min-width: 44px;
+    text-align: right;
+    color: var(--cyan);
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+
+  /* ── RIGHT COLUMN: part pads + readout ── */
+  .right-col {
+    grid-row: 1 / 3;
+    grid-column: 2 / 3;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* per-part feature pads */
+  .parts-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .parts-title {
+    font-family: var(--display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .parts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .part-pad {
+    padding: 10px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .part-pad .pip {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    border: 1px solid currentColor;
+    opacity: 0.5;
+  }
+  .part-pad:hover { border-color: color-mix(in srgb, var(--part-color, var(--violet)) 60%, transparent); color: var(--ink); }
+  .part-pad.featured {
+    border-color: var(--part-color, var(--violet));
+    color: var(--ink);
+    background: color-mix(in srgb, var(--part-color, var(--violet)) 10%, var(--bg2));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--part-color, var(--violet)) 25%, transparent);
+  }
+  .part-pad.featured .pip {
+    background: var(--part-color, var(--violet));
+    box-shadow: 0 0 6px var(--part-color, var(--violet));
+    opacity: 1;
+    border-color: var(--part-color, var(--violet));
+  }
+  .part-pad:nth-child(1) { --part-color: var(--pink); }
+  .part-pad:nth-child(2) { --part-color: var(--cyan); }
+  .part-pad:nth-child(3) { --part-color: var(--violet); }
+  .part-pad:nth-child(4) { --part-color: var(--amber); }
+  .part-pad:nth-child(5) { --part-color: var(--green); }
+  .part-pad:nth-child(6) { --part-color: var(--blue); }
+  .part-pad:nth-child(7) { --part-color: #c084fc; grid-column: 1 / 3; }
+
+  /* readout panel */
+  .readout-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    flex: 1;
+  }
+  .readout-title {
+    font-family: var(--display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .readout-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .readout-live {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .readout-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .readout-key {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .readout-val {
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--mono);
+    text-align: right;
+    transition: color 0.2s, text-shadow 0.2s;
+  }
+  .readout-val.genre-val {
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent);
+    font-family: var(--display);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .readout-bar {
+    height: 3px;
+    background: var(--bg2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .readout-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.08s, margin-left 0.08s, background 0.3s;
+  }
+  .readout-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .readout-featured {
+    color: var(--ink);
+    font-size: 11px;
+    font-family: var(--mono);
+    min-height: 18px;
+    transition: all 0.2s;
+  }
+  .readout-featured .none-label {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* intent string */
+  .intent-string {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+    word-break: break-word;
+  }
+  .intent-string strong {
+    color: var(--green);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+  }
+  #intent-output {
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  #intent-output .kv-key { color: var(--muted); }
+  #intent-output .kv-val { color: var(--cyan); }
+  #intent-output .kv-sep { color: var(--border); }
+
+  /* ── CAPTION ── */
+  .caption-block {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 22px;
+  }
+  .caption-block h3 {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--violet);
+    margin-bottom: 10px;
+    text-shadow: 0 0 12px var(--violet);
+  }
+  .caption-block p {
+    color: var(--muted);
+    line-height: 1.75;
+    font-size: 12px;
+    max-width: 640px;
+  }
+  .caption-block p + p { margin-top: 8px; }
+  .caption-block em { color: var(--ink); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header class="spike-header">
+    <span class="spike-label">Spike</span>
+    <h1 class="spike-title">The <span>Performance Pad</span></h1>
+  </header>
+
+  <!-- STAGE -->
+  <div class="stage">
+
+    <!-- PAD AREA -->
+    <div class="pad-area">
+
+      <!-- GENRE STRIP -->
+      <div class="genre-strip">
+        <span class="genre-strip-label">Genre</span>
+        <button class="genre-btn active" data-genre="Trap">Trap</button>
+        <button class="genre-btn" data-genre="Boom Bap">Boom Bap</button>
+        <button class="genre-btn" data-genre="Drill">Drill</button>
+        <button class="genre-btn" data-genre="Lo-Fi">Lo-Fi</button>
+        <button class="genre-btn" data-genre="R&amp;B">R&amp;B</button>
+      </div>
+
+      <!-- XY PAD -->
+      <div class="pad-wrapper" id="pad-wrapper" style="height: 420px;">
+        <canvas id="pad-canvas"></canvas>
+        <span class="axis-label top">CHILLED</span>
+        <span class="axis-label bottom">GOING OFF</span>
+        <span class="axis-label left">DARK</span>
+        <span class="axis-label right">BRIGHT</span>
+      </div>
+
+      <!-- LATCH -->
+      <div class="latch-row">
+        <button class="latch-btn" id="latch-btn">
+          <span class="dot"></span>
+          LATCH
+        </button>
+        <span class="latch-hint">Hold position when released — press again to unlock</span>
+      </div>
+
+      <!-- DENSITY STRIP -->
+      <div class="density-strip">
+        <span class="density-label">Density</span>
+        <div class="density-track" id="density-track">
+          <div class="density-fill" id="density-fill"></div>
+          <div class="density-thumb" id="density-thumb"></div>
+        </div>
+        <span class="density-val" id="density-val">0.00</span>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <!-- PART PADS -->
+      <div class="parts-panel">
+        <div class="parts-title">Feature / Spotlight</div>
+        <div class="parts-grid">
+          <button class="part-pad" data-part="kick"><span class="pip"></span>Kick</button>
+          <button class="part-pad" data-part="hats"><span class="pip"></span>Hats</button>
+          <button class="part-pad" data-part="bass"><span class="pip"></span>Bass</button>
+          <button class="part-pad" data-part="clap"><span class="pip"></span>Clap</button>
+          <button class="part-pad" data-part="chords"><span class="pip"></span>Chords</button>
+          <button class="part-pad" data-part="lead"><span class="pip"></span>Lead</button>
+          <button class="part-pad" data-part="atmosphere"><span class="pip"></span>Atmosphere</button>
+        </div>
+      </div>
+
+      <!-- LIVE READOUT -->
+      <div class="readout-panel">
+        <div class="readout-title">Generation Intent</div>
+        <div class="readout-live">
+
+          <div>
+            <div class="readout-row">
+              <span class="readout-key">Genre</span>
+              <span class="readout-val genre-val" id="ro-genre">Trap</span>
+            </div>
+          </div>
+
+          <div class="readout-divider"></div>
+
+          <div>
+            <div class="readout-row">
+              <span class="readout-key">Energy</span>
+              <span class="readout-val" id="ro-energy" style="color: var(--pink);">0.00</span>
+            </div>
+            <div class="readout-bar">
+              <div class="readout-bar-fill" id="bar-energy" style="background: var(--pink); width:50%; margin-left:50%;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="readout-row">
+              <span class="readout-key">Mood</span>
+              <span class="readout-val" id="ro-mood" style="color: var(--cyan);">0.00</span>
+            </div>
+            <div class="readout-bar">
+              <div class="readout-bar-fill" id="bar-mood" style="background: var(--cyan); width:50%; margin-left:50%;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="readout-row">
+              <span class="readout-key">Density</span>
+              <span class="readout-val" id="ro-density" style="color: var(--violet);">0.00</span>
+            </div>
+            <div class="readout-bar">
+              <div class="readout-bar-fill" id="bar-density" style="background: var(--violet); width:50%; margin-left:50%;"></div>
+            </div>
+          </div>
+
+          <div class="readout-divider"></div>
+
+          <div class="readout-row">
+            <span class="readout-key">Featured</span>
+            <span class="readout-val readout-featured" id="ro-featured"><span class="none-label">none</span></span>
+          </div>
+
+        </div>
+
+        <div class="intent-string">
+          <strong>Output string</strong>
+          <div id="intent-output"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CAPTION -->
+    <div class="caption-block">
+      <h3>Why this is clearer</h3>
+      <p>A Kaoss-style XY pad collapses two continuous parameters — energy and mood — into a single gesture you can <em>play</em> rather than dial in. Your muscle memory builds up naturally: push into the top-right corner to drive a bright, maximal drop; pull to the bottom-left to strip back into a dark, stripped groove. The glowing trail makes performed movement <em>legible</em> — a reviewer can see the arc of your intention, not just a final position.</p>
+      <p>The trade-off is discoverability: the axes and their poles need clear labelling, and users unfamiliar with Kaoss pads may initially treat the pad as a button rather than an instrument. The latch affordance mitigates the "hands-off" problem, and the genre strip recontextualises the pad's colour palette so the same gesture feels different per genre.</p>
+    </div>
+
+  </div><!-- /stage -->
+</div><!-- /wrapper -->
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const state = {
+  genre:    'Trap',
+  mood:     0,     // X: -1 dark ↔ +1 bright
+  energy:   0,     // Y: -1 chilled ↔ +1 going off
+  density:  0,
+  featured: new Set(),
+  latched:  false,
+};
+
+// Genre accent colours
+const GENRE_ACCENTS = {
+  'Trap':     { a: '#7a5cff', b: '#ff3d81' },
+  'Boom Bap': { a: '#ff9f45', b: '#ff3d81' },
+  'Drill':    { a: '#22d3ee', b: '#7a5cff' },
+  'Lo-Fi':    { a: '#38e0a6', b: '#22d3ee' },
+  'R&B':      { a: '#ff3d81', b: '#c084fc' },
+};
+
+// ── PAD CANVAS ─────────────────────────────────────────────────────────────
+const wrapper  = document.getElementById('pad-wrapper');
+const canvas   = document.getElementById('pad-canvas');
+const ctx      = canvas.getContext('2d');
+
+// Trail ring buffer
+const TRAIL_LEN = 80;
+const trail = [];  // { x, y, age }
+
+let padActive  = false;
+let puckX = 0.5, puckY = 0.5;  // normalised 0-1
+let lastFrame  = 0;
+
+function resizeCanvas() {
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function getAccent() {
+  return GENRE_ACCENTS[state.genre] || GENRE_ACCENTS['Trap'];
+}
+
+function drawGrid(w, h, accent) {
+  // Subtle grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+  ctx.lineWidth = 1;
+  const cols = 8, rows = 6;
+  for (let i = 1; i < cols; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * w / cols, 0);
+    ctx.lineTo(i * w / cols, h);
+    ctx.stroke();
+  }
+  for (let j = 1; j < rows; j++) {
+    ctx.beginPath();
+    ctx.moveTo(0, j * h / rows);
+    ctx.lineTo(w, j * h / rows);
+    ctx.stroke();
+  }
+  // Centre cross
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+
+  // Quadrant tints
+  const a = getAccent();
+  const tints = [
+    { x: 0, y: 0,     c: '#ff3d81' },  // top-left: chilled+dark
+    { x: w/2, y: 0,   c: '#7a5cff' },  // top-right: chilled+bright
+    { x: 0, y: h/2,   c: '#22d3ee' },  // bottom-left: going off+dark
+    { x: w/2, y: h/2, c: '#ff9f45' },  // bottom-right: going off+bright
+  ];
+  tints.forEach(t => {
+    const g = ctx.createRadialGradient(t.x + w/4, t.y + h/4, 0, t.x + w/4, t.y + h/4, w/2.5);
+    g.addColorStop(0, t.c + '18');
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.fillRect(t.x, t.y, w/2, h/2);
+  });
+}
+
+function drawTrail(w, h) {
+  if (trail.length < 2) return;
+  for (let i = 1; i < trail.length; i++) {
+    const t0 = trail[i-1], t1 = trail[i];
+    const prog = i / trail.length;
+    const alpha = prog * 0.6;
+    const width = prog * 6 + 1;
+    const accent = getAccent();
+    ctx.beginPath();
+    ctx.moveTo(t0.x * w, t0.y * h);
+    ctx.lineTo(t1.x * w, t1.y * h);
+    ctx.strokeStyle = lerpColor(accent.b, accent.a, prog) + Math.floor(alpha * 255).toString(16).padStart(2,'0');
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = accent.a;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawPuck(w, h) {
+  const px = puckX * w, py = puckY * h;
+  const accent = getAccent();
+
+  // Outer bloom rings
+  [60, 36, 22].forEach((r, i) => {
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, accent.a + ['28','18','0c'][i]);
+    g.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+  });
+
+  // Puck body
+  const bodyGrad = ctx.createRadialGradient(px - 4, py - 4, 0, px, py, 14);
+  bodyGrad.addColorStop(0, '#fff');
+  bodyGrad.addColorStop(0.3, accent.a);
+  bodyGrad.addColorStop(1, accent.b);
+  ctx.beginPath();
+  ctx.arc(px, py, 14, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = accent.a;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Puck ring
+  ctx.beginPath();
+  ctx.arc(px, py, 14, 0, Math.PI * 2);
+  ctx.strokeStyle = '#fff8';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Crosshair lines
+  ctx.strokeStyle = accent.a + '60';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(w, py); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  drawGrid(w, h, getAccent());
+  drawTrail(w, h);
+  drawPuck(w, h);
+}
+requestAnimationFrame(frame);
+
+function setPuckFromEvent(e) {
+  const rect = wrapper.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  puckX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  puckY = Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height));
+
+  // mood: x maps 0→-1 (dark) to 1→+1 (bright)
+  state.mood   = +(puckX * 2 - 1).toFixed(3);
+  // energy: y maps 0→+1 (going off) to 1→-1 (chilled) — Y inverted
+  state.energy = +((1 - puckY) * 2 - 1).toFixed(3);
+
+  // Push to trail
+  trail.push({ x: puckX, y: puckY });
+  if (trail.length > TRAIL_LEN) trail.shift();
+
+  updateReadout();
+}
+
+// Pointer events on the wrapper
+wrapper.addEventListener('mousedown',  e => { if (state.latched) { state.latched = false; updateLatch(); } padActive = true; setPuckFromEvent(e); });
+wrapper.addEventListener('mousemove',  e => { if (padActive) setPuckFromEvent(e); });
+wrapper.addEventListener('mouseup',    () => { padActive = false; });
+wrapper.addEventListener('mouseleave', () => { padActive = false; });
+wrapper.addEventListener('touchstart', e => { e.preventDefault(); padActive = true; setPuckFromEvent(e); }, { passive: false });
+wrapper.addEventListener('touchmove',  e => { e.preventDefault(); if (padActive) setPuckFromEvent(e); }, { passive: false });
+wrapper.addEventListener('touchend',   () => { padActive = false; });
+
+// ── LATCH ───────────────────────────────────────────────────────────────────
+const latchBtn = document.getElementById('latch-btn');
+latchBtn.addEventListener('click', () => {
+  state.latched = !state.latched;
+  updateLatch();
+});
+function updateLatch() {
+  latchBtn.classList.toggle('active', state.latched);
+}
+
+// ── DENSITY STRIP ───────────────────────────────────────────────────────────
+const densityTrack = document.getElementById('density-track');
+const densityFill  = document.getElementById('density-fill');
+const densityThumb = document.getElementById('density-thumb');
+const densityValEl = document.getElementById('density-val');
+
+let densityDragging = false;
+
+function setDensityFromEvent(e) {
+  const rect = densityTrack.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  state.density = +(ratio * 2 - 1).toFixed(3);
+  renderDensity();
+  updateReadout();
+}
+
+function renderDensity() {
+  const pct = (state.density + 1) / 2 * 100;  // 0-100
+  const midPct = 50;
+  const leftPct = Math.min(pct, midPct);
+  const widthPct = Math.abs(pct - midPct);
+  densityFill.style.left  = leftPct + '%';
+  densityFill.style.width = widthPct + '%';
+  densityThumb.style.left = 'calc(' + pct + '% - 2px)';
+  densityTrack.classList.toggle('negative', state.density < 0);
+  densityValEl.textContent = (state.density >= 0 ? '+' : '') + state.density.toFixed(2);
+}
+renderDensity();
+
+densityTrack.addEventListener('mousedown',  e => { densityDragging = true; setDensityFromEvent(e); });
+window.addEventListener('mousemove',        e => { if (densityDragging) setDensityFromEvent(e); });
+window.addEventListener('mouseup',          () => { densityDragging = false; });
+densityTrack.addEventListener('touchstart', e => { e.preventDefault(); densityDragging = true; setDensityFromEvent(e); }, { passive: false });
+window.addEventListener('touchmove',        e => { if (densityDragging) { e.preventDefault(); setDensityFromEvent(e); } }, { passive: false });
+window.addEventListener('touchend',         () => { densityDragging = false; });
+
+// ── GENRE BUTTONS ───────────────────────────────────────────────────────────
+document.querySelectorAll('.genre-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.genre = btn.dataset.genre;
+    // Update CSS accent variable
+    const acc = getAccent();
+    document.documentElement.style.setProperty('--accent',  acc.a);
+    document.documentElement.style.setProperty('--accent2', acc.b);
+    trail.length = 0;
+    updateReadout();
+  });
+});
+
+// ── PART PADS ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.part-pad').forEach(pad => {
+  pad.addEventListener('click', () => {
+    const part = pad.dataset.part;
+    if (state.featured.has(part)) {
+      state.featured.delete(part);
+      pad.classList.remove('featured');
+    } else {
+      state.featured.add(part);
+      pad.classList.add('featured');
+    }
+    updateReadout();
+  });
+});
+
+// ── READOUT ─────────────────────────────────────────────────────────────────
+const roGenre   = document.getElementById('ro-genre');
+const roEnergy  = document.getElementById('ro-energy');
+const roMood    = document.getElementById('ro-mood');
+const roDensity = document.getElementById('ro-density');
+const roFeat    = document.getElementById('ro-featured');
+const barEnergy = document.getElementById('bar-energy');
+const barMood   = document.getElementById('bar-mood');
+const barDens   = document.getElementById('bar-density');
+const intentOut = document.getElementById('intent-output');
+
+function fmtSigned(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+
+function bipolarBar(fill, v, col) {
+  const pct = (v + 1) / 2 * 100;
+  if (v >= 0) {
+    fill.style.marginLeft = '50%';
+    fill.style.width = pct - 50 + '%';
+    fill.style.background = col;
+  } else {
+    fill.style.marginLeft = pct + '%';
+    fill.style.width = 50 - pct + '%';
+    fill.style.background = col;
+  }
+}
+
+function moodLabel(v) {
+  if (v < -0.5) return 'dark';
+  if (v < -0.1) return 'brooding';
+  if (v <  0.1) return 'neutral';
+  if (v <  0.5) return 'warm';
+  return 'bright';
+}
+function energyLabel(v) {
+  if (v < -0.5) return 'chilled';
+  if (v < -0.1) return 'easy';
+  if (v <  0.1) return 'steady';
+  if (v <  0.5) return 'building';
+  return 'going off';
+}
+
+function updateReadout() {
+  roGenre.textContent = state.genre;
+  const acc = getAccent();
+  roGenre.style.color = acc.a;
+  roGenre.style.textShadow = '0 0 10px ' + acc.a;
+
+  roEnergy.textContent = fmtSigned(state.energy) + ' (' + energyLabel(state.energy) + ')';
+  bipolarBar(barEnergy, state.energy, '#ff3d81');
+
+  roMood.textContent = fmtSigned(state.mood) + ' (' + moodLabel(state.mood) + ')';
+  bipolarBar(barMood, state.mood, '#22d3ee');
+
+  roDensity.textContent = fmtSigned(state.density);
+  bipolarBar(barDens, state.density, '#7a5cff');
+
+  const featArr = [...state.featured];
+  if (featArr.length === 0) {
+    roFeat.innerHTML = '<span class="none-label">none</span>';
+  } else {
+    roFeat.textContent = featArr.join(', ');
+    roFeat.style.color = acc.a;
+  }
+
+  // Intent string
+  const featStr = featArr.length > 0 ? featArr.join('+') : 'none';
+  const kvs = [
+    ['genre', state.genre],
+    ['energy', fmtSigned(state.energy)],
+    ['mood', fmtSigned(state.mood) + ' (' + moodLabel(state.mood) + ')'],
+    ['density', fmtSigned(state.density)],
+    ['featured', featStr],
+  ];
+  intentOut.innerHTML = kvs.map(([k,v]) =>
+    `<span class="kv-key">${k}</span><span class="kv-sep">:</span> <span class="kv-val">${v}</span>`
+  ).join(' <span class="kv-sep">·</span> ');
+}
+updateReadout();
+
+// ── COLOUR HELPERS ──────────────────────────────────────────────────────────
+function hexToRgb(h) {
+  const r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16);
+  return [r,g,b];
+}
+function lerpColor(a, b, t) {
+  const [ar,ag,ab] = hexToRgb(a), [br,bg,bb] = hexToRgb(b);
+  const r = Math.round(ar + (br-ar)*t);
+  const g = Math.round(ag + (bg-ag)*t);
+  const bl = Math.round(ab + (bb-ab)*t);
+  return '#' + [r,g,bl].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+</script>
+</body>
+</html>

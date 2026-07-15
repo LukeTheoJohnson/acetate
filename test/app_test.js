@@ -85,6 +85,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('code panel populated', doc.getElementById('code').textContent.includes('stack'));
   check('code highlighted with spans', doc.getElementById('code').innerHTML.includes('<span class="fn"'));
   check('stage chips rendered', doc.querySelectorAll('#stageChips .chip').length === 7);
+  // part mixer: the seven faders are replaced by a 3-state row (drop/auto/feature) per part
+  check('part mixer renders a 3-state row per part',
+    doc.querySelectorAll('#livePartMix .pm-row').length === 7 &&
+    doc.querySelectorAll('#livePartMix .pm-row:first-child .pm-btn').length === 3);
 
   // unified transport + production controls
   check('transport shows now playing on start',
@@ -99,18 +103,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('live audio carries the pianoroll', evalCalls.some((c) => c.includes('.pianoroll(')));
   check('code panel omits the pianoroll', !doc.getElementById('code').innerHTML.includes('pianoroll'));
 
-  // ---- genre picker: pin the style for new tracks (empty value = surprise) ----
-  check('genre select lists every genre + surprise',
-    doc.querySelectorAll('#liveGenre option').length === window.SDJ.Theory.GENRES.length + 1);
+  // ---- genre pills: pin the style for new tracks (empty = surprise me) ----
+  check('genre pills list every genre + surprise',
+    doc.querySelectorAll('#liveGenrePills .pill').length === window.SDJ.Theory.GENRES.length + 1);
   const seedBefore = window.SDJ.engine.song.seed;
   window.SDJ.setGenre('drill');
   check('pinning a genre re-skins the live track in place (same song, new style + tempo)',
     window.SDJ.engine.song.genre.id === 'drill'
     && window.SDJ.engine.song.seed === seedBefore
     && window.SDJ.engine.song.bpm >= 138 && window.SDJ.engine.song.bpm <= 148
-    && doc.getElementById('liveGenre').value === 'drill');
+    && doc.querySelector('#liveGenrePills .pill.on').dataset.genre === 'drill');
   window.SDJ.setGenre('');
-  check('clearing the genre returns to surprise mode', window.SDJ.engine.genrePref === null);
+  check('clearing the genre returns to surprise mode',
+    window.SDJ.engine.genrePref === null
+    && doc.querySelector('#liveGenrePills .pill.on').dataset.genre === '');
 
   // ---- remix lab: a saved record as a bed + vocal/overlay layers ----
   // The bed (the record's own stack) nests inside a new outer stack; every
