@@ -6,8 +6,15 @@ a **record being cut**: each part you approve presses a coloured groove-ring ont
 spinning on Deck A, and when you save, the colours and the name are stuck — the record
 drops into your crate for keeps.
 
-No backend, no framework, no bundler, no build step. Strudel is loaded from a CDN and the
-whole thing is a handful of plain scripts sharing one `window.SDJ` namespace.
+**[▶ Play it live](https://luketheojohnson.github.io/strudel-auto-dj/)** &nbsp;·&nbsp;
+No backend · no framework · no bundler · no build step &nbsp;·&nbsp; MIT-licensed
+
+> **Built solo, with AI agents as the team.** This is a small proof of a larger thesis —
+> one founder directing AI coding agents can ship a complete, polished, tested app.
+> The *how* is the interesting part: **[read the making-of →](docs/MAKING-OF.md)**
+
+Strudel is loaded from a CDN and the whole thing is a handful of plain scripts sharing one
+`window.SDJ` namespace.
 
 ![The Live set — two turntables and a crossfader on the left, the console on the right, the roll and set history below](screenshots/02-live.png)
 
@@ -17,6 +24,8 @@ whole thing is a handful of plain scripts sharing one `window.SDJ` namespace.
 
 The app is one page with four hash-routed views (**Menu · Live · Crate · Remix**). Audio is
 a single source at a time, with one **⏹ stop** in the header that halts whatever's playing.
+On the menu, a random record from your crate drifts underneath at low volume once you click
+in — the place is never silent.
 
 ![The menu hub — Live Set, Crate, Remix](screenshots/01-menu.png)
 
@@ -57,7 +66,8 @@ the crate wearing its approve-rate. From the save prompt, the DJ then rolls a fr
 A standalone player and your vault. Every saved track is a full record — vinyl face,
 genome snapshot, cover seed, metadata — persisted in `localStorage` and portable via
 Export/Import JSON. Spin (the disc rotates while previewing), re-imprint the label, send
-to Remix, or delete. Because every track is seeded, a record's code is fully reproducible.
+to Remix, **export to MP3** (⬇ — a real-time render captured and encoded in-browser), or
+delete. Because every track is seeded, a record's code is fully reproducible.
 
 ![The crate — pressed records with their coloured rings, key, tempo and hype](screenshots/04-crate.png)
 
@@ -89,6 +99,12 @@ python serve.py 8124        # preferred: sends Cache-Control: no-store
 
 Click **▶ Start the set** (a click is required to unlock browser audio). First load pulls
 the Strudel engine + a drum kit from the CDN, so you need to be online the first time.
+
+### Deploy (GitHub Pages)
+
+Because it's a build-free static site, GitHub Pages serves it as-is. One-time setup:
+**Settings → Pages → Source: Deploy from a branch → `master` → `/ (root)` → Save**. Every
+push then publishes to `https://<user>.github.io/<repo>/`. No workflow, no build.
 
 ---
 
@@ -150,19 +166,41 @@ with the same rendered string driving the code drawer and the pianoroll, and
 
 Everything the UI can do is also exposed headlessly for agents and tests:
 `SDJ.live.approve/skip`, `SDJ.ab.set(mix)`, `SDJ.press.open/confirm/cancel`,
-`SDJ.setGenre/setDensity/setOpinion`, `SDJ.remix.*`.
+`SDJ.setGenre/setDensity/setOpinion`, `SDJ.remix.*`, `SDJ.exportMp3(i)` and
+`SDJ.menuAmbient.start/stop`.
+
+---
+
+## Built solo, with AI agents
+
+This whole app was built by one person directing AI coding agents in
+[Claude Code](https://claude.ai/code) — no team. The interesting part isn't that an AI
+wrote code; it's the *loop* that made the output shippable:
+
+- **Spike, don't guess** — where a design was uncertain (the menu, the remix deck), the
+  agents built several runnable prototypes in `design/` plus a review report, and the human
+  picked from working artefacts.
+- **Adversarial review** — reviewer agents whose job is to break the change before merge.
+- **Test every output** — the deterministic `jsdom` suite below verifies every generated
+  Strudel program stays valid and balanced, even mid-crossfade.
+- **Audit against reality** — listen to the saved records, turn the problems into engine
+  fixes.
+- **Persistent memory** — decisions written once and reused across sessions, so context
+  compounds instead of resetting.
+
+The app is the artefact; the pipeline is the point. **[Full making-of →](docs/MAKING-OF.md)**
 
 ---
 
 ## Tests
 
 The app needs no dependencies to run; the suite uses `jsdom` to exercise the wiring end to
-end (boot → start → pitch/judge → A/B blending → pressing → crate → remix) with Strudel's
-audio globals stubbed and the engine seeded so runs are deterministic:
+end (boot → start → pitch/judge → A/B blending → pressing → crate → remix → export) with
+Strudel's audio globals stubbed and the engine seeded so runs are deterministic:
 
 ```bash
 npm install   # installs jsdom (dev-only)
-npm test      # 80 checks
+npm test      # 88 checks
 ```
 
 ---
@@ -194,5 +232,16 @@ tuning the engine from real sessions.
   extra dependency. It's appended only to the *audio* string, never to the saved/shown code.
 - Vinyl discs are pure deterministic SVG (`src/vinyl.js`) — same seed, same record,
   everywhere it appears. No assets, no network.
+- MP3 export renders the track in real time and encodes it in-browser (lamejs, fetched
+  on demand) — so a save is as long as the track, and the encoder loads once per session.
 - The screenshots above are captured headless via Playwright (throwaway script, not
   committed).
+
+---
+
+## Licence
+
+This project's own source is **MIT** — see [LICENSE](LICENSE). It loads the
+[Strudel](https://strudel.cc) live-coding engine at runtime from a CDN; Strudel is not
+bundled or modified here and remains under its own licence (AGPL-3.0). Built by Luke J
+with [Claude Code](https://claude.ai/code).
