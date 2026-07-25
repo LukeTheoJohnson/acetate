@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remix Deck Spikes — Review</title>
+<style>
+  :root {
+    --bg: #06040d; --ink: #f3ecff; --muted: #9d8fc7;
+    --violet: #7a5cff; --cyan: #22d3ee; --pink: #ff3d81; --green: #2edb8b;
+    --line: rgba(122,92,255,0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(120% 100% at 50% 0%, #120a2a 0%, var(--bg) 55%); color: var(--ink); font-family: var(--font); line-height: 1.55; }
+  main { max-width: 980px; margin: 0 auto; padding: 48px 24px 80px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--cyan); }
+  h1 { margin: 10px 0 6px; font-size: clamp(30px, 5vw, 52px); line-height: 1;
+       background: linear-gradient(110deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); font-size: 14px; max-width: 68ch; }
+  h2 { font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); margin: 42px 0 12px; }
+  a { color: var(--cyan); }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin: 14px 0;
+          background: linear-gradient(90deg, rgba(122,92,255,0.08), rgba(34,211,238,0.03)); }
+  .card h3 { margin: 0 0 4px; font-size: 18px; }
+  .card h3 small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .card .thesis { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .card ul { margin: 8px 0; padding-left: 20px; font-size: 13px; }
+  .tag { display: inline-block; font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+         border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; margin: 2px 6px 2px 0; color: var(--muted); }
+  .tag.good { border-color: rgba(46,219,139,0.5); color: var(--green); }
+  .tag.warn { border-color: rgba(255,154,31,0.5); color: #ff9a1f; }
+  .verdict { border-left: 3px solid var(--pink); padding: 2px 0 2px 14px; margin-top: 10px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 12px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; font-size: 10.5px; }
+  .rec { border: 1px solid rgba(255,61,129,0.4); background: rgba(255,61,129,0.06); border-radius: 14px; padding: 20px 22px; margin-top: 18px; font-size: 14px; }
+  code { color: var(--cyan); font-size: 0.92em; }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">design spikes · round 3</div>
+  <h1>Remix Deck</h1>
+  <p class="sub">Four working spikes exploring the remix deck's next form. The brief: the original intent was
+  <b>a place you can spin multiple decks</b>; the right-side FX rack is good and stays; the voice pads never
+  worked and need a rethink. Each spike is a standalone page that runs on your real crate (or synthesises
+  demo records if the crate is empty) and composes one balanced Strudel program per state change.</p>
+
+  <h2>Why the current voices fail</h2>
+  <p class="sub">Diagnosed from <code>src/app.js</code>: each vox pad re-evaluates the <em>entire</em> program to
+  add a bare <code>s("yeah:1")</code> layer — which loops, unquantised, from wherever the scheduler happens to
+  be — then a <code>setTimeout</code> re-evaluates <em>again</em> a cycle later to remove it. Two audible hiccups
+  per stab, random timing, and spoken samples with no relationship to the record's key or tempo. Every spike
+  below bans that pattern: everything latches, loops on the grid, and re-evaluates only on deliberate toggles.</p>
+
+  <h2>The spikes</h2>
+
+  <div class="card">
+    <h3><a href="remix-twin-spin.html">01 · Twin Spin</a><small>remix-twin-spin.html</small></h3>
+    <p class="thesis">The intent in its purest form: a classic two-deck rig for saved records. No voice at all.</p>
+    <ul>
+      <li>Record shelf with per-sleeve →A / →B load buttons; two platters wearing their vinyl discs.</li>
+      <li>Equal-power crossfader baked into each bed's <code>.gain()</code>; per-deck transition filter.</li>
+      <li>One master tempo (deck A's cps + ±8% nudge) — records are cycle-based, so retempoing is natural.</li>
+      <li>The proven FX rack (sweep / stutter / riser) applied at master level.</li>
+    </ul>
+    <span class="tag good">loads clean</span><span class="tag good">balanced programs</span><span class="tag">no voice — deliberately</span>
+    <div class="verdict">The cleanest answer to “spin multiple decks”. Everything here survives into Live Wire.</div>
+  </div>
+
+  <div class="card">
+    <h3><a href="remix-voice-booth.html">02 · Voice Booth</a><small>remix-voice-booth.html</small></h3>
+    <p class="thesis">Single bed, maximum voice rework — three reliable voice engines side by side.</p>
+    <ul>
+      <li><b>Phrase pads</b>: latching one-bar patterned vocal lines (<code>s("~ yeah:1 ~ [yeah:1 ho:3]")</code>) — always on the grid.</li>
+      <li><b>Chop line</b>: a longer spoken sample sliced rhythmically (<code>.slow(2).chop(8)</code> + delay), two flavours.</li>
+      <li><b>Key-locked choir</b>: sample-free “aah/ooh” — <code>n().scale(recordKey).s("sawtooth").vowel("&lt;a o e o&gt;")</code> —
+          always in tune with the record, zero sample risk.</li>
+      <li>Audition mode: tap a pad while stopped to read its pattern before committing.</li>
+    </ul>
+    <span class="tag good">loads clean</span><span class="tag good">balanced programs</span><span class="tag warn">densest UI of the four</span>
+    <div class="verdict">The choir is the standout idea — it cannot be out of key and needs no samples. The phrase
+    pads prove quantised latching fixes the old timing mess.</div>
+  </div>
+
+  <div class="card">
+    <h3><a href="remix-spin-wall.html">03 · Spin Wall</a><small>remix-spin-wall.html</small></h3>
+    <p class="thesis">The maximal take: four records at once. How far does layering go before it turns to mud?</p>
+    <ul>
+      <li>2×2 wall of mini-decks, each with gain, mute, and a three-way <b>FOCUS</b> switch
+          (FULL / LOWS <code>.lpf(400)</code> / TOPS <code>.hpf(1200)</code>) — EQ-kill mixing so one record
+          supplies the floor and another the tops.</li>
+      <li>Master tempo clock + the FX rack across every bed.</li>
+    </ul>
+    <span class="tag good">loads clean</span><span class="tag good">balanced at 4 beds (~2.9 KB programs)</span><span class="tag warn">musical ceiling unknown until auditioned</span>
+    <div class="verdict">A genuine experiment, not a ship candidate. Two arranged records already collide in
+    long-form structure; four needs the FOCUS kills doing constant work. Worth ten minutes of ear time to
+    learn the ceiling, then likely folds back to two decks.</div>
+  </div>
+
+  <div class="card">
+    <h3><a href="remix-live-wire.html">04 · Live Wire</a><small>remix-live-wire.html</small></h3>
+    <p class="thesis">The ship candidate: Twin Spin's rig + a real mixer channel + only the voice ideas that earn their place.</p>
+    <ul>
+      <li>Two decks, equal-power crossfader, and per-channel <b>LO KILL / HI KILL</b> + gain trim — the classic DJ mixer.</li>
+      <li>Master tempo nudge + the proven FX rack.</li>
+      <li>Exactly two voice features: a <b>hook line</b> pad (three latching quantised flavours, re-tap to cycle)
+          and the <b>choir pad</b> (key-locked, sample-free).</li>
+      <li><b>Press</b> banks the current remix program back into the crate as a new record.</li>
+    </ul>
+    <span class="tag good">loads clean</span><span class="tag good">balanced programs</span><span class="tag good">press-to-crate round trip</span>
+    <div class="verdict">The balanced integration — multiple decks, the good FX, and voice reduced to the two
+    ideas that are reliable by construction.</div>
+  </div>
+
+  <h2>Comparison</h2>
+  <table>
+    <tr><th></th><th>Multi-deck</th><th>Voice</th><th>DJ feel</th><th>Integration cost</th></tr>
+    <tr><td><b>Twin Spin</b></td><td>2 decks, crossfader</td><td>none</td><td>high</td><td>low — maps onto the existing view</td></tr>
+    <tr><td><b>Voice Booth</b></td><td>1 deck</td><td>maximal (3 engines)</td><td>medium</td><td>low–medium — replaces the vox grid</td></tr>
+    <tr><td><b>Spin Wall</b></td><td>4 decks, focus kills</td><td>none</td><td>novel</td><td>high — new layout, unproven musically</td></tr>
+    <tr><td><b>Live Wire</b></td><td>2 decks + kills</td><td>2 curated features</td><td>highest</td><td>medium — subsumes the current view</td></tr>
+  </table>
+
+  <div class="rec">
+    <b>Recommendation:</b> integrate <b>Live Wire</b> as the new remix deck — it delivers the multi-deck
+    intent, keeps the FX rack untouched, and replaces the broken vox grid with the two voice features that
+    cannot mistime (latching quantised hook line, key-locked choir). If deeper voice play still appeals after
+    that lands, Voice Booth's phrase-pad panel drops in as an expansion. Spin Wall stays a spike; audition it
+    once for the answer to “how many decks is too many”.
+    <br /><br />
+    <b>Caveats before committing:</b> all four are verified headlessly (no page errors, balanced programs under
+    control-mashing) but <em>unauditioned</em> — ears required, especially <code>.vowel()</code> timbre and
+    two arranged 36-bar records phasing against each other. Loop-format presses mix tighter than arranged ones;
+    a future “re-loop this record” toggle on load would help.
+  </div>
+
+  <p class="sub" style="margin-top:28px"><a href="../index.html">← back to the app</a> · spikes run standalone:
+  serve the repo (<code>python serve.py 8124</code>) and open <code>/design/remix-&lt;name&gt;.html</code>.
+  Each synthesises three demo records if your crate is empty.</p>
+</main>
+</body>
+</html>

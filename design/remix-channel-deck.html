@@ -1,0 +1,894 @@
+<!doctype html>
+<!--
+  ── SPIKE · CHANNEL DECK ──────────────────────────────────────────────────────
+  Thesis: the tactile REAL MIXER. Two decks with a classic channel strip each:
+  3-band rotary EQ (HI/MID/LOW, continuous knobs), a filter sweep knob, and a
+  gain trim. A one-touch smooth BASS SWAP macro ramps deck A's bass out and deck
+  B's bass in over ~1 s (6 steps × 160 ms). Beat-synced hold-to-fire FX paddles
+  on the master (STUTTER / GATE / ECHO-OUT) drop in on mousedown and lift on
+  mouseup — no lingering state. Equal-power crossfader underneath it all.
+
+  Standalone: no build, no deps beyond the Strudel CDN. Loads the repo's own
+  classic scripts off window.SDJ for the engine, theory, names and vinyl discs.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Channel Deck · Strudel Auto-DJ</title>
+<style>
+  :root {
+    --bg:     #06040d;
+    --panel:  #0d0a1a;
+    --panel2: #120e24;
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --amber:  #ffb03a;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #120a2a 0%, var(--bg) 55%);
+    color: var(--ink); font-family: var(--font);
+  }
+  body { padding: 26px clamp(14px, 4vw, 48px) 60px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; margin-bottom: 6px; }
+  header h1 {
+    margin: 0; font-size: clamp(26px, 4vw, 40px); letter-spacing: 2px;
+    background: linear-gradient(110deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .concept { color: var(--muted); font-size: 13px; max-width: 62ch; }
+  header .back { margin-left: auto; font-size: 12px; letter-spacing: 1px; }
+  #status { min-height: 18px; font-size: 12px; color: var(--cyan); letter-spacing: 0.5px; margin: 4px 0 14px; }
+
+  /* ── the rig: deck A | mixer | deck B ─────────────────────────────────── */
+  .rig {
+    display: grid; grid-template-columns: 1fr minmax(270px, 360px) 1fr;
+    gap: 18px; align-items: stretch;
+  }
+  .deck {
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .deck h2 { margin: 0; font-size: 12px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .deck.a h2 b { color: var(--cyan); } .deck.b h2 b { color: var(--pink); }
+  .platter {
+    width: min(200px, 55vw); aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center; position: relative;
+    background: radial-gradient(circle at 50% 40%, #171226, #0a0814 70%);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7);
+  }
+  .platter .disc { width: 92%; height: 92%; border-radius: 50%; }
+  .platter.spin .disc { animation: rot 2.2s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .platter .empty {
+    width: 88%; height: 88%; border-radius: 50%;
+    border: 2px dashed rgba(157,143,199,0.35);
+    display: grid; place-items: center;
+    color: var(--muted); font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    text-align: center; padding: 10%;
+  }
+  .deck-meta { text-align: center; font-size: 12px; color: var(--muted); line-height: 1.5; min-height: 34px; }
+  .deck-meta strong { color: var(--ink); font-size: 13px; letter-spacing: 0.5px; }
+
+  /* ── centre mixer ──────────────────────────────────────────────────────── */
+  .mixer {
+    background: linear-gradient(180deg, #100c20, #0a0716);
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px 14px 18px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .mixer > h2 { margin: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .strips { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; }
+
+  /* ── channel strip: vertical EQ + filter + trim ─────────────────────── */
+  .chan {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.25));
+    padding: 10px 6px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .chan .tag { font-size: 11px; letter-spacing: 3px; font-weight: 700; }
+  .chan[data-deck="a"] .tag { color: var(--cyan); }
+  .chan[data-deck="b"] .tag { color: var(--pink); }
+
+  /* rotary EQ knobs row */
+  .eq-row { display: flex; justify-content: space-around; width: 100%; gap: 4px; }
+  .knob-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1;
+  }
+  .knob-label { font-size: 8.5px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+  .knob-val { font-size: 9px; color: var(--ink); min-width: 28px; text-align: center; }
+
+  /* vertical slider styled as a knob column */
+  input.eq-slider {
+    writing-mode: vertical-lr; direction: rtl;
+    width: 22px; height: 80px;
+    accent-color: var(--violet);
+    cursor: pointer;
+  }
+  input.eq-slider.filter-knob { accent-color: var(--amber); }
+
+  .chan-divider { width: 80%; height: 1px; background: rgba(255,255,255,0.07); }
+
+  /* gain trim — horizontal */
+  .trim-row { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 90%; }
+  .trim-row label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+  .trim-row input { width: 100%; accent-color: var(--violet); }
+  .trim-row .trimval { font-size: 10px; color: var(--ink); }
+
+  /* crossfader */
+  .xfade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 4px 6px 0; }
+  .xfade span { font-size: 12px; font-weight: 700; }
+  .xfade span:first-child { color: var(--cyan); } .xfade span:last-child { color: var(--pink); }
+  .xfade input { width: 100%; accent-color: var(--cyan); }
+  .xfade-cap { text-align: center; font-size: 9.5px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  /* bass swap */
+  .swap-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .swap-btn {
+    font-family: var(--font); font-size: 11px; letter-spacing: 2px; cursor: pointer;
+    padding: 9px 18px; border-radius: 10px; color: var(--amber);
+    background: rgba(255,176,58,0.08); border: 1px solid rgba(255,176,58,0.4);
+    transition: all .15s; text-transform: uppercase; font-weight: 700;
+    width: 100%;
+  }
+  .swap-btn:hover:not(:disabled) { background: rgba(255,176,58,0.18); box-shadow: 0 0 14px rgba(255,176,58,0.35); }
+  .swap-btn:disabled { opacity: 0.45; cursor: default; }
+  .swap-btn.swapping { background: var(--amber); color: #1a1000; border-color: var(--amber); box-shadow: 0 0 18px rgba(255,176,58,0.6); }
+  .swap-cap { font-size: 9px; letter-spacing: 1.5px; color: var(--muted); text-align: center; }
+
+  /* ── master bus ────────────────────────────────────────────────────────── */
+  .master {
+    margin-top: 18px; border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 22px;
+  }
+  .master .group { display: flex; flex-direction: column; gap: 8px; }
+  .master .group h3 { margin: 0; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .master .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.on { background: var(--violet); border-color: var(--violet); color: #fff; box-shadow: 0 0 16px rgba(122,92,255,0.6); font-weight: 700; }
+  .btn.play { border-color: var(--cyan); color: var(--cyan); }
+  .btn.play.live { background: var(--cyan); color: #06202a; font-weight: 700; box-shadow: 0 0 18px rgba(34,211,238,0.6); }
+
+  /* hold-to-fire FX paddles */
+  .paddle {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14);
+    transition: all .1s; user-select: none; -webkit-user-select: none;
+  }
+  .paddle small { display: block; font-size: 9px; letter-spacing: 1px; color: var(--muted); margin-top: 3px; }
+  .paddle.held { background: var(--pink); border-color: var(--pink); color: #fff; box-shadow: 0 0 18px rgba(255,61,129,0.6); font-weight: 700; }
+  .paddle.held small { color: rgba(255,255,255,0.7); }
+
+  .press {
+    margin-left: auto; padding: 14px 22px; border-radius: 12px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; letter-spacing: 2px; font-weight: 700;
+    color: #2a0614; background: linear-gradient(110deg, var(--pink), #ff7ab0);
+    border: none; box-shadow: 0 0 22px rgba(255,61,129,0.35); transition: transform .12s;
+  }
+  .press:hover { transform: translateY(-1px); }
+  .nudge { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .nudge input { width: 130px; accent-color: var(--pink); }
+  .nudge b { color: var(--ink); font-size: 11px; min-width: 46px; }
+  #tempo { font-size: 11px; color: var(--cyan); letter-spacing: 1px; }
+
+  /* ── shelf ──────────────────────────────────────────────────────────────── */
+  .shelf { margin-top: 20px; }
+  .shelf h2 { font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; margin: 0 0 10px; }
+  .sleeves { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+  .sleeve {
+    flex: 0 0 148px; background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .sleeve .vin { width: 116px; height: 116px; }
+  .sleeve .nm { font-size: 11px; text-align: center; line-height: 1.35; }
+  .sleeve .nm b { display: block; letter-spacing: 0.5px; }
+  .sleeve .nm span { color: var(--muted); font-size: 10px; }
+  .sleeve .load { display: flex; gap: 6px; }
+  .sleeve .load button {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    padding: 5px 12px; border-radius: 7px; background: #0b0916; color: var(--ink);
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .sleeve .load button:first-child:hover { border-color: var(--cyan); color: var(--cyan); }
+  .sleeve .load button:last-child:hover { border-color: var(--pink); color: var(--pink); }
+  .demo-tag { font-size: 9px; letter-spacing: 2px; color: var(--violet); text-transform: uppercase; }
+
+  details { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(13,10,26,0.7); }
+  details summary { cursor: pointer; padding: 10px 16px; font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  details pre {
+    margin: 0; padding: 14px 18px; font-size: 11.5px; line-height: 1.6; color: #b9f5ef;
+    overflow-x: auto; border-top: 1px solid var(--line); white-space: pre;
+  }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; max-width: 78ch; }
+  footer h2 { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
+  footer ul { margin: 0; padding-left: 18px; }
+  footer code { color: var(--cyan); font-size: 0.92em; }
+
+  @media (max-width: 900px) { .rig { grid-template-columns: 1fr; } .press { margin-left: 0; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>SPIKE · CHANNEL DECK</h1>
+    <span class="concept">The tactile real mixer: 3-band EQ + filter per channel, smooth BASS SWAP, and
+      hold-to-fire beat-synced FX paddles — all building one balanced Strudel program.</span>
+    <a class="back" href="../index.html">← back to the app</a>
+  </header>
+  <div id="status">Load a record onto each deck, then hit PLAY.</div>
+
+  <div class="rig">
+    <!-- ── Deck A ─────────────────────────────────────────────────────────── -->
+    <section class="deck a">
+      <h2>Deck <b>A</b></h2>
+      <div class="platter" id="platterA"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaA">nothing loaded</div>
+    </section>
+
+    <!-- ── Centre mixer ──────────────────────────────────────────────────── -->
+    <section class="mixer">
+      <h2>Mixer</h2>
+      <div class="strips">
+        <!-- Channel A strip -->
+        <div class="chan" data-deck="a">
+          <span class="tag">CH·A</span>
+          <div class="eq-row">
+            <div class="knob-wrap">
+              <span class="knob-label">HI</span>
+              <input type="range" class="eq-slider" id="hiA" min="-1" max="1" step="0.01" value="0" />
+              <span class="knob-val" id="hiAVal">0.00</span>
+            </div>
+            <div class="knob-wrap">
+              <span class="knob-label">MID</span>
+              <input type="range" class="eq-slider" id="midA" min="-1" max="1" step="0.01" value="0" />
+              <span class="knob-val" id="midAVal">0.00</span>
+            </div>
+            <div class="knob-wrap">
+              <span class="knob-label">LOW</span>
+              <input type="range" class="eq-slider" id="lowA" min="-1" max="1" step="0.01" value="0" />
+              <span class="knob-val" id="lowAVal">0.00</span>
+            </div>
+          </div>
+          <div class="chan-divider"></div>
+          <div class="knob-wrap">
+            <span class="knob-label">FILTER</span>
+            <input type="range" class="eq-slider filter-knob" id="filterA" min="-1" max="1" step="0.01" value="0" />
+            <span class="knob-val" id="filterAVal">0.00</span>
+          </div>
+          <div class="chan-divider"></div>
+          <div class="trim-row">
+            <label>GAIN</label>
+            <input type="range" id="trimA" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimAVal">1.00</span>
+          </div>
+        </div>
+
+        <!-- Channel B strip -->
+        <div class="chan" data-deck="b">
+          <span class="tag">CH·B</span>
+          <div class="eq-row">
+            <div class="knob-wrap">
+              <span class="knob-label">HI</span>
+              <input type="range" class="eq-slider" id="hiB" min="-1" max="1" step="0.01" value="0" />
+              <span class="knob-val" id="hiBVal">0.00</span>
+            </div>
+            <div class="knob-wrap">
+              <span class="knob-label">MID</span>
+              <input type="range" class="eq-slider" id="midB" min="-1" max="1" step="0.01" value="0" />
+              <span class="knob-val" id="midBVal">0.00</span>
+            </div>
+            <div class="knob-wrap">
+              <span class="knob-label">LOW</span>
+              <input type="range" class="eq-slider" id="lowB" min="-1" max="1" step="0.01" value="0" />
+              <span class="knob-val" id="lowBVal">0.00</span>
+            </div>
+          </div>
+          <div class="chan-divider"></div>
+          <div class="knob-wrap">
+            <span class="knob-label">FILTER</span>
+            <input type="range" class="eq-slider filter-knob" id="filterB" min="-1" max="1" step="0.01" value="0" />
+            <span class="knob-val" id="filterBVal">0.00</span>
+          </div>
+          <div class="chan-divider"></div>
+          <div class="trim-row">
+            <label>GAIN</label>
+            <input type="range" id="trimB" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimBVal">1.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Crossfader -->
+      <div>
+        <div class="xfade">
+          <span>A</span>
+          <input type="range" id="cross" min="0" max="1" step="0.01" value="0.5" />
+          <span>B</span>
+        </div>
+        <div class="xfade-cap">crossfader · equal power</div>
+      </div>
+
+      <!-- Bass swap macro -->
+      <div class="swap-wrap">
+        <button class="swap-btn" id="swapBtn">⇄ BASS SWAP</button>
+        <span class="swap-cap">ramps A bass out → B bass in over ~1 s</span>
+      </div>
+    </section>
+
+    <!-- ── Deck B ─────────────────────────────────────────────────────────── -->
+    <section class="deck b">
+      <h2>Deck <b>B</b></h2>
+      <div class="platter" id="platterB"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaB">nothing loaded</div>
+    </section>
+  </div>
+
+  <!-- ── Master bus ──────────────────────────────────────────────────────── -->
+  <section class="master">
+    <div class="group">
+      <h3>Master</h3>
+      <div class="row">
+        <button class="btn play" id="playBtn">▶ PLAY</button>
+        <button class="btn" id="stopBtn">⏹ STOP</button>
+        <span class="nudge">NUDGE
+          <input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" />
+          <b id="nudgeVal">+0.0%</b>
+        </span>
+        <span id="tempo">— cps</span>
+      </div>
+    </div>
+    <div class="group">
+      <h3>FX paddles · hold to fire</h3>
+      <div class="row">
+        <button class="paddle" id="padStutter">STUTTER<small>ply × 4</small></button>
+        <button class="paddle" id="padGate">GATE<small>1 0 1 0 1 0 1 0</small></button>
+        <button class="paddle" id="padEcho">ECHO-OUT<small>delay + room</small></button>
+      </div>
+    </div>
+    <button class="press" id="pressBtn">● PRESS TO CRATE</button>
+  </section>
+
+  <!-- ── Record shelf ─────────────────────────────────────────────────────── -->
+  <section class="shelf">
+    <h2>Record shelf</h2>
+    <div class="sleeves" id="sleeves"></div>
+  </section>
+
+  <details>
+    <summary>Live program</summary>
+    <pre id="program">— nothing loaded —</pre>
+  </details>
+
+  <footer>
+    <h2>What this spike tests</h2>
+    <ul>
+      <li><b>3-band EQ approximation:</b> Strudel has no true 3-band EQ. This spike approximates
+        it honestly: LOW cut → <code>.hpf()</code> (up to ~400 Hz at −1); HI cut →
+        <code>.lpf()</code> (down to ~700 Hz at −1); MID is a UI placeholder — the knob exists for
+        the real-mixer feel but is currently a no-op pending a credible Strudel approximation
+        (e.g. band-reject via stacked lpf + hpf would require two chained calls and may colour
+        the sound unpredictably). Every branch remains balanced regardless.</li>
+      <li><b>Filter sweep:</b> negative → LP sweep from open down to ~200 Hz; positive → HP sweep
+        from ~200 Hz up to ~3.2 kHz. Both sides are monotonic so the knob tracks intuitively.</li>
+      <li><b>Smooth BASS SWAP:</b> 6 steps × 160 ms — the hero control. Ramps deck A LOW from its
+        current value to −1 (bass gone) while simultaneously ramping deck B LOW from −1 to 0 (bass
+        present). Updates on-screen knobs each step. Guards against overlap.</li>
+      <li><b>Hold-to-fire FX paddles:</b> STUTTER (<code>.ply("4")</code>), GATE
+        (<code>.struct("1 0 1 0 1 0 1 0")</code>), and ECHO-OUT
+        (<code>.delay(0.4).delaytime(0.1875).delayfeedback(0.6).room(0.3)</code>) live on the
+        master stack and drop in/out on mousedown/mouseup with no lingering timer.</li>
+      <li>Whether the compose order — LOW → MID → HI → FILTER → gain — keeps every branch
+        paren/quote-balanced across all EQ combinations.</li>
+    </ul>
+  </footer>
+
+<!-- Strudel live-coding engine (exposes initStrudel / evaluate / hush globally) -->
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<!-- The repo's own classic scripts, in dependency order, on window.SDJ -->
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const CRATE_KEY = 'sdj.crate';
+  const CRATE_CAP = 64;
+  const DEMO_SEEDS = [20260724, 47810923];
+
+  // ── state ────────────────────────────────────────────────────────────────
+  const state = {
+    playing: false,
+    audioReady: false,
+    cross: 0.5,      // 0 = full A, 1 = full B
+    nudge: 0,        // ±8% tempo trim
+    decks: {
+      a: { rec: null, trim: 1, eq: { hi: 0, mid: 0, low: 0 }, filter: 0 },
+      b: { rec: null, trim: 1, eq: { hi: 0, mid: 0, low: 0 }, filter: 0 },
+    },
+    // hold-to-fire FX paddles — true while button is held
+    paddles: { stutter: false, gate: false, echo: false },
+    swapping: false, // bass swap in progress
+  };
+
+  function setStatus(msg) { $('status').textContent = msg; }
+  function n2s(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+
+  // ── crate + deterministic demo records ───────────────────────────────────
+  function loadCrate() {
+    try { return JSON.parse(localStorage.getItem(CRATE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCrate(crate) {
+    try { localStorage.setItem(CRATE_KEY, JSON.stringify(crate)); } catch (e) { /* quota */ }
+  }
+  function topLane(g) {
+    let hi = 0;
+    for (let i = 0; i < g.active.length; i++) if (g.active[i]) hi = i;
+    return hi;
+  }
+  function synthRecord(seed) {
+    const e = new SDJ.DJEngine();
+    e.masterSeed = seed;
+    e.newSong();
+    for (let i = 0; i < 20; i++) {
+      const act = e.song.genome.active.filter(Boolean).length;
+      if (act >= 5) break;
+      if (!e.proposeChange()) break;
+      e.acceptChange();
+    }
+    const code = e.render();
+    const m = /setcps\(([0-9.]+)\)/.exec((code.split('\n')[0]) || '');
+    const s = e.song;
+    const genome = JSON.parse(JSON.stringify(s.genome));
+    const lane = topLane(genome);
+    return {
+      id: 'demo-' + (seed >>> 0).toString(36),
+      name: s.name, key: s.key, scaleType: s.scaleType,
+      bpm: s.bpm, cps: m ? parseFloat(m[1]) : s.cps,
+      genre: s.genre ? s.genre.id : null,
+      genreLabel: s.genre ? s.genre.label : null,
+      code: code, genome: genome,
+      art: { seed: s.seed >>> 0, layer: lane, variant: genome.variant[lane] || 0 },
+      demo: true,
+    };
+  }
+  let demoCache = null;
+  function demoRecords() {
+    if (!demoCache) demoCache = DEMO_SEEDS.map(synthRecord);
+    return demoCache;
+  }
+  function shelfRecords() {
+    const crate = loadCrate();
+    return crate.length >= 2 ? crate : crate.concat(demoRecords());
+  }
+
+  // ── composition ──────────────────────────────────────────────────────────
+  function masterRec() { return state.decks.a.rec || state.decks.b.rec || null; }
+  function masterCps() {
+    const rec = masterRec();
+    const base = (rec && rec.cps) || 0.5;
+    return Math.round(base * (1 + state.nudge / 100) * 1000) / 1000;
+  }
+  // Equal-power crossfade × trim, scaled to ~0.95, 2dp.
+  function deckGain(which) {
+    const m = state.cross;
+    const curve = which === 'a' ? Math.cos(m * Math.PI / 2) : Math.sin(m * Math.PI / 2);
+    return Math.round(curve * 0.95 * state.decks[which].trim * 100) / 100;
+  }
+  function stripCps(code) {
+    const nl = code.indexOf('\n');
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
+    return code;
+  }
+
+  // Apply the 3-band EQ + filter to a stripped bed expression.
+  // Compose order: LOW → MID → HI → FILTER → .gain()
+  // Returns the chained string starting from the bed, no trailing .gain() — that is appended by bedFor().
+  function applyEq(bed, eq, filter) {
+    // LOW: at 0 flat. Below 0 → high-pass to remove lows (up to ~400 Hz at -1).
+    // Above 0 → no credible additive in Strudel — skip (leave flat).
+    if (eq.low < 0) {
+      const freq = Math.round(20 + (-eq.low) * 380); // 20..400 Hz
+      bed += '.hpf(' + freq + ')';
+    }
+    // MID: UI placeholder — kept for the real-mixer look.
+    // No-op in this spike: a true mid-band notch would need stacked lpf/hpf with unpredictable
+    // colouring. The knob exists and never breaks balance; see footer note.
+    // (eq.mid intentionally unused — no Strudel chain added)
+
+    // HI: at 0 flat. Below 0 → low-pass to remove highs (down to ~700 Hz at -1).
+    // Above 0 → no credible boost — skip.
+    if (eq.hi < 0) {
+      const freq = Math.round(18000 + eq.hi * 17300); // 700..18000 Hz
+      bed += '.lpf(' + freq + ')';
+    }
+    // FILTER sweep: centre open.
+    // Left (negative) → LP sweep down (−1 ≈ 200 Hz; 0 ≈ open/no chain).
+    // Right (positive) → HP sweep up (0 ≈ 200 Hz base; +1 ≈ 3200 Hz).
+    if (filter < 0) {
+      // monotonic: at -1 → ~200 Hz; approaches open as filter → 0
+      const freq = Math.round(200 * Math.pow(90, 1 + filter));
+      bed += '.lpf(' + freq + ')';
+    } else if (filter > 0) {
+      const freq = Math.round(200 + filter * 3000);
+      bed += '.hpf(' + freq + ')';
+    }
+    return bed;
+  }
+
+  function bedFor(which) {
+    const d = state.decks[which];
+    if (!d.rec || !d.rec.code) return null;
+    const g = deckGain(which);
+    if (g <= 0) return null; // faded out — off the program, platter stops
+    let bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+    bed = applyEq(bed, d.eq, d.filter);
+    bed += '.gain(' + n2s(g) + ')';
+    return bed;
+  }
+
+  function compose() {
+    const rec = masterRec();
+    if (!rec) return null;
+    const layers = [];
+    const bedA = bedFor('a');
+    const bedB = bedFor('b');
+    if (bedA) layers.push(bedA);
+    if (bedB) layers.push(bedB);
+    // Hold-to-fire FX paddles applied at master level
+    if (layers.length > 0) {
+      // STUTTER: ply × 4 divides each cycle into 4 sub-patterns — grid-synced
+      if (state.paddles.stutter) layers[0] = 'stack(\n    ' + layers.join(',\n    ') + '\n  ).ply("4")';
+      else if (state.paddles.gate)
+        layers[0] = 'stack(\n    ' + layers.join(',\n    ') + '\n  ).struct("1 0 1 0 1 0 1 0")';
+      else if (state.paddles.echo)
+        layers[0] = 'stack(\n    ' + layers.join(',\n    ') + '\n  ).delay(0.4).delaytime(0.1875).delayfeedback(0.6).room(0.3)';
+      // If no paddle, layers remains the flat array and the outer stack wraps them.
+      // If a paddle is active, we've already built the inner stack above — use it as a single layer.
+      if (state.paddles.stutter || state.paddles.gate || state.paddles.echo) {
+        // layers[0] is now the full padded expression; layers[1..] were folded in
+        layers.length = 1;
+      }
+    }
+    if (!layers.length) return null;
+    return 'setcps(' + masterCps() + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  // ── throttled evaluate ───────────────────────────────────────────────────
+  let evalTimer = 0, lastEval = 0;
+  function doEval() {
+    lastEval = Date.now();
+    const code = compose();
+    if (!code) { if (typeof window.hush === 'function') window.hush(); return; }
+    window.__lastCode = code;
+    if (typeof window.evaluate === 'function') window.evaluate(code);
+  }
+  function refresh() {
+    const code = compose();
+    $('program').textContent = code || '— nothing loaded —';
+    updatePlatters();
+    updateTempo();
+    if (!state.playing) return;
+    clearTimeout(evalTimer);
+    const wait = Math.max(0, 150 - (Date.now() - lastEval));
+    evalTimer = setTimeout(doEval, wait);
+  }
+
+  // ── transport ────────────────────────────────────────────────────────────
+  async function play() {
+    if (!masterRec()) { setStatus('Load a record onto a deck first.'); return; }
+    if (state.playing) return;
+    setStatus('Waking the audio engine…');
+    try {
+      if (!state.audioReady) {
+        await window.initStrudel();
+        await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        state.audioReady = true;
+      }
+    } catch (err) {
+      setStatus('Audio failed to start — ' + err);
+      return;
+    }
+    state.playing = true;
+    lastEval = 0;
+    $('playBtn').classList.add('live');
+    refresh();
+    setStatus('Live. Work the fader and EQ.');
+  }
+  function stop() {
+    if (!state.playing) { setStatus('Already stopped.'); return; }
+    state.playing = false;
+    clearTimeout(evalTimer);
+    if (typeof window.hush === 'function') window.hush();
+    $('playBtn').classList.remove('live');
+    updatePlatters();
+    setStatus('Stopped.');
+  }
+
+  // ── decks + platters ─────────────────────────────────────────────────────
+  function loadDeck(which, entry) {
+    state.decks[which].rec = entry;
+    const platter = $(which === 'a' ? 'platterA' : 'platterB');
+    platter.innerHTML = '<div class="disc">' +
+      (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>';
+    $(which === 'a' ? 'metaA' : 'metaB').innerHTML =
+      '<strong>' + escapeHtml(entry.name || 'Untitled') + '</strong><br>' +
+      escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' +
+      (entry.bpm || '?') + ' BPM';
+    refresh();
+    setStatus('"' + (entry.name || 'Untitled') + '" on deck ' + which.toUpperCase() + '.');
+  }
+  function updatePlatters() {
+    ['a', 'b'].forEach(function (which) {
+      const platter = $(which === 'a' ? 'platterA' : 'platterB');
+      const audible = state.playing && !!state.decks[which].rec && deckGain(which) > 0;
+      platter.classList.toggle('spin', audible);
+    });
+  }
+  function updateTempo() {
+    const rec = masterRec();
+    $('tempo').textContent = rec
+      ? masterCps() + ' cps · ' + Math.round(masterCps() * 240) + ' BPM'
+      : '— cps';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── shelf ─────────────────────────────────────────────────────────────────
+  function renderShelf() {
+    const box = $('sleeves');
+    box.innerHTML = '';
+    shelfRecords().forEach(function (entry) {
+      const sleeve = document.createElement('div');
+      sleeve.className = 'sleeve';
+      sleeve.innerHTML =
+        '<div class="vin">' + (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>' +
+        '<div class="nm"><b>' + escapeHtml(entry.name || 'Untitled') + '</b>' +
+        '<span>' + escapeHtml(entry.key || '') + ' · ' + (entry.bpm || '?') + ' BPM</span>' +
+        (entry.demo ? '<br><span class="demo-tag">demo pressing</span>' : '') + '</div>' +
+        '<div class="load"><button data-to="a">→A</button><button data-to="b">→B</button></div>';
+      sleeve.querySelectorAll('button').forEach(function (btn) {
+        btn.addEventListener('click', function () { loadDeck(btn.dataset.to, entry); });
+      });
+      box.appendChild(sleeve);
+    });
+  }
+
+  // ── PRESS ─────────────────────────────────────────────────────────────────
+  function shortName(name) {
+    const n = String(name || 'Untitled');
+    return n.length > 16 ? n.slice(0, 15) + '…' : n;
+  }
+  function press() {
+    const rec = masterRec();
+    const code = compose();
+    if (!rec || !code) { setStatus('Nothing to press — load a deck first.'); return; }
+    const a = state.decks.a.rec, b = state.decks.b.rec;
+    const name = (a && b)
+      ? shortName(a.name) + ' × ' + shortName(b.name)
+      : shortName(rec.name) + ' × Channel Deck';
+    const genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
+    const lane = genome ? topLane(genome) : 0;
+    const cps = masterCps();
+    const entry = {
+      id: 'rec-' + Date.now().toString(36) + '-cd',
+      name: name, key: rec.key, scaleType: rec.scaleType,
+      bpm: Math.round(cps * 240), cps: cps,
+      genre: rec.genre || null, genreLabel: rec.genreLabel || null,
+      code: code, genome: genome,
+      art: { seed: Date.now() >>> 0, layer: lane, variant: genome ? (genome.variant[lane] || 0) : 0 },
+      approval: null, source: 'remix', savedAt: Date.now(),
+    };
+    const crate = loadCrate();
+    if (crate.length && crate[0].code === code) {
+      setStatus('Already pressed — the newest record in the crate is this exact cut.');
+      return;
+    }
+    crate.unshift(entry);
+    if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
+    saveCrate(crate);
+    renderShelf();
+    setStatus('Pressed "' + name + '" into the crate.');
+  }
+
+  // ── BASS SWAP macro ───────────────────────────────────────────────────────
+  // Ramps deck A LOW: current → -1 (bass gone)
+  // Ramps deck B LOW: current → 0  (bass present)
+  // 6 steps × 160 ms, updates on-screen knobs each step.
+  function bassSwap() {
+    if (state.swapping) return; // guard: ignore if already mid-ramp
+    state.swapping = true;
+    $('swapBtn').disabled = true;
+    $('swapBtn').classList.add('swapping');
+    $('swapBtn').textContent = '⇄ SWAPPING…';
+
+    const STEPS = 6;
+    const INTERVAL = 160; // ms
+    const startA = state.decks.a.eq.low;   // A low: current → -1
+    const startB = state.decks.b.eq.low;   // B low: current → 0
+    const targetA = -1;
+    const targetB = 0;
+    let step = 0;
+
+    function tick() {
+      step++;
+      const t = step / STEPS; // 0 < t <= 1
+      const newA = startA + (targetA - startA) * t;
+      const newB = startB + (targetB - startB) * t;
+
+      // Update state
+      state.decks.a.eq.low = Math.round(newA * 1000) / 1000;
+      state.decks.b.eq.low = Math.round(newB * 1000) / 1000;
+
+      // Update on-screen sliders + value labels
+      $('lowA').value = state.decks.a.eq.low;
+      $('lowAVal').textContent = state.decks.a.eq.low.toFixed(2);
+      $('lowB').value = state.decks.b.eq.low;
+      $('lowBVal').textContent = state.decks.b.eq.low.toFixed(2);
+
+      // Recompose and re-evaluate (throttled)
+      refresh();
+
+      if (step < STEPS) {
+        setTimeout(tick, INTERVAL);
+      } else {
+        // Done: snap to exact targets to avoid float drift
+        state.decks.a.eq.low = targetA;
+        state.decks.b.eq.low = targetB;
+        $('lowA').value = targetA;
+        $('lowAVal').textContent = targetA.toFixed(2);
+        $('lowB').value = targetB;
+        $('lowBVal').textContent = targetB.toFixed(2);
+        refresh();
+
+        state.swapping = false;
+        $('swapBtn').disabled = false;
+        $('swapBtn').classList.remove('swapping');
+        $('swapBtn').textContent = '⇄ BASS SWAP';
+        setStatus('Bass swap complete — A bass off, B bass in.');
+      }
+    }
+
+    // First step fires immediately so the ramp feels responsive
+    tick();
+  }
+
+  // ── UI wiring ─────────────────────────────────────────────────────────────
+  $('playBtn').addEventListener('click', play);
+  $('stopBtn').addEventListener('click', stop);
+  $('pressBtn').addEventListener('click', press);
+  $('swapBtn').addEventListener('click', bassSwap);
+
+  $('cross').addEventListener('input', function (e) {
+    state.cross = parseFloat(e.target.value);
+    refresh();
+  });
+  $('nudge').addEventListener('input', function (e) {
+    state.nudge = parseFloat(e.target.value);
+    $('nudgeVal').textContent = (state.nudge >= 0 ? '+' : '') + state.nudge.toFixed(1) + '%';
+    refresh();
+  });
+
+  // Trim sliders
+  [['trimA', 'a'], ['trimB', 'b']].forEach(function (pair) {
+    const id = pair[0], which = pair[1];
+    $(id).addEventListener('input', function (e) {
+      state.decks[which].trim = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].trim.toFixed(2);
+      refresh();
+    });
+  });
+
+  // EQ sliders (hi / mid / low per deck)
+  [
+    ['hiA',   'a', 'hi'],  ['midA', 'a', 'mid'], ['lowA', 'a', 'low'],
+    ['hiB',   'b', 'hi'],  ['midB', 'b', 'mid'], ['lowB', 'b', 'low'],
+  ].forEach(function (triple) {
+    var id = triple[0], which = triple[1], band = triple[2];
+    $(id).addEventListener('input', function (e) {
+      state.decks[which].eq[band] = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].eq[band].toFixed(2);
+      refresh();
+    });
+  });
+
+  // Filter knobs
+  [['filterA', 'a'], ['filterB', 'b']].forEach(function (pair) {
+    var id = pair[0], which = pair[1];
+    $(id).addEventListener('input', function (e) {
+      state.decks[which].filter = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].filter.toFixed(2);
+      refresh();
+    });
+  });
+
+  // Hold-to-fire FX paddles
+  function bindPaddle(btnId, key) {
+    var btn = $(btnId);
+    function activate(e) {
+      e.preventDefault();
+      state.paddles[key] = true;
+      btn.classList.add('held');
+      refresh();
+    }
+    function release() {
+      state.paddles[key] = false;
+      btn.classList.remove('held');
+      refresh();
+    }
+    btn.addEventListener('mousedown', activate);
+    btn.addEventListener('touchstart', activate, { passive: false });
+    btn.addEventListener('mouseup', release);
+    btn.addEventListener('mouseleave', release);
+    btn.addEventListener('touchend', release);
+    btn.addEventListener('touchcancel', release);
+  }
+  bindPaddle('padStutter', 'stutter');
+  bindPaddle('padGate', 'gate');
+  bindPaddle('padEcho', 'echo');
+
+  // ── headless hooks ────────────────────────────────────────────────────────
+  function deckInfo(which) {
+    var d = state.decks[which];
+    if (!d.rec) return null;
+    return {
+      id: d.rec.id, name: d.rec.name, key: d.rec.key, bpm: d.rec.bpm, cps: d.rec.cps,
+      trim: d.trim, gain: deckGain(which),
+      eq: { hi: d.eq.hi, mid: d.eq.mid, low: d.eq.low },
+      filter: d.filter,
+    };
+  }
+  window.__spike = {
+    compose: compose,
+    state: function () {
+      return {
+        playing: state.playing,
+        cross: state.cross,
+        nudge: state.nudge,
+        masterCps: masterRec() ? masterCps() : null,
+        deckA: deckInfo('a'),
+        deckB: deckInfo('b'),
+        paddles: { stutter: state.paddles.stutter, gate: state.paddles.gate, echo: state.paddles.echo },
+        swapping: state.swapping,
+      };
+    },
+    loadDemo: function () {
+      var demos = demoRecords();
+      loadDeck('a', demos[0]);
+      loadDeck('b', demos[1]);
+    },
+  };
+
+  renderShelf();
+  refresh();
+})();
+</script>
+</body>
+</html>

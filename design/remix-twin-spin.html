@@ -1,0 +1,592 @@
+<!doctype html>
+<!--
+  SPIKE · TWIN SPIN — the remix room as a classic two-deck DJ rig.
+  Thesis: the owner's original intent was "a place you can spin multiple decks".
+  This spike strips remix back to its purest form: two saved records on two
+  platters, one equal-power crossfader, one master tempo, the audited FX rack —
+  no voice pads, no overlays, just mixing your own pressings into each other.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Twin Spin</title>
+<style>
+  /* ── SPIKE · TWIN SPIN ─────────────────────────────────────────────────
+     Dark cyberpunk to match the app: blue-black floor, pink Deck A, cyan
+     Deck B, violet console. Everything monospace-ish and neon-edged. */
+  :root {
+    --bg:     #06040d;
+    --panel:  #0d0a1a;
+    --panel2: #100c20;
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #120a2a 0%, var(--bg) 55%);
+    color: var(--ink); font-family: var(--font);
+  }
+  body { padding: 26px 4vw 40px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* header */
+  .hdr { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+  .hdr h1 {
+    margin: 0; font-size: clamp(26px, 4vw, 44px); letter-spacing: 3px; font-weight: 700;
+    background: linear-gradient(100deg, #fff, var(--pink) 45%, var(--violet) 75%, var(--cyan));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hdr .back { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  .sub { margin: 0 0 22px; color: var(--muted); font-size: 13px; letter-spacing: 0.4px; }
+
+  /* record shelf */
+  .shelf-wrap { border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(180deg, var(--panel), transparent); padding: 12px 14px 10px; margin-bottom: 22px; }
+  .shelf-title { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  .shelf-title b { color: var(--cyan); font-weight: 500; }
+  .shelf { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+  .sleeve {
+    flex: 0 0 128px; display: grid; gap: 6px; padding: 10px 10px 8px; border-radius: 12px;
+    background: var(--panel2); border: 1px solid var(--line); text-align: center;
+  }
+  .sleeve .disc { width: 96px; height: 96px; margin: 0 auto; cursor: pointer; transition: transform .15s; }
+  .sleeve .disc:hover { transform: scale(1.05); }
+  .sleeve .nm { font-size: 11px; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sleeve .mt { font-size: 10px; color: var(--muted); }
+  .sleeve .demo-tag { font-size: 9px; letter-spacing: 2px; color: var(--violet); text-transform: uppercase; }
+  .sleeve .loads { display: flex; gap: 6px; justify-content: center; }
+  .loadbtn {
+    flex: 1; font-family: inherit; font-size: 10px; letter-spacing: 1.5px; padding: 5px 0;
+    border-radius: 7px; cursor: pointer; color: var(--ink);
+    background: transparent; border: 1px solid var(--line); transition: all .15s;
+  }
+  .loadbtn.a:hover, .sleeve.on-a .loadbtn.a { border-color: var(--pink); color: var(--pink); box-shadow: 0 0 10px rgba(255,61,129,0.35); }
+  .loadbtn.b:hover, .sleeve.on-b .loadbtn.b { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 10px rgba(34,211,238,0.35); }
+  .shelf-empty { color: var(--muted); font-size: 12px; padding: 12px 4px; }
+
+  /* the rig: Deck A | console | Deck B | FX rack */
+  .rig { display: grid; grid-template-columns: 1fr minmax(220px, 280px) 1fr minmax(150px, 180px); gap: 18px; align-items: start; }
+  @media (max-width: 980px) { .rig { grid-template-columns: 1fr 1fr; } .console, .rack { grid-column: span 1; } }
+
+  .deck { border: 1px solid var(--line); border-radius: 16px; padding: 18px 16px 16px; background: linear-gradient(180deg, var(--panel), var(--panel2)); text-align: center; position: relative; }
+  .deck h2 { margin: 0 0 12px; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; }
+  .deck.a h2 { color: var(--pink); text-shadow: 0 0 14px rgba(255,61,129,0.5); }
+  .deck.b h2 { color: var(--cyan); text-shadow: 0 0 14px rgba(34,211,238,0.5); }
+  .platter { width: min(240px, 70vw); height: min(240px, 70vw); margin: 0 auto 12px; border-radius: 50%; padding: 8px; background: radial-gradient(circle, #0a0816 55%, #131028 100%); border: 1px solid var(--line); }
+  .deck.a .platter { box-shadow: 0 0 34px rgba(255,61,129,0.12) inset, 0 0 22px rgba(255,61,129,0.08); }
+  .deck.b .platter { box-shadow: 0 0 34px rgba(34,211,238,0.12) inset, 0 0 22px rgba(34,211,238,0.08); }
+  .platter .disc { width: 100%; height: 100%; border-radius: 50%; }
+  .platter .disc.spin { animation: rot 1.8s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .platter .empty-slot { width: 100%; height: 100%; border-radius: 50%; border: 1px dashed var(--line); display: grid; place-items: center; color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+  .deck .nm { font-size: 15px; letter-spacing: 0.5px; min-height: 20px; }
+  .deck .mt { font-size: 11px; color: var(--muted); margin-top: 2px; min-height: 15px; }
+  .eject { position: absolute; top: 12px; right: 12px; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; font-family: inherit; font-size: 10px; padding: 3px 8px; cursor: pointer; }
+  .eject:hover { border-color: var(--pink); color: var(--pink); }
+
+  .fader { margin-top: 14px; text-align: left; }
+  .fader label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .fader label output { color: var(--ink); letter-spacing: 0.5px; text-transform: none; }
+  input[type="range"] { width: 100%; accent-color: var(--violet); cursor: pointer; }
+  .deck.a input[type="range"] { accent-color: var(--pink); }
+  .deck.b input[type="range"] { accent-color: var(--cyan); }
+
+  /* centre console */
+  .console { border: 1px solid var(--line); border-radius: 16px; padding: 18px 16px; background: linear-gradient(180deg, var(--panel), var(--panel2)); display: grid; gap: 18px; align-self: stretch; }
+  .console h2 { margin: 0; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; color: var(--violet); text-align: center; text-shadow: 0 0 14px rgba(122,92,255,0.5); }
+  .xfade label { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 2px; margin-bottom: 4px; }
+  .xfade label .la { color: var(--pink); } .xfade label .lb { color: var(--cyan); }
+  .xfade .gains { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .tempo label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .tempo output { color: var(--ink); text-transform: none; letter-spacing: 0.5px; }
+  .tempo .bpm { text-align: center; font-size: 22px; margin-top: 6px; letter-spacing: 1px; }
+  .tempo .bpm small { display: block; font-size: 10px; color: var(--muted); letter-spacing: 2px; }
+  #playBtn {
+    font-family: inherit; font-size: 14px; letter-spacing: 3px; padding: 13px 0; border-radius: 12px; cursor: pointer;
+    color: var(--ink); background: linear-gradient(100deg, rgba(255,61,129,0.18), rgba(34,211,238,0.14));
+    border: 1px solid var(--violet); transition: all .2s;
+  }
+  #playBtn:hover { box-shadow: 0 0 24px rgba(122,92,255,0.35); }
+  #playBtn.playing { border-color: var(--pink); color: var(--pink); }
+  #status { font-size: 11px; color: var(--muted); text-align: center; min-height: 15px; line-height: 1.5; }
+
+  /* FX rack */
+  .rack { border: 1px solid var(--line); border-radius: 16px; padding: 16px 14px; background: linear-gradient(180deg, var(--panel), var(--panel2)); display: grid; gap: 10px; align-content: start; align-self: stretch; }
+  .rack h2 { margin: 0 0 4px; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; color: var(--cyan); text-align: center; }
+  .fx-pad {
+    font-family: inherit; text-align: left; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    color: var(--ink); background: transparent; border: 1px solid var(--line); transition: all .15s;
+  }
+  .fx-pad strong { display: block; font-size: 12px; letter-spacing: 1px; }
+  .fx-pad small { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .fx-pad:hover { border-color: var(--violet); }
+  .fx-pad.on { border-color: var(--pink); box-shadow: 0 0 16px rgba(255,61,129,0.3); background: rgba(255,61,129,0.08); }
+  .fx-pad.on strong { color: var(--pink); }
+
+  /* program panel + footer */
+  details { margin-top: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  summary { padding: 10px 14px; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+  details pre { margin: 0; padding: 12px 16px 16px; font-size: 11px; line-height: 1.55; color: var(--cyan); overflow-x: auto; white-space: pre; }
+  footer { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.7; max-width: 72ch; }
+  footer b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="hdr">
+    <h1>SPIKE · TWIN SPIN</h1>
+    <a class="back" href="../index.html">← back to the app</a>
+  </div>
+  <p class="sub">Two saved records, two platters, one crossfader — the remix room as a classic DJ rig. No voice pads, just your own pressings mixed into each other.</p>
+
+  <div class="shelf-wrap">
+    <p class="shelf-title">Record shelf — <b>click a disc</b> to drop it on the first free deck, or use the load buttons</p>
+    <div class="shelf" id="shelf"></div>
+  </div>
+
+  <div class="rig">
+    <section class="deck a" id="deckA">
+      <h2>Deck A</h2>
+      <button class="eject" id="ejectA" hidden>✕ eject</button>
+      <div class="platter"><div class="disc" id="discA"><div class="empty-slot">LOAD A RECORD</div></div></div>
+      <div class="nm" id="nameA">—</div>
+      <div class="mt" id="metaA"></div>
+      <div class="fader">
+        <label>Transition filter <output id="filtOutA">open</output></label>
+        <input type="range" id="filtA" min="0" max="100" value="100" />
+      </div>
+    </section>
+
+    <section class="console">
+      <h2>Console</h2>
+      <div class="xfade">
+        <label><span class="la">A</span><span>CROSSFADER</span><span class="lb">B</span></label>
+        <input type="range" id="xfade" min="0" max="100" value="50" />
+        <div class="gains"><span id="gainOutA">A ·0.67</span><span id="gainOutB">·0.67 B</span></div>
+      </div>
+      <div class="tempo">
+        <label>Master tempo <output id="nudgeOut">+0.0%</output></label>
+        <input type="range" id="nudge" min="-80" max="80" value="0" />
+        <div class="bpm"><span id="bpmOut">—</span><small id="cpsOut">cps —</small></div>
+      </div>
+      <button id="playBtn">▶ PLAY</button>
+      <div id="status">Load a record onto a deck.</div>
+    </section>
+
+    <section class="deck b" id="deckB">
+      <h2>Deck B</h2>
+      <button class="eject" id="ejectB" hidden>✕ eject</button>
+      <div class="platter"><div class="disc" id="discB"><div class="empty-slot">LOAD A RECORD</div></div></div>
+      <div class="nm" id="nameB">—</div>
+      <div class="mt" id="metaB"></div>
+      <div class="fader">
+        <label>Transition filter <output id="filtOutB">open</output></label>
+        <input type="range" id="filtB" min="0" max="100" value="100" />
+      </div>
+    </section>
+
+    <section class="rack">
+      <h2>Master FX</h2>
+      <button class="fx-pad" data-fx="sweep"><strong>Filter sweep</strong><small>both beds breathe</small></button>
+      <button class="fx-pad" data-fx="stutter"><strong>Stutter</strong><small>glitch beat-repeat</small></button>
+      <button class="fx-pad" data-fx="riser"><strong>Riser</strong><small>noise build for drops</small></button>
+    </section>
+  </div>
+
+  <details>
+    <summary>Current program</summary>
+    <pre id="programOut">— nothing composed yet —</pre>
+  </details>
+
+  <footer>
+    <b>What this spike tests:</b> whether "spin multiple decks" in its purest form —
+    two crate records blended by an equal-power crossfader at one master tempo,
+    with per-deck transition filters and the audited master FX (sweep / stutter /
+    riser) — is a stronger remix room than the single-bed FX rack. Everything is
+    one balanced Strudel program re-evaluated on change; headless hooks live on
+    <b>window.__spike</b> (compose / state / loadDemo) and the last evaluated
+    string on <b>window.__lastCode</b>.
+  </footer>
+
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- state -------------------------------------------------------------
+  const state = {
+    decks: [null, null],            // crate entries on Deck A (0) and Deck B (1)
+    mix: 0.5,                       // crossfader 0..1 (0 = all A, 1 = all B)
+    nudge: 0,                       // master tempo nudge, percent (-8..+8)
+    filter: [1, 1],                 // per-deck transition fader t (0..1); 1 = open
+    fx: { sweep: false, stutter: false, riser: false },
+    playing: false,
+  };
+  let audioReady = false;
+  let usingDemo = false;
+  let shelfRecords = [];
+  let demoCache = null;
+  let evalTimer = 0;                // ~150ms throttle for slider-driven re-evaluates
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    shelf: $('shelf'),
+    disc: [$('discA'), $('discB')],
+    name: [$('nameA'), $('nameB')],
+    meta: [$('metaA'), $('metaB')],
+    eject: [$('ejectA'), $('ejectB')],
+    filt: [$('filtA'), $('filtB')],
+    filtOut: [$('filtOutA'), $('filtOutB')],
+    xfade: $('xfade'),
+    gainOutA: $('gainOutA'), gainOutB: $('gainOutB'),
+    nudge: $('nudge'), nudgeOut: $('nudgeOut'),
+    bpmOut: $('bpmOut'), cpsOut: $('cpsOut'),
+    play: $('playBtn'), status: $('status'),
+    program: $('programOut'),
+  };
+
+  function status(msg) { el.status.textContent = msg; }
+
+  // ---- records -----------------------------------------------------------
+  function loadCrate() {
+    try { return JSON.parse(localStorage.getItem('sdj.crate') || '[]'); }
+    catch (e) { return []; }
+  }
+
+  // Empty crate? Synthesise three deterministic demo pressings with the real
+  // engine, so the rig always has something to spin. Fixed seeds → the same
+  // three records (and the same discs) on every visit.
+  const DEMO_SEEDS = [0x5eed7a1, 0x2c0ffee, 0x7d15c05];
+  function synthesiseRecords() {
+    if (demoCache) return demoCache;
+    demoCache = DEMO_SEEDS.map(function (seed, i) {
+      const e = new SDJ.DJEngine();
+      e.masterSeed = seed >>> 0;
+      e.newSong();
+      for (let k = 0; k < 20; k++) {
+        if (e.song.genome.active.filter(Boolean).length >= 5) break;
+        if (!e.proposeChange()) break;
+        e.acceptChange();
+      }
+      const code = e.render();
+      const firstLine = code.slice(0, Math.max(0, code.indexOf('\n')));
+      const m = firstLine.match(/setcps\(([\d.]+)\)/);
+      return {
+        id: 'demo-' + i,
+        name: e.song.name,
+        key: e.song.key,
+        scaleType: e.song.scaleType,
+        bpm: e.song.bpm,
+        cps: m ? +m[1] : e.song.cps,
+        code: code,
+        genome: JSON.parse(JSON.stringify(e.song.genome)),
+        art: { seed: e.song.seed, layer: 0, variant: 0 },
+        demo: true,
+      };
+    });
+    return demoCache;
+  }
+
+  // ---- composition -------------------------------------------------------
+  // Mirrors composeRemix in src/app.js: a record's code is `setcps(X)\n<expr>`;
+  // strip the cps line, nest the whole expr as ONE parenthesised pattern, chain
+  // deck FX + gain onto it. Strings are built by concatenation — every branch
+  // keeps parens and quotes balanced.
+
+  function filterFreq(t) { return Math.round(200 * Math.pow(90, t)); }
+
+  function currentGains() {
+    return [
+      Math.cos(state.mix * Math.PI / 2) * 0.95,   // equal-power: A fades as B rises
+      Math.sin(state.mix * Math.PI / 2) * 0.95,
+    ];
+  }
+
+  function masterCps() {
+    const a = state.decks[0], b = state.decks[1];
+    const base = (a && a.cps) || (b && b.cps) || 0.5;
+    return base * (1 + state.nudge / 100);
+  }
+
+  function bedFor(entry, di, gain) {
+    const code = entry.code || '';
+    const nl = code.indexOf('\n');
+    let expr = code;
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) expr = code.slice(nl + 1);
+    let bed = '(' + expr.trim() + ')';
+    if (state.fx.sweep) bed += '.lpf(sine.range(500,4500).slow(8))';        // sweep owns the filter
+    else if (state.filter[di] < 0.995) bed += '.lpf(' + filterFreq(state.filter[di]) + ')';
+    if (state.fx.stutter) bed += '.sometimesBy(0.25, x => x.ply("2 4"))';
+    bed += '.gain(' + gain.toFixed(2) + ')';
+    return bed;
+  }
+
+  function compose() {
+    const a = state.decks[0], b = state.decks[1];
+    if (!a && !b) return null;
+    const g = currentGains();
+    const layers = [];
+    // a fully-faded deck is omitted rather than carried at .gain(0.00)
+    if (a && g[0] >= 0.01) layers.push(bedFor(a, 0, g[0]));
+    if (b && g[1] >= 0.01) layers.push(bedFor(b, 1, g[1]));
+    if (state.fx.riser) {
+      layers.push('s("white").gain(0.1).lpf(sine.range(400,9000).slow(8)).hpf(300).room(0.5)');
+    }
+    if (!layers.length) return null;
+    return 'setcps(' + +masterCps().toFixed(3) + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  // ---- audio -------------------------------------------------------------
+  async function ensureAudio() {
+    if (audioReady) return true;
+    status('Loading sounds…');
+    try {
+      await initStrudel();
+      // the dirt-samples drum kit — without it the drums are silent
+      await samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+      audioReady = true;
+      return true;
+    } catch (err) {
+      status('Audio failed to start: ' + (err && err.message ? err.message : err));
+      return false;
+    }
+  }
+
+  // Recompose + repaint; evaluate only while playing. Everything latches — no
+  // scheduled removals, the program simply carries whatever is switched on.
+  function refresh() {
+    const code = compose();
+    el.program.textContent = code || '— nothing composed yet —';
+    if (state.playing) {
+      if (!code) { stop('Both decks empty — stopped.'); return; }
+      window.__lastCode = code;
+      window.evaluate(code);
+    }
+    paint();
+  }
+
+  function scheduleRefresh() {                    // slider-driven: throttled
+    if (evalTimer) return;
+    evalTimer = setTimeout(function () { evalTimer = 0; refresh(); }, 150);
+  }
+
+  async function onPlay() {
+    if (state.playing) { stop('Stopped.'); return; }
+    if (!compose()) { status('Load a record onto a deck first.'); return; }
+    if (!(await ensureAudio())) return;
+    state.playing = true;
+    refresh();
+    const names = state.decks.filter(Boolean).map(function (r) { return '“' + r.name + '”'; });
+    status('Spinning ' + names.join(' × ') + '.');
+  }
+
+  function stop(msg) {
+    state.playing = false;
+    if (typeof window.hush === 'function') window.hush();
+    paint();
+    if (msg) status(msg);
+  }
+
+  // ---- deck + shelf ------------------------------------------------------
+  function loadDeck(di, entry) {
+    state.decks[di] = entry;
+    refresh();
+    status('“' + entry.name + '” on Deck ' + (di ? 'B' : 'A') + '.');
+  }
+
+  function ejectDeck(di) {
+    if (!state.decks[di]) return;
+    const nm = state.decks[di].name;
+    state.decks[di] = null;
+    refresh();
+    if (state.playing) status('Ejected “' + nm + '”.');
+    else status('Deck ' + (di ? 'B' : 'A') + ' clear.');
+  }
+
+  function renderShelf() {
+    el.shelf.innerHTML = '';
+    if (!shelfRecords.length) {
+      const d = document.createElement('div');
+      d.className = 'shelf-empty';
+      d.textContent = 'No records anywhere — press some in the app first.';
+      el.shelf.appendChild(d);
+      return;
+    }
+    shelfRecords.forEach(function (entry) {
+      const card = document.createElement('div');
+      card.className = 'sleeve'
+        + (state.decks[0] === entry ? ' on-a' : '')
+        + (state.decks[1] === entry ? ' on-b' : '');
+      const disc = document.createElement('div');
+      disc.className = 'disc';
+      disc.innerHTML = SDJ.Vinyl.forEntry(entry);
+      disc.title = 'Load onto the first free deck';
+      disc.addEventListener('click', function () {
+        loadDeck(state.decks[0] ? (state.decks[1] ? 0 : 1) : 0, entry);
+      });
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = entry.name || 'Untitled';
+      const mt = document.createElement('div');
+      mt.className = 'mt';
+      mt.textContent = (entry.key || '?') + ' · ' + (entry.bpm || '?') + ' BPM';
+      const loads = document.createElement('div');
+      loads.className = 'loads';
+      [['a', 0, 'LOAD A'], ['b', 1, 'LOAD B']].forEach(function (cfg) {
+        const b = document.createElement('button');
+        b.className = 'loadbtn ' + cfg[0];
+        b.textContent = cfg[2];
+        b.addEventListener('click', function () { loadDeck(cfg[1], entry); });
+        loads.appendChild(b);
+      });
+      card.appendChild(disc);
+      card.appendChild(nm);
+      card.appendChild(mt);
+      if (entry.demo) {
+        const tag = document.createElement('div');
+        tag.className = 'demo-tag';
+        tag.textContent = 'demo pressing';
+        card.appendChild(tag);
+      }
+      card.appendChild(loads);
+      el.shelf.appendChild(card);
+    });
+  }
+
+  // ---- paint -------------------------------------------------------------
+  // The cheap numeric readouts + spin classes, updated INSTANTLY on every
+  // slider move — only the audio re-evaluate is throttled, never the feedback.
+  function paintReadouts() {
+    const g = currentGains();
+    for (let di = 0; di < 2; di++) {
+      // the platter only spins while its record is actually audible
+      el.disc[di].classList.toggle('spin', state.playing && !!state.decks[di] && g[di] >= 0.01);
+      el.filtOut[di].textContent = state.filter[di] >= 0.995 ? 'open' : filterFreq(state.filter[di]) + ' Hz';
+    }
+    el.gainOutA.textContent = 'A ·' + g[0].toFixed(2);
+    el.gainOutB.textContent = '·' + g[1].toFixed(2) + ' B';
+    el.nudgeOut.textContent = (state.nudge >= 0 ? '+' : '') + state.nudge.toFixed(1) + '%';
+    if (state.decks[0] || state.decks[1]) {
+      const cps = masterCps();
+      el.bpmOut.textContent = Math.round(cps * 240) + ' BPM';
+      el.cpsOut.textContent = 'cps ' + cps.toFixed(3);
+    } else {
+      el.bpmOut.textContent = '—';
+      el.cpsOut.textContent = 'cps —';
+    }
+  }
+
+  function paint() {
+    for (let di = 0; di < 2; di++) {
+      const entry = state.decks[di];
+      if (entry) {
+        el.disc[di].innerHTML = SDJ.Vinyl.forEntry(entry);
+        el.name[di].textContent = entry.name || 'Untitled';
+        el.meta[di].textContent =
+          (entry.key || '?') + (entry.scaleType ? ' ' + entry.scaleType : '') +
+          ' · ' + (entry.bpm || '?') + ' BPM';
+        el.eject[di].hidden = false;
+      } else {
+        el.disc[di].innerHTML = '<div class="empty-slot">LOAD A RECORD</div>';
+        el.name[di].textContent = '—';
+        el.meta[di].textContent = '';
+        el.eject[di].hidden = true;
+      }
+    }
+    paintReadouts();
+    el.play.textContent = state.playing ? '⏹ STOP' : '▶ PLAY';
+    el.play.classList.toggle('playing', state.playing);
+    document.querySelectorAll('.fx-pad').forEach(function (b) {
+      b.classList.toggle('on', !!state.fx[b.dataset.fx]);
+    });
+    renderShelf();
+  }
+
+  // ---- wiring ------------------------------------------------------------
+  el.play.addEventListener('click', onPlay);
+  el.eject[0].addEventListener('click', function () { ejectDeck(0); });
+  el.eject[1].addEventListener('click', function () { ejectDeck(1); });
+  el.xfade.addEventListener('input', function () {
+    state.mix = (+el.xfade.value || 0) / 100;
+    paintReadouts();
+    scheduleRefresh();
+  });
+  el.nudge.addEventListener('input', function () {
+    state.nudge = (+el.nudge.value || 0) / 10;    // slider is tenths of a percent
+    paintReadouts();
+    scheduleRefresh();
+  });
+  [0, 1].forEach(function (di) {
+    el.filt[di].addEventListener('input', function () {
+      state.filter[di] = (+el.filt[di].value || 0) / 100;
+      paintReadouts();
+      scheduleRefresh();
+    });
+  });
+  document.querySelectorAll('.fx-pad').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const key = b.dataset.fx;
+      state.fx[key] = !state.fx[key];             // latching — no timers, no auto-off
+      refresh();
+    });
+  });
+
+  // ---- headless verification hooks ---------------------------------------
+  window.__spike = {
+    compose: function () { return compose(); },
+    state: function () {
+      const g = currentGains();
+      const deckInfo = function (e) {
+        return e ? { id: e.id, name: e.name, key: e.key, bpm: e.bpm, cps: e.cps } : null;
+      };
+      return {
+        playing: state.playing,
+        deckA: deckInfo(state.decks[0]),
+        deckB: deckInfo(state.decks[1]),
+        mix: state.mix,
+        gains: [+g[0].toFixed(2), +g[1].toFixed(2)],
+        nudge: state.nudge,
+        masterCps: +masterCps().toFixed(3),
+        filter: state.filter.slice(),
+        fx: { sweep: state.fx.sweep, stutter: state.fx.stutter, riser: state.fx.riser },
+        records: shelfRecords.length,
+        demo: usingDemo,
+      };
+    },
+    loadDemo: function () {                        // force the demo pressings onto both decks, no audio
+      const demos = synthesiseRecords();
+      shelfRecords = demos;
+      usingDemo = true;
+      state.decks[0] = demos[0] || null;
+      state.decks[1] = demos[1] || null;
+      refresh();
+      status('Demo pressings on both decks.');
+    },
+  };
+
+  // ---- boot --------------------------------------------------------------
+  const crate = loadCrate();
+  if (crate.length) {
+    shelfRecords = crate;
+  } else {
+    shelfRecords = synthesiseRecords();
+    usingDemo = true;
+    status('No crate found — spun up three demo pressings. Load two and play.');
+  }
+  refresh();
+})();
+</script>
+</body>
+</html>

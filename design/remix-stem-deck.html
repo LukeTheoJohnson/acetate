@@ -1,0 +1,901 @@
+<!doctype html>
+<!--
+  ── SPIKE · STEM DECK ─────────────────────────────────────────────────────────
+  Thesis: because THIS app COMPOSED the record, it can split it into real stems
+  for free — the djay "Neural Mix" feature, but exact and offline. Each deck's
+  record breaks into mute/solo stem GROUPS derived from the colour tags already
+  baked into every stack line by render(). A one-touch SWAP mashes A's rhythm
+  section with B's melody — instant mashup, no guessing, no AI. Base = two decks
+  + equal-power crossfader (inherited from Live Wire). The per-deck LOW/HI kills
+  are REPLACED with a STEM STRIP: DRUMS / BASS / CHORDS / LEAD / AIR chips with
+  mute and solo toggles. If a record can't be split (arranged/remix pressings with
+  fewer than 2 colour-tagged lines), it falls back to a single unsplittable FULL
+  stem with a small note. Every control change recomposes ONE balanced Strudel
+  program and evaluates it; PRESS banks the composed program back into the crate.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Stem Deck · Strudel Auto-DJ</title>
+<style>
+  :root {
+    --bg:     #06040d;
+    --panel:  #0d0a1a;
+    --panel2: #120e24;
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    /* stem group colours */
+    --drums:  #2ee6d6;
+    --bass:   #a64dff;
+    --chords: #2edb8b;
+    --lead:   #ff4dd2;
+    --air:    #4da6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #120a2a 0%, var(--bg) 55%);
+    color: var(--ink); font-family: var(--font);
+  }
+  body { padding: 26px clamp(14px, 4vw, 48px) 60px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; margin-bottom: 6px; }
+  header h1 {
+    margin: 0; font-size: clamp(26px, 4vw, 40px); letter-spacing: 2px;
+    background: linear-gradient(110deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .concept { color: var(--muted); font-size: 13px; max-width: 62ch; }
+  header .back { margin-left: auto; font-size: 12px; letter-spacing: 1px; }
+  #status { min-height: 18px; font-size: 12px; color: var(--cyan); letter-spacing: 0.5px; margin: 4px 0 14px; }
+
+  /* ── the rig: deck A | mixer | deck B ─────────────────────────────────── */
+  .rig {
+    display: grid; grid-template-columns: 1fr minmax(220px, 280px) 1fr;
+    gap: 18px; align-items: stretch;
+  }
+  .deck {
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .deck h2 { margin: 0; font-size: 12px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .deck.a h2 b { color: var(--cyan); } .deck.b h2 b { color: var(--pink); }
+  .platter {
+    width: min(200px, 55vw); aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center; position: relative;
+    background: radial-gradient(circle at 50% 40%, #171226, #0a0814 70%);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7);
+  }
+  .platter .disc { width: 92%; height: 92%; border-radius: 50%; }
+  .platter.spin .disc { animation: rot 2.2s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .platter .empty {
+    width: 88%; height: 88%; border-radius: 50%;
+    border: 2px dashed rgba(157,143,199,0.35);
+    display: grid; place-items: center;
+    color: var(--muted); font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    text-align: center; padding: 10%;
+  }
+  .deck-meta { text-align: center; font-size: 12px; color: var(--muted); line-height: 1.5; min-height: 34px; }
+  .deck-meta strong { color: var(--ink); font-size: 13px; letter-spacing: 0.5px; }
+
+  /* ── stem strip ──────────────────────────────────────────────────────────── */
+  .stem-strip {
+    width: 100%; display: flex; flex-direction: column; gap: 5px;
+  }
+  .stem-strip-head {
+    font-size: 9.5px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase;
+    text-align: center; margin-bottom: 2px;
+  }
+  .stem-chip {
+    display: flex; align-items: center; gap: 6px; width: 100%;
+    background: rgba(0,0,0,0.25); border-radius: 8px; padding: 5px 8px;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .stem-chip .stem-label {
+    flex: 1; font-size: 10.5px; letter-spacing: 1.5px; font-weight: 600;
+    text-transform: uppercase;
+  }
+  .stem-chip button {
+    font-family: var(--font); font-size: 9.5px; letter-spacing: 1px; cursor: pointer;
+    padding: 3px 8px; border-radius: 6px; background: #0b0916;
+    border: 1px solid rgba(255,255,255,0.14); color: var(--muted); transition: all .12s;
+  }
+  .stem-chip button.mute.on {
+    background: var(--pink); border-color: var(--pink); color: #1a0008; font-weight: 700;
+  }
+  .stem-chip button.solo.on {
+    background: #f5c842; border-color: #f5c842; color: #1a1000; font-weight: 700;
+  }
+  .stem-full-note {
+    font-size: 10px; color: var(--muted); text-align: center; font-style: italic;
+    padding: 4px 0; letter-spacing: 0.5px;
+  }
+
+  /* ── centre mixer ────────────────────────────────────────────────────────── */
+  .mixer {
+    background: linear-gradient(180deg, #100c20, #0a0716);
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px 14px 18px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .mixer h2 { margin: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .strips { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .chan {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.25));
+    padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .chan .tag { font-size: 11px; letter-spacing: 3px; }
+  .chan[data-deck="a"] .tag { color: var(--cyan); }
+  .chan[data-deck="b"] .tag { color: var(--pink); }
+  .chan label { font-size: 9.5px; letter-spacing: 2px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 2px; }
+  .chan input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 90px; accent-color: var(--violet); }
+  .chan .trimval { font-size: 10px; color: var(--ink); }
+  .xfade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 4px 6px 0; }
+  .xfade span { font-size: 12px; font-weight: 700; }
+  .xfade span:first-child { color: var(--cyan); } .xfade span:last-child { color: var(--pink); }
+  .xfade input { width: 100%; accent-color: var(--cyan); }
+  .xfade-cap { text-align: center; font-size: 9.5px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  /* ── master bus ──────────────────────────────────────────────────────────── */
+  .master {
+    margin-top: 18px; border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 22px;
+  }
+  .master .group { display: flex; flex-direction: column; gap: 8px; }
+  .master .group h3 { margin: 0; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .master .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.on { background: var(--violet); border-color: var(--violet); color: #fff; box-shadow: 0 0 16px rgba(122,92,255,0.6); font-weight: 700; }
+  .btn.play { border-color: var(--cyan); color: var(--cyan); }
+  .btn.play.live { background: var(--cyan); color: #06202a; font-weight: 700; box-shadow: 0 0 18px rgba(34,211,238,0.6); }
+  .btn.swap { border-color: var(--violet); color: var(--violet); font-size: 11px; padding: 9px 14px; }
+  .btn.swap:hover { background: var(--violet); color: #fff; box-shadow: 0 0 14px rgba(122,92,255,0.5); }
+  .press {
+    margin-left: auto; padding: 14px 22px; border-radius: 12px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; letter-spacing: 2px; font-weight: 700;
+    color: #2a0614; background: linear-gradient(110deg, var(--pink), #ff7ab0);
+    border: none; box-shadow: 0 0 22px rgba(255,61,129,0.35); transition: transform .12s;
+  }
+  .press:hover { transform: translateY(-1px); }
+  .nudge { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .nudge input { width: 130px; accent-color: var(--pink); }
+  .nudge b { color: var(--ink); font-size: 11px; min-width: 46px; }
+  #tempo { font-size: 11px; color: var(--cyan); letter-spacing: 1px; }
+
+  /* ── the shelf ────────────────────────────────────────────────────────────── */
+  .shelf { margin-top: 20px; }
+  .shelf h2 { font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; margin: 0 0 10px; }
+  .sleeves { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+  .sleeve {
+    flex: 0 0 148px; background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .sleeve .vin { width: 116px; height: 116px; }
+  .sleeve .nm { font-size: 11px; text-align: center; line-height: 1.35; }
+  .sleeve .nm b { display: block; letter-spacing: 0.5px; }
+  .sleeve .nm span { color: var(--muted); font-size: 10px; }
+  .sleeve .load { display: flex; gap: 6px; }
+  .sleeve .load button {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    padding: 5px 12px; border-radius: 7px; background: #0b0916; color: var(--ink);
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .sleeve .load button:first-child:hover { border-color: var(--cyan); color: var(--cyan); }
+  .sleeve .load button:last-child:hover { border-color: var(--pink); color: var(--pink); }
+  .demo-tag { font-size: 9px; letter-spacing: 2px; color: var(--violet); text-transform: uppercase; }
+
+  details { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(13,10,26,0.7); }
+  details summary { cursor: pointer; padding: 10px 16px; font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  details pre {
+    margin: 0; padding: 14px 18px; font-size: 11.5px; line-height: 1.6; color: #b9f5ef;
+    overflow-x: auto; border-top: 1px solid var(--line); white-space: pre;
+  }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; max-width: 78ch; }
+  footer h2 { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
+  footer ul { margin: 0; padding-left: 18px; }
+
+  @media (max-width: 900px) { .rig { grid-template-columns: 1fr; } .press { margin-left: 0; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>SPIKE · STEM DECK</h1>
+    <span class="concept">Exact stem splitting — free, offline, because we composed the record. Mute/solo each
+      stem group per deck; one-touch SWAP mashes A's rhythm with B's melody.</span>
+    <a class="back" href="../index.html">← back to the app</a>
+  </header>
+  <div id="status">Load a record onto each deck, then hit PLAY.</div>
+
+  <div class="rig">
+    <section class="deck a">
+      <h2>Deck <b>A</b></h2>
+      <div class="platter" id="platterA"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaA">nothing loaded</div>
+      <div class="stem-strip" id="stemStripA">
+        <div class="stem-strip-head">Stems</div>
+        <div class="stem-full-note">— load a record —</div>
+      </div>
+    </section>
+
+    <section class="mixer">
+      <h2>Mixer</h2>
+      <div class="strips">
+        <div class="chan" data-deck="a">
+          <span class="tag">CH·A</span>
+          <label>GAIN
+            <input type="range" id="trimA" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimAVal">1.00</span>
+          </label>
+        </div>
+        <div class="chan" data-deck="b">
+          <span class="tag">CH·B</span>
+          <label>GAIN
+            <input type="range" id="trimB" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimBVal">1.00</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <div class="xfade">
+          <span>A</span>
+          <input type="range" id="cross" min="0" max="1" step="0.01" value="0.5" />
+          <span>B</span>
+        </div>
+        <div class="xfade-cap">crossfader · equal power</div>
+      </div>
+    </section>
+
+    <section class="deck b">
+      <h2>Deck <b>B</b></h2>
+      <div class="platter" id="platterB"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaB">nothing loaded</div>
+      <div class="stem-strip" id="stemStripB">
+        <div class="stem-strip-head">Stems</div>
+        <div class="stem-full-note">— load a record —</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="master">
+    <div class="group">
+      <h3>Master</h3>
+      <div class="row">
+        <button class="btn play" id="playBtn">&#9654; PLAY</button>
+        <button class="btn" id="stopBtn">&#9209; STOP</button>
+        <span class="nudge">NUDGE
+          <input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" />
+          <b id="nudgeVal">+0.0%</b>
+        </span>
+        <span id="tempo">&#8212; cps</span>
+      </div>
+    </div>
+    <div class="group">
+      <h3>FX rack</h3>
+      <div class="row">
+        <button class="btn" data-fx="sweep">SWEEP</button>
+        <button class="btn" data-fx="stutter">STUTTER</button>
+        <button class="btn" data-fx="riser">RISER</button>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Swap macros</h3>
+      <div class="row">
+        <button class="btn swap" id="swapArhythmBmelody">A drums &#215; B melody</button>
+        <button class="btn swap" id="swapAmelodyBrhythm">A melody &#215; B drums</button>
+      </div>
+    </div>
+    <button class="press" id="pressBtn">&#9679; PRESS TO CRATE</button>
+  </section>
+
+  <section class="shelf">
+    <h2>Record shelf</h2>
+    <div class="sleeves" id="sleeves"></div>
+  </section>
+
+  <details>
+    <summary>Live program</summary>
+    <pre id="program">&#8212; nothing loaded &#8212;</pre>
+  </details>
+
+  <footer>
+    <h2>What this spike tests</h2>
+    <ul>
+      <li>Whether colour-tagged stack lines from <code>render()</code> can be reliably split into DRUMS /
+        BASS / CHORDS / LEAD / AIR stem groups without touching the engine — a pure client-side parse.</li>
+      <li>Whether mute/solo controls per stem group, applied at compose time by filtering which layers
+        enter the recomposed <code>stack()</code>, give the mixing depth of a hardware stem mixer for free.</li>
+      <li>Whether the one-touch swap macros ("A drums × B melody") produce an instantly compelling mashup
+        in a single click — the core Stem Deck thesis.</li>
+      <li>Whether records that cannot be split (arranged or remix pressings with no colour tags) fall back
+        gracefully to an unsplittable FULL block without breaking the composition path.</li>
+      <li>Whether PRESS on a stem-sculpted mix produces a crate record that is itself splittable on reload
+        (it will be, since the surviving colour-tagged lines are preserved in the composed program).</li>
+    </ul>
+  </footer>
+
+<!-- Strudel live-coding engine (exposes initStrudel / evaluate / hush globally) -->
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<!-- The repo's own classic scripts, in dependency order, on window.SDJ -->
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function(id) { return document.getElementById(id); };
+  var CRATE_KEY = 'sdj.crate';
+  var CRATE_CAP = 64;
+  var DEMO_SEEDS = [20260724, 47810923];
+
+  // ── colour → lane → group map ─────────────────────────────────────────────
+  // Lane colours as written by render() / renderCommitted() in dj.js.
+  var COLOUR_GROUP = {
+    '#f43f7d': 'DRUMS',   // lane 0 kick
+    '#2ee6d6': 'DRUMS',   // lane 1 hats
+    '#a64dff': 'BASS',    // lane 2 bass
+    '#ff9a1f': 'DRUMS',   // lane 3 clap
+    '#2edb8b': 'CHORDS',  // lane 4 chords
+    '#ff4dd2': 'LEAD',    // lane 5 lead
+    '#4da6ff': 'AIR',     // lane 6 air
+  };
+
+  // Display colour per group for the stem chips.
+  var GROUP_COLOUR = {
+    DRUMS:  '#2ee6d6',
+    BASS:   '#a64dff',
+    CHORDS: '#2edb8b',
+    LEAD:   '#ff4dd2',
+    AIR:    '#4da6ff',
+  };
+
+  // Canonical ordering for the strip.
+  var GROUP_ORDER = ['DRUMS', 'BASS', 'CHORDS', 'LEAD', 'AIR'];
+
+  // ── state ─────────────────────────────────────────────────────────────────
+  var state = {
+    playing: false,
+    audioReady: false,
+    cross: 0.5,
+    nudge: 0,
+    decks: {
+      a: { rec: null, trim: 1, stems: null },
+      b: { rec: null, trim: 1, stems: null },
+    },
+    fx: { sweep: false, stutter: false, riser: false },
+  };
+
+  // stems structure per deck:
+  //   { splittable: true, groups: { DRUMS: [layerCode, ...], BASS: [...], ... },
+  //     muted: { DRUMS: false, ... }, solo: { DRUMS: false, ... } }
+  // or
+  //   { splittable: false, fullCode: <bare stack body>, muted: false, solo: false }
+
+  function setStatus(msg) { $('status').textContent = msg; }
+  function n2s(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+
+  // ── crate ─────────────────────────────────────────────────────────────────
+  function loadCrate() {
+    try { return JSON.parse(localStorage.getItem(CRATE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCrate(crate) {
+    try { localStorage.setItem(CRATE_KEY, JSON.stringify(crate)); } catch (e) { /* quota */ }
+  }
+  function topLane(g) {
+    var hi = 0;
+    for (var i = 0; i < g.active.length; i++) { if (g.active[i]) hi = i; }
+    return hi;
+  }
+
+  // ── demo record synthesis ─────────────────────────────────────────────────
+  function synthRecord(seed) {
+    var e = new SDJ.DJEngine();
+    e.masterSeed = seed;
+    e.newSong();
+    for (var i = 0; i < 20; i++) {
+      var act = e.song.genome.active.filter(Boolean).length;
+      if (act >= 5) break;
+      if (!e.proposeChange()) break;
+      e.acceptChange();
+    }
+    var code = e.render();
+    var m = /setcps\(([0-9.]+)\)/.exec((code.split('\n')[0]) || '');
+    var s = e.song;
+    var genome = JSON.parse(JSON.stringify(s.genome));
+    var lane = topLane(genome);
+    return {
+      id: 'demo-' + (seed >>> 0).toString(36),
+      name: s.name, key: s.key, scaleType: s.scaleType,
+      bpm: s.bpm, cps: m ? parseFloat(m[1]) : s.cps,
+      genre: s.genre ? s.genre.id : null,
+      genreLabel: s.genre ? s.genre.label : null,
+      code: code, genome: genome,
+      art: { seed: s.seed >>> 0, layer: lane, variant: genome.variant[lane] || 0 },
+      demo: true,
+    };
+  }
+  var demoCache = null;
+  function demoRecords() {
+    if (!demoCache) { demoCache = DEMO_SEEDS.map(synthRecord); }
+    return demoCache;
+  }
+  function shelfRecords() {
+    var crate = loadCrate();
+    return crate.length >= 2 ? crate : crate.concat(demoRecords());
+  }
+
+  // ── stack splitter (spec-provided verbatim) ───────────────────────────────
+  function splitStack(code) {
+    var nl = code.indexOf('\n'), cpsLine = '', body = code;
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) { cpsLine = code.slice(0, nl); body = code.slice(nl + 1); }
+    var open = body.indexOf('stack('); if (open < 0) return null;
+    var i = open + 6, depth = 1, inStr = false, q = '', start = i, parts = [];
+    for (; i < body.length && depth > 0; i++) {
+      var ch = body[i];
+      if (inStr) { if (ch === q) inStr = false; continue; }
+      if (ch === '"' || ch === "'") { inStr = true; q = ch; continue; }
+      if (ch === '(') depth++;
+      else if (ch === ')') { depth--; if (depth === 0) { parts.push(body.slice(start, i)); break; } }
+      else if (ch === ',' && depth === 1) { parts.push(body.slice(start, i)); start = i + 1; }
+    }
+    return parts.map(function(p) {
+      var s = p.trim(); if (!s) return null;
+      var m = s.match(/\.color\("(#[0-9a-fA-F]{3,8})"\)/);
+      return { code: s, colour: m ? m[1].toLowerCase() : null };
+    }).filter(Boolean);
+  }
+
+  // ── build stems from a record ─────────────────────────────────────────────
+  function buildStems(rec) {
+    if (!rec || !rec.code) { return null; }
+    var parts = splitStack(rec.code);
+    if (!parts || parts.length === 0) {
+      return { splittable: false, fullCode: rec.code, muted: false, solo: false };
+    }
+    // Count colour-tagged parts.
+    var tagged = parts.filter(function(p) { return p.colour && COLOUR_GROUP[p.colour]; });
+    if (tagged.length < 2) {
+      return { splittable: false, fullCode: rec.code, muted: false, solo: false };
+    }
+    // Build groups map.
+    var groups = {};
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var grp = (p.colour && COLOUR_GROUP[p.colour]) || 'OTHER';
+      if (!groups[grp]) { groups[grp] = []; }
+      groups[grp].push(p.code);
+    }
+    // Only expose groups that are actually present, in canonical order.
+    var presentGroups = {};
+    GROUP_ORDER.forEach(function(g) { if (groups[g]) { presentGroups[g] = groups[g]; } });
+    if (groups['OTHER']) { presentGroups['OTHER'] = groups['OTHER']; }
+    // Initialise mute/solo state per present group.
+    var muted = {};
+    var solo = {};
+    Object.keys(presentGroups).forEach(function(g) { muted[g] = false; solo[g] = false; });
+    return { splittable: true, groups: presentGroups, muted: muted, solo: solo };
+  }
+
+  // ── audit which layers are audible for this deck ──────────────────────────
+  function audibleLayers(which) {
+    // Returns an array of layer code strings, or null if nothing audible.
+    var st = state.decks[which].stems;
+    if (!st) return null;
+    if (!st.splittable) {
+      // unsplittable: expose the whole code body stripped of setcps.
+      if (st.muted) return null;
+      return ['__FULL__'];
+    }
+    var groups = st.groups;
+    var muted = st.muted;
+    var solo = st.solo;
+    // Check if any group is soloed.
+    var hasSolo = Object.keys(solo).some(function(g) { return solo[g]; });
+    var result = [];
+    Object.keys(groups).forEach(function(g) {
+      var audible = hasSolo ? solo[g] : !muted[g];
+      if (audible) {
+        groups[g].forEach(function(layer) { result.push(layer); });
+      }
+    });
+    return result.length > 0 ? result : null;
+  }
+
+  // ── equal-power gain ──────────────────────────────────────────────────────
+  function deckGain(which) {
+    var m = state.cross;
+    var curve = which === 'a' ? Math.cos(m * Math.PI / 2) : Math.sin(m * Math.PI / 2);
+    return Math.round(curve * 0.95 * state.decks[which].trim * 100) / 100;
+  }
+
+  function masterRec() { return state.decks.a.rec || state.decks.b.rec || null; }
+  function masterCps() {
+    var rec = masterRec();
+    var base = (rec && rec.cps) || 0.5;
+    return Math.round(base * (1 + state.nudge / 100) * 1000) / 1000;
+  }
+
+  function stripCps(code) {
+    var nl = code.indexOf('\n');
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
+    return code;
+  }
+
+  // ── compose one balanced Strudel program ──────────────────────────────────
+  function compose() {
+    var rec = masterRec();
+    if (!rec) return null;
+    var layers = [];
+
+    ['a', 'b'].forEach(function(which) {
+      var d = state.decks[which];
+      if (!d.rec || !d.rec.code) return;
+      var g = deckGain(which);
+      if (g <= 0) return;
+
+      var st = d.stems;
+      var bed;
+
+      if (!st) return;
+
+      if (!st.splittable) {
+        // Unsplittable: wrap entire stripped body.
+        if (st.muted) return;
+        var stripped = stripCps(String(d.rec.code)).trim();
+        bed = '(' + stripped + ')';
+      } else {
+        // Splittable: gather audible layers.
+        var audible = audibleLayers(which);
+        if (!audible || audible.length === 0) return;
+        if (audible[0] === '__FULL__') {
+          var stripped2 = stripCps(String(d.rec.code)).trim();
+          bed = '(' + stripped2 + ')';
+        } else if (audible.length === 1) {
+          bed = '(' + audible[0] + ')';
+        } else {
+          bed = '(stack(\n    ' + audible.join(',\n    ') + '\n  ))';
+        }
+      }
+
+      if (state.fx.sweep) { bed += '.lpf(sine.range(500,4500).slow(8))'; }
+      if (state.fx.stutter) { bed += '.sometimesBy(0.25, x => x.ply("2 4"))'; }
+      bed += '.gain(' + n2s(g) + ')';
+      layers.push(bed);
+    });
+
+    if (state.fx.riser) {
+      layers.push('s("white").gain(0.1).lpf(sine.range(400,9000).slow(8)).hpf(300).room(0.5)');
+    }
+
+    if (!layers.length) return null;
+    return 'setcps(' + masterCps() + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  // ── transport ─────────────────────────────────────────────────────────────
+  var evalTimer = 0, lastEval = 0;
+  function doEval() {
+    lastEval = Date.now();
+    var code = compose();
+    if (!code) { if (typeof window.hush === 'function') window.hush(); return; }
+    window.__lastCode = code;
+    if (typeof window.evaluate === 'function') window.evaluate(code);
+  }
+  function refresh() {
+    var code = compose();
+    $('program').textContent = code || '— nothing loaded —';
+    updatePlatters();
+    updateTempo();
+    if (!state.playing) return;
+    clearTimeout(evalTimer);
+    var wait = Math.max(0, 150 - (Date.now() - lastEval));
+    evalTimer = setTimeout(doEval, wait);
+  }
+
+  async function play() {
+    if (!masterRec()) { setStatus('Load a record onto a deck first.'); return; }
+    if (state.playing) return;
+    setStatus('Waking the audio engine…');
+    try {
+      if (!state.audioReady) {
+        await window.initStrudel();
+        await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        state.audioReady = true;
+      }
+    } catch (err) {
+      setStatus('Audio failed to start — ' + err);
+      return;
+    }
+    state.playing = true;
+    lastEval = 0;
+    $('playBtn').classList.add('live');
+    refresh();
+    setStatus('Live. Work the stems.');
+  }
+  function stop() {
+    if (!state.playing) { setStatus('Already stopped.'); return; }
+    state.playing = false;
+    clearTimeout(evalTimer);
+    if (typeof window.hush === 'function') window.hush();
+    $('playBtn').classList.remove('live');
+    updatePlatters();
+    setStatus('Stopped.');
+  }
+
+  // ── platters ──────────────────────────────────────────────────────────────
+  function updatePlatters() {
+    ['a', 'b'].forEach(function(which) {
+      var platter = $(which === 'a' ? 'platterA' : 'platterB');
+      var audible = state.playing && !!state.decks[which].rec && deckGain(which) > 0;
+      platter.classList.toggle('spin', audible);
+    });
+  }
+  function updateTempo() {
+    var rec = masterRec();
+    $('tempo').textContent = rec
+      ? masterCps() + ' cps · ' + Math.round(masterCps() * 240) + ' BPM'
+      : '— cps';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── stem strip UI ─────────────────────────────────────────────────────────
+  function renderStemStrip(which) {
+    var el = $('stemStrip' + (which === 'a' ? 'A' : 'B'));
+    var st = state.decks[which].stems;
+    if (!st) {
+      el.innerHTML = '<div class="stem-strip-head">Stems</div><div class="stem-full-note">— load a record —</div>';
+      return;
+    }
+    var html = '<div class="stem-strip-head">Stems</div>';
+    if (!st.splittable) {
+      html += '<div class="stem-chip"><span class="stem-label" style="color:var(--muted)">FULL</span>';
+      html += '<button class="mute' + (st.muted ? ' on' : '') + '" data-deck="' + which + '" data-action="mutefull">MUTE</button></div>';
+      html += '<div class="stem-full-note">arranged / remix — not splittable</div>';
+      el.innerHTML = html;
+      el.querySelectorAll('[data-action="mutefull"]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          state.decks[which].stems.muted = !state.decks[which].stems.muted;
+          renderStemStrip(which);
+          refresh();
+        });
+      });
+      return;
+    }
+    var groups = st.groups;
+    var muted = st.muted;
+    var solo = st.solo;
+    var presentGroups = Object.keys(groups);
+    presentGroups.forEach(function(grp) {
+      var col = GROUP_COLOUR[grp] || '#9d8fc7';
+      html += '<div class="stem-chip">';
+      html += '<span class="stem-label" style="color:' + col + '">' + escapeHtml(grp) + '</span>';
+      html += '<button class="mute' + (muted[grp] ? ' on' : '') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="mute">MUTE</button>';
+      html += '<button class="solo' + (solo[grp] ? ' on' : '') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="solo">SOLO</button>';
+      html += '</div>';
+    });
+    el.innerHTML = html;
+    el.querySelectorAll('button[data-action]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var d = btn.dataset.deck;
+        var g = btn.dataset.group;
+        var action = btn.dataset.action;
+        var stemState = state.decks[d].stems;
+        if (action === 'mute') {
+          stemState.muted[g] = !stemState.muted[g];
+        } else if (action === 'solo') {
+          stemState.solo[g] = !stemState.solo[g];
+        }
+        renderStemStrip(d);
+        refresh();
+      });
+    });
+  }
+
+  // ── load deck ─────────────────────────────────────────────────────────────
+  function loadDeck(which, entry) {
+    state.decks[which].rec = entry;
+    state.decks[which].stems = buildStems(entry);
+    var platter = $(which === 'a' ? 'platterA' : 'platterB');
+    platter.innerHTML = '<div class="disc">' + (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>';
+    $(which === 'a' ? 'metaA' : 'metaB').innerHTML =
+      '<strong>' + escapeHtml(entry.name || 'Untitled') + '</strong><br>' +
+      escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' +
+      (entry.bpm || '?') + ' BPM';
+    renderStemStrip(which);
+    refresh();
+    setStatus('"' + (entry.name || 'Untitled') + '" on deck ' + which.toUpperCase() + '.');
+  }
+
+  // ── the shelf ─────────────────────────────────────────────────────────────
+  function renderShelf() {
+    var box = $('sleeves');
+    box.innerHTML = '';
+    shelfRecords().forEach(function(entry) {
+      var sleeve = document.createElement('div');
+      sleeve.className = 'sleeve';
+      sleeve.innerHTML =
+        '<div class="vin">' + (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>' +
+        '<div class="nm"><b>' + escapeHtml(entry.name || 'Untitled') + '</b>' +
+        '<span>' + escapeHtml(entry.key || '') + ' · ' + (entry.bpm || '?') + ' BPM</span>' +
+        (entry.demo ? '<br><span class="demo-tag">demo pressing</span>' : '') + '</div>' +
+        '<div class="load"><button data-to="a">→A</button><button data-to="b">→B</button></div>';
+      sleeve.querySelectorAll('button').forEach(function(btn) {
+        btn.addEventListener('click', function() { loadDeck(btn.dataset.to, entry); });
+      });
+      box.appendChild(sleeve);
+    });
+  }
+
+  // ── PRESS: bank the composed program as a new crate record ───────────────
+  function shortName(name) {
+    var n = String(name || 'Untitled');
+    return n.length > 16 ? n.slice(0, 15) + '…' : n;
+  }
+  function press() {
+    var rec = masterRec();
+    var code = compose();
+    if (!rec || !code) { setStatus('Nothing to press — load a deck first.'); return; }
+    var a = state.decks.a.rec, b = state.decks.b.rec;
+    var name = (a && b)
+      ? shortName(a.name) + ' × ' + shortName(b.name)
+      : shortName(rec.name) + ' × Stem Deck';
+    var genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
+    var lane = genome ? topLane(genome) : 0;
+    var cps = masterCps();
+    var entry = {
+      id: 'rec-' + Date.now().toString(36) + '-sd',
+      name: name,
+      key: rec.key,
+      scaleType: rec.scaleType,
+      bpm: Math.round(cps * 240),
+      cps: cps,
+      genre: rec.genre || null,
+      genreLabel: rec.genreLabel || null,
+      code: code,
+      genome: genome,
+      art: { seed: Date.now() >>> 0, layer: lane, variant: genome ? (genome.variant[lane] || 0) : 0 },
+      approval: null,
+      source: 'remix',
+      savedAt: Date.now(),
+    };
+    var crate = loadCrate();
+    if (crate.length && crate[0].code === code) {
+      setStatus('Already pressed — the newest record in the crate is this exact cut.');
+      return;
+    }
+    crate.unshift(entry);
+    if (crate.length > CRATE_CAP) { crate.length = CRATE_CAP; }
+    saveCrate(crate);
+    renderShelf();
+    setStatus('Pressed "' + name + '" into the crate.');
+  }
+
+  // ── SWAP MACROS ───────────────────────────────────────────────────────────
+  // A drums × B melody: on A mute CHORDS+LEAD+AIR, on B mute DRUMS+BASS.
+  function applySwap(aGroups, bGroups) {
+    ['a', 'b'].forEach(function(which) {
+      var st = state.decks[which].stems;
+      if (!st || !st.splittable) return;
+      var mask = which === 'a' ? aGroups : bGroups;
+      // Reset all first.
+      Object.keys(st.muted).forEach(function(g) { st.muted[g] = false; st.solo[g] = false; });
+      // Mute the specified groups.
+      mask.forEach(function(g) { if (st.muted[g] !== undefined) { st.muted[g] = true; } });
+      renderStemStrip(which);
+    });
+    refresh();
+  }
+
+  // ── UI wiring ─────────────────────────────────────────────────────────────
+  $('playBtn').addEventListener('click', play);
+  $('stopBtn').addEventListener('click', stop);
+  $('pressBtn').addEventListener('click', press);
+
+  $('cross').addEventListener('input', function(e) {
+    state.cross = parseFloat(e.target.value);
+    refresh();
+  });
+  $('nudge').addEventListener('input', function(e) {
+    state.nudge = parseFloat(e.target.value);
+    $('nudgeVal').textContent = (state.nudge >= 0 ? '+' : '') + state.nudge.toFixed(1) + '%';
+    refresh();
+  });
+  [['trimA', 'a'], ['trimB', 'b']].forEach(function(pair) {
+    var id = pair[0], which = pair[1];
+    $(id).addEventListener('input', function(e) {
+      state.decks[which].trim = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].trim.toFixed(2);
+      refresh();
+    });
+  });
+  document.querySelectorAll('[data-fx]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var key = btn.dataset.fx;
+      state.fx[key] = !state.fx[key];
+      btn.classList.toggle('on', state.fx[key]);
+      refresh();
+    });
+  });
+
+  // Swap: A drums × B melody
+  $('swapArhythmBmelody').addEventListener('click', function() {
+    applySwap(['CHORDS', 'LEAD', 'AIR'], ['DRUMS', 'BASS']);
+    setStatus('Swap: A rhythm × B melody — drums on A, melody on B.');
+  });
+  // Swap: A melody × B drums
+  $('swapAmelodyBrhythm').addEventListener('click', function() {
+    applySwap(['DRUMS', 'BASS'], ['CHORDS', 'LEAD', 'AIR']);
+    setStatus('Swap: A melody × B drums — melody on A, drums on B.');
+  });
+
+  // ── headless hooks ────────────────────────────────────────────────────────
+  function deckStemInfo(which) {
+    var st = state.decks[which].stems;
+    if (!st) return null;
+    if (!st.splittable) {
+      return { splittable: false, groups: null, muted: { FULL: st.muted }, solo: {} };
+    }
+    return {
+      splittable: true,
+      groups: Object.keys(st.groups),
+      muted: JSON.parse(JSON.stringify(st.muted)),
+      solo: JSON.parse(JSON.stringify(st.solo)),
+    };
+  }
+  window.__spike = {
+    compose: compose,
+    state: function() {
+      return {
+        playing: state.playing,
+        cross: state.cross,
+        nudge: state.nudge,
+        masterCps: masterRec() ? masterCps() : null,
+        deckA: state.decks.a.rec ? {
+          id: state.decks.a.rec.id, name: state.decks.a.rec.name,
+          gain: deckGain('a'), stems: deckStemInfo('a'),
+        } : null,
+        deckB: state.decks.b.rec ? {
+          id: state.decks.b.rec.id, name: state.decks.b.rec.name,
+          gain: deckGain('b'), stems: deckStemInfo('b'),
+        } : null,
+        fx: { sweep: state.fx.sweep, stutter: state.fx.stutter, riser: state.fx.riser },
+      };
+    },
+    loadDemo: function() {
+      var demos = demoRecords();
+      loadDeck('a', demos[0]);
+      loadDeck('b', demos[1]);
+    },
+  };
+
+  renderShelf();
+  refresh();
+})();
+</script>
+</body>
+</html>

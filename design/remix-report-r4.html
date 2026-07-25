@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Remix Deck Spikes · Round 4 — Authenticity Review</title>
+<style>
+  :root {
+    --bg: #06040d; --ink: #f3ecff; --muted: #9d8fc7;
+    --violet: #7a5cff; --cyan: #22d3ee; --pink: #ff3d81; --green: #2edb8b; --amber: #ffb03a;
+    --line: rgba(122,92,255,0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(120% 100% at 50% 0%, #120a2a 0%, var(--bg) 55%); color: var(--ink); font-family: var(--font); line-height: 1.55; }
+  main { max-width: 1000px; margin: 0 auto; padding: 48px 24px 90px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--cyan); }
+  h1 { margin: 10px 0 6px; font-size: clamp(30px, 5vw, 54px); line-height: 1;
+       background: linear-gradient(110deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); font-size: 14px; max-width: 74ch; }
+  h2 { font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); margin: 44px 0 12px; }
+  a { color: var(--cyan); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin: 14px 0;
+          background: linear-gradient(90deg, rgba(122,92,255,0.08), rgba(34,211,238,0.03)); }
+  .card h3 { margin: 0 0 4px; font-size: 18px; }
+  .card h3 small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .card .thesis { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .card ul { margin: 8px 0; padding-left: 20px; font-size: 13px; }
+  .tag { display: inline-block; font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+         border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; margin: 2px 6px 2px 0; color: var(--muted); }
+  .tag.good { border-color: rgba(46,219,139,0.5); color: var(--green); }
+  .tag.star { border-color: rgba(255,176,58,0.6); color: var(--amber); }
+  .verdict { border-left: 3px solid var(--pink); padding: 2px 0 2px 14px; margin-top: 10px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 12px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; font-size: 10.5px; }
+  td .y { color: var(--green); } td .n { color: #6a5f88; }
+  .rec { border: 1px solid rgba(255,61,129,0.4); background: rgba(255,61,129,0.06); border-radius: 14px; padding: 20px 22px; margin-top: 18px; font-size: 14px; }
+  .gap { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: rgba(13,10,26,0.6); }
+  .gap b { color: var(--ink); }
+  code { color: var(--cyan); font-size: 0.92em; }
+  .refs { font-size: 12px; color: var(--muted); }
+  .refs a { color: var(--muted); text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">design spikes · round 4</div>
+  <h1>The Authentic Deck</h1>
+  <p class="sub">Round 3 landed on <b>Live Wire</b> — two crate records on a real mixer (kills, trims,
+  equal-power crossfader, FX rack). You liked it, and <b>Twin Spin</b> alongside. The brief for round 4:
+  make it feel like what a <b>real amateur DJ</b> actually wants — authentic and realistic, not a toy or an
+  "auto" button. This round reviews where the two-deck rig still falls short of real DJing, then spikes four
+  ways to close the gap. Each spike keeps the Live Wire chassis and pushes one axis of authenticity.</p>
+
+  <h2>What Live Wire / Twin Spin already get right</h2>
+  <p class="sub">The iconography is correct: <b>two decks + an equal-power crossfader</b> is the single most
+  recognisable "this is DJing" signal, and the maths is right (<code>cos/sin</code> gains). <b>EQ kills</b> and
+  the <b>filter fade</b> map onto the two highest-reward, lowest-skill beginner moves — the bass swap and the
+  filter sweep — which is exactly what makes a beginner feel like a DJ fastest. One master tempo means tracks
+  never clash. That's a strong base. The gaps below are about the <em>craft on top of it</em>.</p>
+
+  <h2>The gaps vs. a real amateur DJ</h2>
+  <div class="grid2">
+    <div class="gap"><b>1 · No sense of <i>when</i> to mix.</b> Real DJ software's defining visual isn't the
+      platter — it's the scrolling waveform + beatgrid + phrase markers, because that's how you time a
+      transition to a 16/32-bar boundary. Our disc is decorative; it carries no timing. You can't phrase-match
+      by eye. <span class="tag star">biggest gap</span></div>
+    <div class="gap"><b>2 · Sync is 100% invisible → zero agency.</b> Everything retempos to one cps, so there
+      is no beatmatch <i>moment</i>. That is the exact "auto button feels hollow" trap. The craft isn't the
+      maths — it's choosing the moment and the move.</div>
+    <div class="gap"><b>3 · The bass swap is a binary kill.</b> A hard <code>LOW KILL</code> toggle is cruder
+      than the real move: a smooth, simultaneous low-EQ cross. The #1 beginner move deserves a gesture, not a
+      switch.</div>
+    <div class="gap"><b>4 · No stems — despite owning them.</b> djay's flagship beginner feature is Neural Mix:
+      split a track into drums / bass / vocals / harmonics and mix the parts. This app <i>composes</i> those
+      parts — so it can offer exact, offline, free stem control that pros pay AI to fake.</div>
+    <div class="gap"><b>5 · No cue, no performance moves.</b> No auditioning deck B before the fade; no loop
+      roll, reload, or spinback. FX are set-and-forget latching toggles, not beat-synced hold-to-fire paddles.</div>
+    <div class="gap"><b>6 · Voice was over-weighted.</b> Rounds 1–3 chased the vox pads, but acapella layering
+      is an advanced move. For an amateur, crossfade + bass swap + filter + phrase-timing are the wins.</div>
+  </div>
+
+  <h2>The four spikes</h2>
+
+  <div class="card">
+    <h3><a href="remix-phrase-deck.html">01 · Phrase Deck</a><small>remix-phrase-deck.html</small></h3>
+    <p class="thesis">The rig gains a real DJ's sense of TIME. The phrase timeline becomes the primary
+    visual; the disc shrinks to an identity badge.</p>
+    <ul>
+      <li>A scrolling 32-bar phrase/beat timeline with a playhead, 8/16/32 boundaries, and a
+        <b>MIX NOW</b> light that pulses in the last bar before a boundary.</li>
+      <li><b>ARM →A / →B</b> quantises the transition: the crossfade fires exactly on the next 8/16/32-bar
+        line — slam, or auto-fade over the bars leading in.</li>
+      <li>Closes gaps 1 &amp; 2 — you finally mix <i>on the phrase</i>, and the machine holds the beat while
+        you own the moment.</li>
+    </ul>
+    <span class="tag good">timing + agency</span><span class="tag star">keystone</span><span class="tag">balanced · headless-verified</span>
+    <div class="verdict">The most important spike: without a phrase view you can't time a transition, which is
+    the core skill. Free here because we know the arranged structure.</div>
+  </div>
+
+  <div class="card">
+    <h3><a href="remix-stem-deck.html">02 · Stem Deck</a><small>remix-stem-deck.html</small></h3>
+    <p class="thesis">Because THIS app composed the record, it splits into real stems for free — Neural Mix,
+    exact and offline.</p>
+    <ul>
+      <li>Each record parses (by the <code>.color()</code> tags the engine already writes) into
+        <b>DRUMS / BASS / CHORDS / LEAD / AIR</b> groups, each with mute + solo.</li>
+      <li>One-touch <b>SWAP</b>: A's drums × B's melody (and the reverse) — instant mashups.</li>
+      <li>Makes the clean bass-swap trivial (solo B's bass, mute A's) and closes gaps 3 &amp; 4.</li>
+    </ul>
+    <span class="tag good">free stems</span><span class="tag star">uniquely possible here</span><span class="tag">balanced · headless-verified</span>
+    <div class="verdict">Turns the app's genome ownership into a feature the big apps charge for. Un-splittable
+    (arranged/remix) pressings fall back to one "full" stem — noted in the UI.</div>
+  </div>
+
+  <div class="card">
+    <h3><a href="remix-channel-deck.html">03 · Channel Deck</a><small>remix-channel-deck.html</small></h3>
+    <p class="thesis">The tactile real mixer — continuous knobs instead of kill switches.</p>
+    <ul>
+      <li>Per channel: 3-band EQ (HI/MID/LOW) + a filter sweep knob + gain trim (continuous <code>−1…+1</code>).</li>
+      <li>One-touch smooth <b>BASS SWAP</b> ramps A's lows out and B's lows in over ~1s.</li>
+      <li>Beat-synced <b>hold-to-fire</b> FX paddles (stutter / gate / echo-out) — momentary, on the grid.</li>
+    </ul>
+    <span class="tag good">tactile feel</span><span class="tag">balanced · headless-verified</span>
+    <div class="verdict">Honest about Strudel's limits: there's no true 3-band EQ, so LOW/HI/filter are
+    filter-based approximations. The smooth bass swap is the hero.</div>
+  </div>
+
+  <div class="card">
+    <h3><a href="remix-cue-drop.html">04 · Cue &amp; Drop</a><small>remix-cue-drop.html</small></h3>
+    <p class="thesis">The ritual of DJing — cue the next record, then drop it on the phrase.</p>
+    <ul>
+      <li><b>CUE</b> solo-previews a deck (mutes the other) so you can audition the incoming record — an honest
+        stand-in for headphone cueing on a single output.</li>
+      <li><b>ARM DROP</b> fires on the next 16-bar line (slam or 4-bar fade), with a "drop in N bars" countdown.</li>
+      <li>Performance moves: <b>loop roll</b> (hold), <b>reload</b> (pull-up), <b>spinback</b> (brake).</li>
+    </ul>
+    <span class="tag good">the ritual</span><span class="tag">balanced · headless-verified</span>
+    <div class="verdict">The clearest answer to the assistance-vs-agency tension: locked beats, human timing.
+    The cue is a single-output approximation — worth an ear to judge if it reads.</div>
+  </div>
+
+  <h2>Which gap each closes</h2>
+  <table>
+    <tr><th>Axis</th><th>Phrase</th><th>Stem</th><th>Channel</th><th>Cue&nbsp;&amp;&nbsp;Drop</th></tr>
+    <tr><td>Timing / phrase view (gap 1)</td><td class="y">●</td><td class="n">—</td><td class="n">—</td><td class="y">◐</td></tr>
+    <tr><td>Agency in the transition (gap 2)</td><td class="y">●</td><td class="n">—</td><td class="n">—</td><td class="y">●</td></tr>
+    <tr><td>Smooth bass swap (gap 3)</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="n">—</td></tr>
+    <tr><td>Stems / Neural-Mix (gap 4)</td><td class="n">—</td><td class="y">●</td><td class="n">—</td><td class="n">—</td></tr>
+    <tr><td>Cue + performance moves (gap 5)</td><td class="n">—</td><td class="n">—</td><td class="y">◐</td><td class="y">●</td></tr>
+    <tr><td>Uniquely enabled by the genome</td><td class="y">●</td><td class="y">●</td><td class="n">—</td><td class="n">—</td></tr>
+  </table>
+
+  <div class="rec">
+    <b>Recommendation:</b> land <b>Phrase Deck</b> and <b>Stem Deck</b> first. They close the two biggest gaps
+    (you can't time a mix without a phrase view; you can't do a clean swap or a mashup without stems) and both
+    are <em>only</em> possible because this app owns the genome — a real edge over Serato/rekordbox/djay, not a
+    reskin of them. <b>Channel Deck</b> folds its smooth bass-swap and hold-to-fire paddles into whichever
+    rig ships. <b>Cue &amp; Drop</b> is the highest-risk audition — the single-output cue is an approximation —
+    so try it by ear before committing.
+    <br /><br />
+    <b>Verified:</b> all four load without error and compose balanced Strudel across full button/slider
+    fuzzing (the same headless bar the app's own test holds). <b>Unauditioned:</b> ears still required —
+    especially the phrase-clock drift (JS clock vs the audio scheduler), the stem-swap musicality, and whether
+    the solo-cue reads as "cueing".
+  </div>
+
+  <h2>Grounding</h2>
+  <p class="refs">Beginner moves &amp; the bass swap / filter fade as the high-reward, low-skill wins:
+    <a href="https://blog.native-instruments.com/dj-transitions/">Native Instruments</a>,
+    <a href="https://www.musicradar.com/news/eq-and-filter-tricks-for-djs">MusicRadar</a>,
+    <a href="https://www.zipdj.com/blog/dj-transitions">ZIPDJ</a>.
+    The sync / assistance-vs-agency debate:
+    <a href="https://www.digitaldjtips.com/new-to-djing-sync/">Digital DJ Tips</a>,
+    <a href="https://wearecrossfader.co.uk/blog/djs-using-sync-button/">We Are Crossfader</a>,
+    <a href="https://www.mixcloud.com/blog/2026/03/25/should-djs-be-using-the-sync-button/">Mixcloud</a>.
+    Stems as a beginner feature (Neural Mix):
+    <a href="https://help.algoriddim.com/user-manual/djay-ios/neural-mix/overview">Algoriddim</a>.
+    Waveform / beatgrid / phrase authenticity:
+    <a href="https://support.serato.com/hc/en-us/articles/202523390-Introduction-to-Beatgrids">Serato</a>,
+    <a href="https://help.algoriddim.com/user-manual/djay-pro-mac/dj-tools/beatgrids-bpm-sync/beatgrids">Algoriddim beatgrids</a>,
+    <a href="https://github.com/mixxxdj/mixxx/wiki/Measures-Downbeats-Bars-And-Phrases">Mixxx</a>.</p>
+
+  <p class="sub" style="margin-top:28px"><a href="remix-report.html">← round 3 report</a> ·
+  <a href="../index.html">back to the app</a> · spikes run standalone: serve the repo
+  (<code>python serve.py 8124</code>) and open <code>/design/remix-&lt;name&gt;.html</code>.
+  Each synthesises demo pressings if your crate is empty.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,647 @@
+<!doctype html>
+<!--
+  SPIKE · VOICE BOOTH — a reworked voice engine for the #remix view.
+
+  Thesis: the current vox pads fail because they are momentary one-shots — each
+  push re-evaluates the whole program to bolt on a bare s("yeah:1") layer that
+  loops unquantised from wherever the scheduler happens to be, then a setTimeout
+  re-evaluates AGAIN a cycle later to strip it out. Mid-cycle hiccups, random
+  timing, spoken dirt-samples with no relationship to key or tempo.
+
+  The booth replaces all of that with three reliable, LATCHING ideas:
+    1. PHRASE PADS  — each pad toggles a one-bar patterned vocal line, so every
+       stab lands on the grid every cycle. No timers, no removal re-evaluates.
+    2. CHOP LINE    — a longer spoken sample sliced rhythmically with .chop(),
+       tempo-locked by construction. Two flavours: echo run and rewind.
+    3. KEY-LOCKED CHOIR — synthetic "aah/ooh" built from the record's OWN key
+       via n(...).scale(root+oct+":"+quality).vowel(...) — sample-free, always
+       in tune, always loads.
+  Everything composes into ONE balanced program (bed + voices + FX) and a single
+  evaluate() — the scheduler keeps the lot in musical time.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Voice Booth</title>
+<style>
+  :root {
+    --bg:     #06040d;
+    --panel:  rgba(18, 12, 36, 0.66);
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --green:  #2edb8b;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background:
+      radial-gradient(90% 60% at 20% 0%, #140a2e 0%, transparent 60%),
+      radial-gradient(70% 50% at 90% 100%, #1a0716 0%, transparent 55%),
+      var(--bg);
+    color: var(--ink); font-family: var(--font);
+  }
+  .grain { position: fixed; inset: 0; pointer-events: none; opacity: 0.05;
+    background-image: radial-gradient(#fff 0.5px, transparent 0.6px); background-size: 3px 3px; }
+
+  header { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+    padding: 26px 4vw 10px; }
+  header h1 { margin: 0; font-size: clamp(22px, 3.4vw, 34px); letter-spacing: 3px;
+    background: linear-gradient(100deg, #fff, var(--cyan) 45%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header .concept { color: var(--muted); font-size: 12.5px; letter-spacing: 0.5px; }
+  header .back { margin-left: auto; color: var(--cyan); text-decoration: none;
+    font-size: 12px; letter-spacing: 2px; border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 9px; }
+  header .back:hover { border-color: var(--cyan); }
+
+  main { display: grid; grid-template-columns: minmax(300px, 380px) 1fr;
+    gap: 22px; padding: 8px 4vw 20px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  section.panel { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 16px 18px; }
+  section.panel + section.panel { margin-top: 16px; }
+  h2 { margin: 0 0 10px; font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); font-weight: 500; }
+  h2 b { color: var(--cyan); font-weight: 500; }
+
+  /* record shelf */
+  .shelf { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+  .shelf-item { flex: 0 0 auto; width: 86px; background: none; border: 1px solid transparent;
+    border-radius: 12px; padding: 6px; cursor: pointer; color: var(--ink); font-family: var(--font); }
+  .shelf-item:hover { border-color: var(--line); }
+  .shelf-item.sel { border-color: var(--pink); box-shadow: 0 0 18px rgba(255, 61, 129, 0.25); }
+  .shelf-item .disc { width: 72px; height: 72px; }
+  .shelf-item .nm { font-size: 9.5px; color: var(--muted); margin-top: 5px; text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shelf-note { font-size: 10.5px; color: var(--muted); margin-top: 8px; }
+
+  /* platter + transport */
+  .platter-zone { text-align: center; }
+  .platter { width: min(240px, 60vw); height: min(240px, 60vw); margin: 6px auto 10px;
+    border-radius: 50%; box-shadow: 0 0 0 6px #0a0817, 0 0 44px rgba(122, 92, 255, 0.22); }
+  .platter.spin { animation: spin 1.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .rec-name { font-size: 17px; letter-spacing: 1px; }
+  .rec-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .transport { margin-top: 14px; display: flex; gap: 10px; justify-content: center; }
+  button.big { font-family: var(--font); font-size: 14px; letter-spacing: 2px; cursor: pointer;
+    padding: 11px 26px; border-radius: 12px; color: var(--ink);
+    background: linear-gradient(100deg, rgba(255, 61, 129, 0.2), rgba(122, 92, 255, 0.16));
+    border: 1px solid var(--pink); }
+  button.big:hover { box-shadow: 0 0 22px rgba(255, 61, 129, 0.35); }
+  button.big:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+  .status { margin-top: 12px; font-size: 11.5px; color: var(--muted); min-height: 16px; }
+
+  .fader { margin-top: 16px; text-align: left; }
+  .fader label { display: block; font-size: 10.5px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .fader input { width: 100%; accent-color: var(--cyan); }
+  .fader .ends { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--muted); }
+
+  /* pads */
+  .pads { display: grid; gap: 10px; }
+  .pads.four { grid-template-columns: repeat(4, 1fr); }
+  .pads.three { grid-template-columns: repeat(3, 1fr); }
+  .pads.two { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 1180px) { .pads.four { grid-template-columns: repeat(2, 1fr); } }
+  .pad { font-family: var(--font); text-align: left; cursor: pointer; border-radius: 12px;
+    padding: 10px 12px; color: var(--ink); border: 1px solid var(--line);
+    background: linear-gradient(120deg, rgba(122, 92, 255, 0.08), rgba(34, 211, 238, 0.04));
+    transition: transform .12s, border-color .2s, box-shadow .2s; }
+  .pad:hover { transform: translateY(-2px); border-color: var(--cyan); }
+  .pad strong { display: block; font-size: 12.5px; letter-spacing: 0.6px; font-weight: 600; }
+  .pad small { display: block; font-size: 9.8px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+  .pad .tag { display: inline-block; font-size: 8.5px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--cyan); margin-top: 6px; opacity: 0.75; }
+  .pad.on { border-color: var(--pink); background: linear-gradient(120deg, rgba(255, 61, 129, 0.22), rgba(122, 92, 255, 0.12));
+    box-shadow: 0 0 18px rgba(255, 61, 129, 0.3), inset 0 0 14px rgba(255, 61, 129, 0.12); }
+  .pad.on .tag { color: var(--pink); opacity: 1; }
+  .pad.choir.on { border-color: var(--green); box-shadow: 0 0 18px rgba(46, 219, 139, 0.3), inset 0 0 14px rgba(46, 219, 139, 0.12); }
+  .pad.choir.on .tag { color: var(--green); }
+  .pad.fx.on { border-color: var(--cyan); box-shadow: 0 0 18px rgba(34, 211, 238, 0.3), inset 0 0 14px rgba(34, 211, 238, 0.12); }
+  .pad.fx.on .tag { color: var(--cyan); }
+
+  /* mic check */
+  .mic { display: flex; align-items: baseline; gap: 12px; }
+  .mic .lamp { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+    flex: 0 0 auto; }
+  .mic .lamp.hot { color: var(--pink); }
+  .mic code { flex: 1; font-size: 11px; color: var(--cyan); overflow-x: auto; white-space: nowrap;
+    display: block; padding: 8px 10px; background: rgba(4, 3, 10, 0.7); border-radius: 8px;
+    border: 1px solid var(--line); }
+
+  details { margin: 0 4vw 18px; }
+  details summary { cursor: pointer; font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); }
+  details pre { background: rgba(4, 3, 10, 0.8); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; font-size: 11.5px; line-height: 1.5; color: #b7e9ff; overflow-x: auto; }
+
+  footer { margin: 0 4vw 34px; border-top: 1px solid var(--line); padding-top: 14px;
+    font-size: 11.5px; color: var(--muted); line-height: 1.7; max-width: 74ch; }
+  footer b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header>
+    <h1>SPIKE · VOICE BOOTH</h1>
+    <span class="concept">Every voice latches and loops in musical time — no one-shots, no timers, just the grid.</span>
+    <a class="back" href="../index.html">← back to the deck</a>
+  </header>
+
+  <main>
+    <div>
+      <section class="panel">
+        <h2>Record <b>shelf</b></h2>
+        <div class="shelf" id="shelf"></div>
+        <div class="shelf-note" id="shelfNote"></div>
+      </section>
+
+      <section class="panel platter-zone">
+        <h2>On the <b>platter</b></h2>
+        <div class="platter" id="platter"></div>
+        <div class="rec-name" id="recName">—</div>
+        <div class="rec-meta" id="recMeta">load a record from the shelf</div>
+        <div class="transport">
+          <button class="big" id="playBtn" disabled>▶ Play</button>
+        </div>
+        <div class="status" id="status">Pick a record, arm some voices, then hit play.</div>
+        <div class="fader">
+          <label for="transition">Transition fader — bed low-pass</label>
+          <input type="range" id="transition" min="0" max="100" value="100" />
+          <div class="ends"><span>ducked</span><span>wide open</span></div>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section class="panel">
+        <h2>Phrase pads <b>· latching, one-bar, grid-locked</b></h2>
+        <div class="pads four" id="phrasePads"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Chop line <b>· one flavour at a time</b></h2>
+        <div class="pads two" id="chopPads"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Key-locked choir <b id="choirKey">· sample-free, always in tune</b></h2>
+        <div class="pads three" id="choirPads"></div>
+      </section>
+
+      <section class="panel">
+        <h2>FX rack <b>· the proven bits</b></h2>
+        <div class="pads three" id="fxPads"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Mic check</h2>
+        <div class="mic">
+          <span class="lamp" id="micLamp">idle</span>
+          <code id="micCode">click any voice pad — while stopped it shows the exact pattern the pad adds, silently</code>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <details>
+    <summary>Live program</summary>
+    <pre id="program">— nothing composed yet —</pre>
+  </details>
+
+  <footer>
+    <b>What this spike tests</b><br />
+    1. Latching phrase pads whose vocals are full-cycle patterns — do stabs finally land on the
+    grid every bar, with zero mid-cycle hiccups, because there are no one-shot add/remove
+    re-evaluates and no setTimeout removals?<br />
+    2. A tempo-locked chop line — does <code>.chop()</code> over a spoken sample read as a
+    deliberate rhythmic figure rather than dirt?<br />
+    3. A key-locked synthetic choir — does <code>n().scale().vowel()</code> from the record's own
+    key give an "always in tune, always loads" vocal colour with no sample dependency at all?<br />
+    4. Mic-check auditioning — is seeing a pad's exact pattern string (while stopped, silent)
+    enough to make the booth legible before the first play?
+  </footer>
+
+  <script src="https://unpkg.com/@strudel/web@latest"></script>
+  <script src="../src/rng.js"></script>
+  <script src="../src/theory.js"></script>
+  <script src="../src/names.js"></script>
+  <script src="../src/dj.js"></script>
+  <script src="../src/art.js"></script>
+  <script src="../src/vinyl.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    // ---- state -----------------------------------------------------------
+    let record = null;        // the loaded crate entry (or a demo pressing)
+    let playing = false;
+    let audioReady = false;
+    let usedFallback = false; // shelf came from synthesised demo pressings
+    let transition = 1;       // 0..1 bed low-pass fader; 1 = wide open
+    let transitionTimer = 0;
+    let lastAudition = null;  // { id, label, pattern } of the last mic-checked pad
+    const active = new Set(); // latched voice pad ids
+    const fx = { sweep: false, stutter: false, riser: false };
+
+    const el = {};
+    ['shelf', 'shelfNote', 'platter', 'recName', 'recMeta', 'playBtn', 'status',
+     'transition', 'phrasePads', 'chopPads', 'choirPads', 'choirKey', 'fxPads',
+     'micLamp', 'micCode', 'program'].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    // ---- the voice vocabulary -------------------------------------------
+    // Every pattern is a FULL-CYCLE line: the scheduler quantises it for free.
+    // Banks (yeah / ho / numbers / speech / mouth) ship with the dirt-samples kit.
+    const PHRASES = [
+      { id: 'ph-backbeat', label: 'yeah · backbeat', tag: 'medium',
+        hint: 'stabs on the 2 and the 4',
+        pat: 's("~ yeah:1 ~ yeah:1").gain(0.85).room(0.2)' },
+      { id: 'ph-callresp', label: 'yeah–ho · call/response', tag: 'medium',
+        hint: 'a call, then a doubled answer',
+        pat: 's("~ yeah:1 ~ [yeah:1 ho:3]").gain(0.85).room(0.2)' },
+      { id: 'ph-heyho', label: 'hey…ho · chant', tag: 'sparse',
+        hint: 'two shouts across two bars',
+        pat: 's("ho:0 ~ ~ ~ ~ ~ ho:3 ~").slow(2).gain(0.8).room(0.3)' },
+      { id: 'ph-count', label: 'count-in · one/two', tag: 'sparse',
+        hint: 'alternating downbeat count',
+        pat: 's("<numbers:0 numbers:1> ~ ~ ~").gain(0.8).room(0.15)' },
+      { id: 'ph-uh', label: 'uh · percussive', tag: 'dense',
+        hint: 'mouth clicks as extra percussion',
+        pat: 's("mouth:6*2 ~ mouth:6 [~ mouth:6]").gain(0.7).room(0.2)' },
+      { id: 'ph-shout', label: 'go! · turnaround', tag: 'sparse',
+        hint: 'one shout into every second bar-end',
+        pat: 's("~ ~ ~ speech:2").slow(2).gain(0.9).room(0.25)' },
+      { id: 'ph-echo', label: 'yeah high · echo tail', tag: 'medium',
+        hint: 'mid-bar stab trailing echoes',
+        pat: 's("~ ~ yeah:5 ~").gain(0.8).delay(0.4).delaytime(0.25).delayfeedback(0.4).room(0.3)' },
+      { id: 'ph-double', label: 'ho-ho · double hit', tag: 'medium',
+        hint: 'a doubled backbeat shout',
+        pat: 's("~ [ho:0 ho:3] ~ ~").gain(0.8).room(0.2)' },
+    ];
+
+    // Two flavours of the same spoken line, tempo-locked by .chop(). Latching
+    // and mutually exclusive — two chop treatments of one sample is just mush.
+    const CHOPS = [
+      { id: 'chop-echo', label: 'chop · echo run', tag: 'flavour a',
+        hint: 'eight slices over two bars, into the echo',
+        pat: 's("speech:2").slow(2).chop(8).gain(0.6).delay(0.3).delaytime(0.16).delayfeedback(0.35).room(0.4)' },
+      { id: 'chop-rev', label: 'chop · rewind', tag: 'flavour b',
+        hint: 'the same slices, reversed and filtered',
+        pat: 's("speech:2").slow(2).chop(8).rev().gain(0.55).lpf(2600).delay(0.2).delaytime(0.16).delayfeedback(0.25).room(0.4)' },
+    ];
+
+    // Key-locked choir — built from the record's OWN key at compose time, so it
+    // is always in tune and needs no samples at all. build(sc3, sc4) receives
+    // Strudel scale strings like "Bb3:minor" / "Bb4:minor".
+    const CHOIR = [
+      { id: 'choir-low', label: 'choir · low pad', tag: 'chords', cls: 'choir',
+        hint: 'i–VI–iv–v "ooh" bed under everything',
+        build: function (sc3) {
+          return 'n("<[0,2,4] [5,7,9] [3,5,7] [4,6,8]>").scale("' + sc3 +
+            '").s("sawtooth").vowel("<o o a o>").attack(0.35).release(0.6).gain(0.24).lpf(1900).room(0.7)';
+        } },
+      { id: 'choir-high', label: 'choir · high line', tag: 'melody', cls: 'choir',
+        hint: 'an "aah" line that swells per bar',
+        build: function (sc3, sc4) {
+          return 'n("<0 [0,2] [0,2,4] [2,4]>").scale("' + sc4 +
+            '").s("sawtooth").vowel("<a o e o>").attack(0.2).release(0.4).gain(0.28).lpf(2600).room(0.6)';
+        } },
+      { id: 'choir-pulse', label: 'choir · pulse', tag: 'rhythm', cls: 'choir',
+        hint: 'offbeat vowel stabs, short and dry',
+        build: function (sc3, sc4) {
+          return 'n("~ [0,4] ~ [0,4] ~ [0,4] ~ [2,4]").scale("' + sc4 +
+            '").s("sawtooth").vowel("<a e>").attack(0.02).release(0.12).gain(0.22).lpf(3000).room(0.4)';
+        } },
+    ];
+
+    // The proven FX rack, unchanged from the shipped remix deck.
+    const FXPADS = [
+      { key: 'sweep',   label: 'filter sweep', hint: 'the bed breathes on an 8-bar sine' },
+      { key: 'stutter', label: 'stutter',      hint: 'glitch beat-repeat on the bed' },
+      { key: 'riser',   label: 'riser',        hint: 'noise build for drops' },
+    ];
+    const RISER = 's("white").gain(0.1).lpf(sine.range(400,9000).slow(8)).hpf(300).room(0.5)';
+
+    // ---- key parsing -----------------------------------------------------
+    // Crate entries carry key as a bare root ("Bb") with scaleType alongside
+    // ("minor", "phrygian dominant"); tolerate a combined "A minor" form too.
+    function keyOf(rec) {
+      let root = 'A', quality = 'minor';
+      const k = String((rec && rec.key) || '').trim();
+      if (k.indexOf(' ') > 0) {
+        const t = k.split(/\s+/);
+        root = t[0];
+        quality = t.slice(1).join(' ') || 'minor';
+      } else if (k) {
+        root = k;
+        quality = String((rec && rec.scaleType) || 'minor');
+      }
+      return { root: root, quality: quality };
+    }
+    function scaleStr(rec, octave) {
+      const kq = keyOf(rec);
+      return kq.root + octave + ':' + kq.quality;
+    }
+
+    // ---- records: crate or deterministic demo pressings ------------------
+    function loadCrate() {
+      try { return JSON.parse(localStorage.getItem('sdj.crate') || '[]'); }
+      catch (e) { return []; }
+    }
+
+    const FALLBACK_SEEDS = [20260724, 424242, 90210];
+    let fallbackCache = null;
+
+    function synthRecord(seed) {
+      const e = new SDJ.DJEngine();
+      e.masterSeed = seed >>> 0;
+      e.newSong();
+      // Grow the genome the same way a live session does: propose + accept
+      // until five parts are in (or the engine runs out of ideas).
+      for (let i = 0; i < 20; i++) {
+        const activeParts = e.song.genome.active.filter(Boolean).length;
+        if (activeParts >= 5) break;
+        if (!e.proposeChange()) break;
+        e.acceptChange();
+      }
+      const code = e.render();
+      const m = code.match(/setcps\(([\d.]+)\)/); // cps lives on the first line
+      const s = e.song;
+      return {
+        id: 'demo-' + seed.toString(36),
+        name: s.name,
+        key: s.key,
+        scaleType: s.scaleType,
+        bpm: s.bpm,
+        cps: m ? parseFloat(m[1]) : s.cps,
+        code: code,
+        genome: JSON.parse(JSON.stringify(s.genome)),
+        art: { seed: s.seed },
+        demo: true,
+      };
+    }
+
+    function fallbacks() {
+      if (!fallbackCache) fallbackCache = FALLBACK_SEEDS.map(synthRecord);
+      return fallbackCache;
+    }
+
+    function shelfRecords() {
+      const crate = loadCrate();
+      usedFallback = !crate.length;
+      return usedFallback ? fallbacks() : crate;
+    }
+
+    // ---- compose: ONE balanced program -----------------------------------
+    // Mirrors composeRemix in src/app.js: strip the record's setcps line, nest
+    // its whole expression as one pattern, chain bed FX, then stack the voice
+    // and FX layers on top. Strings are concatenated — parens/quotes balanced.
+    function compose() {
+      if (!record) return null;
+      const code = record.code || '';
+      const nl = code.indexOf('\n');
+      let cpsLine = 'setcps(' + (record.cps || 0.5) + ')';
+      let expr = code;
+      if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) {
+        cpsLine = code.slice(0, nl);
+        expr = code.slice(nl + 1);
+      }
+      let bed = '(' + expr.trim() + ')';
+      if (fx.sweep) bed += '.lpf(sine.range(500,4500).slow(8))';
+      else if (transition < 0.995) bed += '.lpf(' + Math.round(200 * Math.pow(90, transition)) + ')';
+      if (fx.stutter) bed += '.sometimesBy(0.25, x => x.ply("2 4"))';
+      bed += '.gain(0.92)';
+
+      const sc3 = scaleStr(record, 3);
+      const sc4 = scaleStr(record, 4);
+      const voiceLayers = [];
+      PHRASES.forEach(function (p) { if (active.has(p.id)) voiceLayers.push(p.pat); });
+      CHOPS.forEach(function (c) { if (active.has(c.id)) voiceLayers.push(c.pat); });
+      CHOIR.forEach(function (c) { if (active.has(c.id)) voiceLayers.push(c.build(sc3, sc4)); });
+
+      const fxLayers = [];
+      if (fx.riser) fxLayers.push(RISER);
+
+      const layers = [bed].concat(voiceLayers, fxLayers);
+      return cpsLine + '\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+    }
+
+    // Update the program panel from the current state; evaluate only if live.
+    function refreshProgram() {
+      const code = compose();
+      el.program.textContent = code || '— nothing composed yet —';
+      return code;
+    }
+    function evaluateNow() {
+      const code = refreshProgram();
+      if (!code) return;
+      window.__lastCode = code;
+      if (typeof window.evaluate === 'function') window.evaluate(code);
+    }
+
+    // ---- audio -----------------------------------------------------------
+    async function ensureAudio() {
+      if (audioReady) return true;
+      if (typeof window.initStrudel !== 'function') {
+        setStatus('Strudel failed to load — are you online? Hard refresh and retry.');
+        return false;
+      }
+      setStatus('Warming the valves…');
+      try { await window.initStrudel(); } catch (err) { console.error(err); }
+      if (typeof window.samples === 'function') {
+        setStatus('Loading the kit + vocal banks…');
+        try {
+          await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        } catch (e) { console.error('sample load failed:', e); }
+        // Best-effort: crate records rendered with .bank(…) need the machines.
+        try {
+          await window.samples('https://raw.githubusercontent.com/felixroos/dough-samples/main/tidal-drum-machines.json');
+        } catch (e) { console.warn('drum machines unavailable — default kit only:', e); }
+      }
+      audioReady = true;
+      return true;
+    }
+
+    async function onPlay() {
+      if (!record) { setStatus('Load a record from the shelf first.'); return; }
+      if (playing) { stop(); return; }
+      if (!(await ensureAudio())) return;
+      playing = true;
+      evaluateNow();
+      el.playBtn.textContent = '⏹ Stop';
+      el.platter.classList.add('spin');
+      setStatus('Spinning “' + record.name + '” — latch voices in and out at will.');
+    }
+
+    function stop() {
+      playing = false;
+      if (typeof window.hush === 'function') window.hush();
+      el.playBtn.textContent = '▶ Play';
+      el.platter.classList.remove('spin');
+      setStatus('Stopped. Pads stay armed — play brings them back on the grid.');
+    }
+
+    function setStatus(msg) { el.status.textContent = msg; }
+
+    // ---- mic check -------------------------------------------------------
+    // While stopped, a pad click shows exactly what it would add — silently.
+    function micCheck(pad, pattern) {
+      lastAudition = { id: pad.id || pad.key, label: pad.label, pattern: pattern };
+      el.micCode.textContent = pattern;
+      el.micLamp.textContent = playing ? 'live' : 'armed · silent until ▶';
+      el.micLamp.classList.toggle('hot', playing);
+    }
+
+    // ---- pad wiring ------------------------------------------------------
+    function patternFor(pad) {
+      if (pad.build) return pad.build(scaleStr(record, 3), scaleStr(record, 4));
+      return pad.pat;
+    }
+
+    function toggleVoice(pad) {
+      if (!record) { setStatus('Load a record from the shelf first.'); return; }
+      const isChop = CHOPS.some(function (c) { return c.id === pad.id; });
+      if (isChop && !active.has(pad.id)) {
+        CHOPS.forEach(function (c) { active.delete(c.id); }); // one flavour at a time
+      }
+      if (active.has(pad.id)) active.delete(pad.id);
+      else active.add(pad.id);
+      micCheck(pad, patternFor(pad));
+      paintPads();
+      if (playing) evaluateNow();
+      else refreshProgram();
+    }
+
+    function toggleFx(key) {
+      if (!record) { setStatus('Load a record from the shelf first.'); return; }
+      fx[key] = !fx[key];
+      paintPads();
+      if (playing) evaluateNow();
+      else refreshProgram();
+    }
+
+    function padButton(pad, cls, onClick) {
+      const b = document.createElement('button');
+      b.className = 'pad' + (cls ? ' ' + cls : '');
+      b.dataset.id = pad.id || pad.key;
+      b.innerHTML = '<strong>' + pad.label + '</strong><small>' + pad.hint + '</small>' +
+        (pad.tag ? '<span class="tag">' + pad.tag + '</span>' : '');
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function buildPads() {
+      PHRASES.forEach(function (p) {
+        el.phrasePads.appendChild(padButton(p, '', function () { toggleVoice(p); }));
+      });
+      CHOPS.forEach(function (c) {
+        el.chopPads.appendChild(padButton(c, '', function () { toggleVoice(c); }));
+      });
+      CHOIR.forEach(function (c) {
+        el.choirPads.appendChild(padButton(c, 'choir', function () { toggleVoice(c); }));
+      });
+      FXPADS.forEach(function (f) {
+        el.fxPads.appendChild(padButton(f, 'fx', function () { toggleFx(f.key); }));
+      });
+      paintPads();
+    }
+
+    function paintPads() {
+      document.querySelectorAll('.pad').forEach(function (b) {
+        const id = b.dataset.id;
+        b.classList.toggle('on', active.has(id) || !!fx[id]);
+      });
+    }
+
+    // ---- shelf + platter -------------------------------------------------
+    function renderShelf() {
+      const recs = shelfRecords();
+      el.shelf.innerHTML = '';
+      recs.forEach(function (entry) {
+        const item = document.createElement('button');
+        item.className = 'shelf-item' + (record && record.id === entry.id ? ' sel' : '');
+        item.title = (entry.name || 'Untitled') + ' · ' + entry.bpm + ' BPM';
+        const disc = document.createElement('div');
+        disc.className = 'disc';
+        disc.innerHTML = SDJ.Vinyl.forEntry(entry);
+        const nm = document.createElement('div');
+        nm.className = 'nm';
+        nm.textContent = entry.name || 'Untitled';
+        item.appendChild(disc);
+        item.appendChild(nm);
+        item.addEventListener('click', function () { loadRecord(entry); });
+        el.shelf.appendChild(item);
+      });
+      el.shelfNote.textContent = usedFallback
+        ? 'No saved records in the crate — showing three demo pressings cut fresh by the engine.'
+        : recs.length + ' record' + (recs.length === 1 ? '' : 's') + ' from your crate.';
+    }
+
+    function loadRecord(entry) {
+      record = entry;
+      const kq = keyOf(entry);
+      el.platter.innerHTML = SDJ.Vinyl.forEntry(entry);
+      el.recName.textContent = entry.name || 'Untitled';
+      el.recMeta.textContent = kq.root + ' ' + kq.quality + ' · ' + (entry.bpm || '?') + ' BPM' +
+        (entry.demo ? ' · demo pressing' : '');
+      el.choirKey.textContent = '· locked to ' + kq.root + ' ' + kq.quality;
+      el.playBtn.disabled = false;
+      renderShelf();
+      refreshProgram();
+      if (playing) evaluateNow(); // hot-swap the bed under the latched voices
+      setStatus('“' + (entry.name || 'Untitled') + '” is on the platter.');
+    }
+
+    // ---- transition fader (throttled ~150ms) -----------------------------
+    el.transition.addEventListener('input', function () {
+      transition = (+el.transition.value || 0) / 100;
+      if (fx.sweep) return;            // sweep owns the bed filter while it's on
+      if (transitionTimer) return;
+      transitionTimer = setTimeout(function () {
+        transitionTimer = 0;
+        if (playing) evaluateNow();
+        else refreshProgram();
+      }, 150);
+    });
+
+    el.playBtn.addEventListener('click', onPlay);
+
+    // ---- headless hooks --------------------------------------------------
+    window.__lastCode = '';
+    window.__spike = {
+      compose: function () { return compose(); },
+      state: function () {
+        return {
+          record: record ? {
+            id: record.id, name: record.name, key: record.key,
+            scaleType: record.scaleType, bpm: record.bpm, cps: record.cps,
+            demo: !!record.demo,
+          } : null,
+          playing: playing,
+          audioReady: audioReady,
+          usedFallback: usedFallback,
+          voices: Array.from(active),
+          fx: { sweep: fx.sweep, stutter: fx.stutter, riser: fx.riser },
+          transition: transition,
+          lastAudition: lastAudition,
+        };
+      },
+      loadDemo: function () { loadRecord(fallbacks()[0]); }, // deterministic, no audio
+    };
+
+    // ---- boot ------------------------------------------------------------
+    buildPads();
+    renderShelf();
+  })();
+  </script>
+</body>
+</html>

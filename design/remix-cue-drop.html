@@ -1,0 +1,1048 @@
+<!doctype html>
+<!--
+  ── SPIKE · CUE & DROP ────────────────────────────────────────────────────────
+  Thesis: the RITUAL of DJing — cue the next record in your headphones, then
+  drop it on the phrase. The machine keeps the beats locked; YOU choose the
+  moment and the move. This resolves the assistance-vs-agency tension: the
+  engine handles musical correctness, the human handles timing and drama.
+
+  Three question this spike answers:
+  1. Does a phrase-locked auto-drop (SLAM or FADE) feel intentional, or just
+     mechanical? Does the countdown create real tension?
+  2. Does solo-cue (muting the other deck so you can audition the incoming
+     record) read clearly enough to substitute for real headphone cueing?
+  3. Do the momentary performance moves (loop roll, reload, spinback) add
+     genuine expression or just noise?
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Cue &amp; Drop · Strudel Auto-DJ</title>
+<style>
+  :root {
+    --bg:     #06040d;
+    --panel:  #0d0a1a;
+    --panel2: #120e24;
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --amber:  #ffb830;
+    --green:  #2edb8b;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #120a2a 0%, var(--bg) 55%);
+    color: var(--ink); font-family: var(--font);
+  }
+  body { padding: 26px clamp(14px, 4vw, 48px) 60px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; margin-bottom: 6px; }
+  header h1 {
+    margin: 0; font-size: clamp(26px, 4vw, 40px); letter-spacing: 2px;
+    background: linear-gradient(110deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .concept { color: var(--muted); font-size: 13px; max-width: 62ch; }
+  header .back { margin-left: auto; font-size: 12px; letter-spacing: 1px; }
+  #status { min-height: 18px; font-size: 12px; color: var(--cyan); letter-spacing: 0.5px; margin: 4px 0 14px; }
+
+  /* ── phrase clock bar ──────────────────────────────────────────────────── */
+  .clock-bar {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: linear-gradient(90deg, rgba(34,211,238,0.06), rgba(122,92,255,0.06));
+    border: 1px solid rgba(34,211,238,0.22); border-radius: 12px;
+    padding: 10px 18px; margin-bottom: 16px;
+  }
+  .clock-bar .beat-pos {
+    font-size: 15px; letter-spacing: 2px; font-weight: 700; color: var(--cyan);
+    min-width: 110px;
+  }
+  .clock-bar .phrase-pip {
+    display: flex; gap: 3px; align-items: center;
+  }
+  .pip {
+    width: 9px; height: 9px; border-radius: 2px;
+    background: rgba(34,211,238,0.15); border: 1px solid rgba(34,211,238,0.25);
+    transition: background .05s;
+  }
+  .pip.lit { background: var(--cyan); box-shadow: 0 0 6px rgba(34,211,238,0.7); }
+  .pip.near { background: var(--amber); box-shadow: 0 0 6px rgba(255,184,48,0.6); border-color: var(--amber); }
+  .countdown {
+    font-size: 13px; letter-spacing: 1.5px; color: var(--muted); min-width: 130px;
+  }
+  .countdown.armed { color: var(--amber); font-weight: 700; }
+  .countdown.dropped { color: var(--green); font-weight: 700; }
+  #tempoDisplay { font-size: 11px; color: var(--cyan); letter-spacing: 1px; margin-left: auto; }
+
+  /* ── the rig: deck A | mixer | deck B ─────────────────────────────────── */
+  .rig {
+    display: grid; grid-template-columns: 1fr minmax(250px, 330px) 1fr;
+    gap: 18px; align-items: stretch;
+  }
+  .deck {
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .deck h2 { margin: 0; font-size: 12px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .deck.a h2 b { color: var(--cyan); } .deck.b h2 b { color: var(--pink); }
+  .platter {
+    width: min(200px, 55vw); aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center; position: relative;
+    background: radial-gradient(circle at 50% 40%, #171226, #0a0814 70%);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7);
+    transition: box-shadow .3s;
+  }
+  .platter .disc { width: 92%; height: 92%; border-radius: 50%; }
+  .platter.spin .disc { animation: rot 2.2s linear infinite; }
+  .platter.cued { box-shadow: inset 0 0 30px rgba(0,0,0,0.7), 0 0 0 3px var(--amber), 0 0 22px rgba(255,184,48,0.45); }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .platter .empty {
+    width: 88%; height: 88%; border-radius: 50%;
+    border: 2px dashed rgba(157,143,199,0.35);
+    display: grid; place-items: center;
+    color: var(--muted); font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    text-align: center; padding: 10%;
+  }
+  .deck-meta { text-align: center; font-size: 12px; color: var(--muted); line-height: 1.5; min-height: 34px; }
+  .deck-meta strong { color: var(--ink); font-size: 13px; letter-spacing: 0.5px; }
+
+  /* ── deck controls: cue + drop arm + reload ────────────────────────────── */
+  .deck-controls { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+  .deck-controls .row { display: flex; gap: 7px; width: 100%; justify-content: center; }
+  .dbtn {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 8px 12px; border-radius: 9px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+    flex: 1;
+  }
+  .dbtn:hover { border-color: var(--cyan); }
+  .dbtn.cue-btn { border-color: var(--amber); color: var(--amber); }
+  .dbtn.cue-btn.on { background: var(--amber); color: #1a0e00; font-weight: 700; box-shadow: 0 0 14px rgba(255,184,48,0.55); }
+  .dbtn.arm-btn { font-size: 10.5px; }
+  .dbtn.arm-btn.on { background: var(--violet); border-color: var(--violet); color: #fff; font-weight: 700; box-shadow: 0 0 14px rgba(122,92,255,0.6); }
+  .dbtn.reload-btn { font-size: 10.5px; }
+  .dbtn.reload-btn:hover { border-color: var(--pink); color: var(--pink); }
+
+  /* ── centre mixer ──────────────────────────────────────────────────────── */
+  .mixer {
+    background: linear-gradient(180deg, #100c20, #0a0716);
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px 14px 18px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .mixer h2 { margin: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .strips { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
+  .chan {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.25));
+    padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .chan .tag { font-size: 11px; letter-spacing: 3px; }
+  .chan[data-deck="a"] .tag { color: var(--cyan); }
+  .chan[data-deck="b"] .tag { color: var(--pink); }
+  .kill {
+    width: 84%; padding: 8px 0; font-family: var(--font); font-size: 10.5px; letter-spacing: 1.5px;
+    color: var(--muted); background: #0b0916; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; cursor: pointer; transition: all .15s;
+  }
+  .kill.on { color: #0b0916; background: var(--pink); border-color: var(--pink); box-shadow: 0 0 14px rgba(255,61,129,0.55); font-weight: 700; }
+  .chan label { font-size: 9.5px; letter-spacing: 2px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 2px; }
+  .chan input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 110px; accent-color: var(--violet); }
+  .chan .trimval { font-size: 10px; color: var(--ink); }
+  .xfade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 4px 6px 0; }
+  .xfade span { font-size: 12px; font-weight: 700; }
+  .xfade span:first-child { color: var(--cyan); } .xfade span:last-child { color: var(--pink); }
+  .xfade input { width: 100%; accent-color: var(--cyan); }
+  .xfade-cap { text-align: center; font-size: 9.5px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  /* ── master bus ─────────────────────────────────────────────────────────── */
+  .master {
+    margin-top: 18px; border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 22px;
+  }
+  .master .group { display: flex; flex-direction: column; gap: 8px; }
+  .master .group h3 { margin: 0; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .master .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.on { background: var(--violet); border-color: var(--violet); color: #fff; box-shadow: 0 0 16px rgba(122,92,255,0.6); font-weight: 700; }
+  .btn.play { border-color: var(--cyan); color: var(--cyan); }
+  .btn.play.live { background: var(--cyan); color: #06202a; font-weight: 700; box-shadow: 0 0 18px rgba(34,211,238,0.6); }
+  .btn.move-btn { border-color: rgba(255,184,48,0.4); color: var(--amber); }
+  .btn.move-btn:hover { border-color: var(--amber); background: rgba(255,184,48,0.1); }
+  .btn.move-btn.on { background: var(--amber); color: #1a0e00; border-color: var(--amber); font-weight: 700; box-shadow: 0 0 16px rgba(255,184,48,0.6); }
+  .btn.spinback { border-color: rgba(255,61,129,0.4); color: var(--pink); }
+  .btn.spinback:hover { border-color: var(--pink); background: rgba(255,61,129,0.1); }
+  .toggle-group { display: flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .toggle-group .pill {
+    display: flex; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; overflow: hidden;
+  }
+  .toggle-group .pill button {
+    font-family: var(--font); font-size: 10px; letter-spacing: 1.5px; padding: 6px 12px;
+    background: #0b0916; color: var(--muted); border: none; cursor: pointer; transition: all .12s;
+  }
+  .toggle-group .pill button.active { background: var(--violet); color: #fff; font-weight: 700; }
+  .press {
+    margin-left: auto; padding: 14px 22px; border-radius: 12px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; letter-spacing: 2px; font-weight: 700;
+    color: #2a0614; background: linear-gradient(110deg, var(--pink), #ff7ab0);
+    border: none; box-shadow: 0 0 22px rgba(255,61,129,0.35); transition: transform .12s;
+  }
+  .press:hover { transform: translateY(-1px); }
+  .nudge { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .nudge input { width: 130px; accent-color: var(--pink); }
+  .nudge b { color: var(--ink); font-size: 11px; min-width: 46px; }
+
+  /* ── shelf ──────────────────────────────────────────────────────────────── */
+  .shelf { margin-top: 20px; }
+  .shelf h2 { font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; margin: 0 0 10px; }
+  .sleeves { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+  .sleeve {
+    flex: 0 0 148px; background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .sleeve .vin { width: 116px; height: 116px; }
+  .sleeve .nm { font-size: 11px; text-align: center; line-height: 1.35; }
+  .sleeve .nm b { display: block; letter-spacing: 0.5px; }
+  .sleeve .nm span { color: var(--muted); font-size: 10px; }
+  .sleeve .load { display: flex; gap: 6px; }
+  .sleeve .load button {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    padding: 5px 12px; border-radius: 7px; background: #0b0916; color: var(--ink);
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .sleeve .load button:first-child:hover { border-color: var(--cyan); color: var(--cyan); }
+  .sleeve .load button:last-child:hover { border-color: var(--pink); color: var(--pink); }
+  .demo-tag { font-size: 9px; letter-spacing: 2px; color: var(--violet); text-transform: uppercase; }
+
+  details { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(13,10,26,0.7); }
+  details summary { cursor: pointer; padding: 10px 16px; font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  details pre {
+    margin: 0; padding: 14px 18px; font-size: 11.5px; line-height: 1.6; color: #b9f5ef;
+    overflow-x: auto; border-top: 1px solid var(--line); white-space: pre;
+  }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; max-width: 78ch; }
+  footer h2 { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
+  footer ul { margin: 0; padding-left: 18px; }
+
+  @media (max-width: 900px) { .rig { grid-template-columns: 1fr; } .press { margin-left: 0; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>SPIKE · CUE &amp; DROP</h1>
+    <span class="concept">Lock the beats. Cue the incoming record. Choose your moment — drop it on the phrase.</span>
+    <a class="back" href="../index.html">← back to the app</a>
+  </header>
+  <div id="status">Load a record onto each deck, then hit PLAY.</div>
+
+  <!-- ── phrase clock ──────────────────────────────────────────────────────── -->
+  <div class="clock-bar">
+    <span class="beat-pos" id="beatPos">BAR — / 16</span>
+    <div class="phrase-pip" id="phrasePips"></div>
+    <span class="countdown" id="countdown">—</span>
+    <span id="tempoDisplay">— cps</span>
+  </div>
+
+  <div class="rig">
+    <!-- ── Deck A ── -->
+    <section class="deck a">
+      <h2>Deck <b>A</b></h2>
+      <div class="platter" id="platterA"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaA">nothing loaded</div>
+      <div class="deck-controls">
+        <div class="row">
+          <button class="dbtn cue-btn" id="cueA">CUE A</button>
+        </div>
+        <div class="row">
+          <button class="dbtn arm-btn" id="armA">ARM DROP →A</button>
+          <button class="dbtn reload-btn" id="reloadA">↺ RELOAD</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Centre mixer ── -->
+    <section class="mixer">
+      <h2>Mixer</h2>
+      <div class="strips">
+        <div class="chan" data-deck="a">
+          <span class="tag">CH·A</span>
+          <button class="kill" data-deck="a" data-kill="killLow">LOW KILL</button>
+          <button class="kill" data-deck="a" data-kill="killHi">HI KILL</button>
+          <label>GAIN
+            <input type="range" id="trimA" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimAVal">1.00</span>
+          </label>
+        </div>
+        <div class="chan" data-deck="b">
+          <span class="tag">CH·B</span>
+          <button class="kill" data-deck="b" data-kill="killLow">LOW KILL</button>
+          <button class="kill" data-deck="b" data-kill="killHi">HI KILL</button>
+          <label>GAIN
+            <input type="range" id="trimB" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimBVal">1.00</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <div class="xfade">
+          <span>A</span>
+          <input type="range" id="cross" min="0" max="1" step="0.01" value="0.5" />
+          <span>B</span>
+        </div>
+        <div class="xfade-cap">crossfader · equal power</div>
+      </div>
+    </section>
+
+    <!-- ── Deck B ── -->
+    <section class="deck b">
+      <h2>Deck <b>B</b></h2>
+      <div class="platter" id="platterB"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaB">nothing loaded</div>
+      <div class="deck-controls">
+        <div class="row">
+          <button class="dbtn cue-btn" id="cueB">CUE B</button>
+        </div>
+        <div class="row">
+          <button class="dbtn arm-btn" id="armB">ARM DROP →B</button>
+          <button class="dbtn reload-btn" id="reloadB">↺ RELOAD</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── master bus ──────────────────────────────────────────────────────── -->
+  <section class="master">
+    <div class="group">
+      <h3>Master</h3>
+      <div class="row">
+        <button class="btn play" id="playBtn">▶ PLAY</button>
+        <button class="btn" id="stopBtn">⏹ STOP</button>
+        <span class="nudge">NUDGE
+          <input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" />
+          <b id="nudgeVal">+0.0%</b>
+        </span>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Drop mode</h3>
+      <div class="toggle-group">
+        MODE
+        <div class="pill">
+          <button id="modeSlamBtn" class="active">SLAM</button>
+          <button id="modeFadeBtn">FADE 4</button>
+        </div>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Performance moves</h3>
+      <div class="row">
+        <button class="btn move-btn" id="loopRollBtn">LOOP ROLL<br><small style="font-size:9px;opacity:.7">hold</small></button>
+        <button class="btn spinback" id="spinbackBtn">SPINBACK</button>
+      </div>
+    </div>
+    <button class="press" id="pressBtn">● PRESS TO CRATE</button>
+  </section>
+
+  <!-- ── record shelf ─────────────────────────────────────────────────────── -->
+  <section class="shelf">
+    <h2>Record shelf</h2>
+    <div class="sleeves" id="sleeves"></div>
+  </section>
+
+  <details>
+    <summary>Live program</summary>
+    <pre id="program">— nothing loaded —</pre>
+  </details>
+
+  <footer>
+    <h2>What this spike tests</h2>
+    <ul>
+      <li>Whether a phrase-locked auto-drop creates genuine tension via the bar countdown — does the
+        countdown prompt the human to act, or does it feel arbitrary?</li>
+      <li>Whether solo-cue (muting the other deck to audition the incoming record) reads clearly enough
+        as a headphone substitute. Real DJ booths have a separate monitor bus; here it is an honest
+        workaround — one audio output, you solo the deck you want to preview.</li>
+      <li>Whether SLAM vs FADE 4 feels like a meaningful artistic choice: SLAM snaps the crossfader
+        instantly on the phrase boundary; FADE 4 ramps gain over the four bars leading up to it via
+        throttled re-evaluates (approximate — re-evaluate latency adds jitter).</li>
+      <li>Whether LOOP ROLL (hold for beat-repeat via <code>.ply("4")</code>) and SPINBACK (ramp
+        <code>setcps</code> to near-zero then hush) read as performance moves or just bugs. Both are
+        momentary and self-cleaning — no lingering timers after release/completion.</li>
+      <li>Whether ↺ RELOAD (re-evaluate the target deck from its stored code) gives a meaningful
+        "pull-up / rewind" feel in context.</li>
+      <li><b>Known approximations:</b> (a) The phrase clock uses <code>Date.now()</code> elapsed time
+        against <code>masterCps()</code> — it drifts vs Strudel's internal scheduler because
+        <code>evaluate()</code> has its own startup latency. (b) FADE 4 re-evaluates every ~150 ms;
+        actual fade curve is staircase, not smooth. (c) SPINBACK ramps cps via a handful of
+        re-evaluates; real turntable deceleration is smoother. All acceptable for a design spike.</li>
+    </ul>
+  </footer>
+
+<!-- Strudel live-coding engine (exposes initStrudel / evaluate / hush globally) -->
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<!-- The repo's own classic scripts, in dependency order, on window.SDJ -->
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const CRATE_KEY  = 'sdj.crate';
+  const CRATE_CAP  = 64;
+  const PHRASE_LEN = 16;            // bars per phrase
+  const DEMO_SEEDS = [20260724, 47810923];
+
+  // ── state ────────────────────────────────────────────────────────────────
+  const state = {
+    playing:    false,
+    audioReady: false,
+    cross:      0.5,    // 0 = full A, 1 = full B
+    nudge:      0,      // ±8% tempo trim
+    decks: {
+      a: { rec: null, trim: 1, killLow: false, killHi: false },
+      b: { rec: null, trim: 1, killLow: false, killHi: false },
+    },
+    // cue: which deck is in solo-preview, or null
+    cued: null,
+    // armed drop: which deck is the target ('a', 'b') or null
+    armed: null,
+    dropMode:   'slam',   // 'slam' | 'fade'
+    // phrase clock
+    playStart:  0,
+    currentBar: 0,
+    // performance moves
+    loopRoll:   false,
+    // spinback tracking: original cps before spinback started
+    preSpinCps: null,
+  };
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  function setStatus(msg) { $('status').textContent = msg; }
+  function n2s(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+
+  function masterRec() { return state.decks.a.rec || state.decks.b.rec || null; }
+  function masterCps() {
+    const rec = masterRec();
+    const base = (rec && rec.cps) || 0.5;
+    return Math.round(base * (1 + state.nudge / 100) * 1000) / 1000;
+  }
+
+  // Equal-power crossfade, scaled to 0.95, times channel trim, 2dp.
+  // When a deck is cued, the OTHER deck is silenced (gain = 0) regardless of fader.
+  function deckGain(which) {
+    if (state.cued !== null && state.cued !== which) return 0;
+    const m = state.cross;
+    const curve = which === 'a'
+      ? Math.cos(m * Math.PI / 2)
+      : Math.sin(m * Math.PI / 2);
+    return Math.round(curve * 0.95 * state.decks[which].trim * 100) / 100;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── crate + demo records ──────────────────────────────────────────────────
+  function loadCrate() {
+    try { return JSON.parse(localStorage.getItem(CRATE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCrate(crate) {
+    try { localStorage.setItem(CRATE_KEY, JSON.stringify(crate)); } catch (e) { /* quota */ }
+  }
+  function topLane(g) {
+    let hi = 0;
+    for (let i = 0; i < g.active.length; i++) if (g.active[i]) hi = i;
+    return hi;
+  }
+
+  function synthRecord(seed) {
+    const e = new SDJ.DJEngine();
+    e.masterSeed = seed;
+    e.newSong();
+    for (let i = 0; i < 20; i++) {
+      const act = e.song.genome.active.filter(Boolean).length;
+      if (act >= 5) break;
+      if (!e.proposeChange()) break;
+      e.acceptChange();
+    }
+    const code = e.render();
+    const m = /setcps\(([0-9.]+)\)/.exec((code.split('\n')[0]) || '');
+    const s = e.song;
+    const genome = JSON.parse(JSON.stringify(s.genome));
+    const lane = topLane(genome);
+    return {
+      id: 'demo-' + (seed >>> 0).toString(36),
+      name: s.name, key: s.key, scaleType: s.scaleType,
+      bpm: s.bpm, cps: m ? parseFloat(m[1]) : s.cps,
+      genre: s.genre ? s.genre.id : null,
+      genreLabel: s.genre ? s.genre.label : null,
+      code: code, genome: genome,
+      art: { seed: s.seed >>> 0, layer: lane, variant: genome.variant[lane] || 0 },
+      demo: true,
+    };
+  }
+  let demoCache = null;
+  function demoRecords() {
+    if (!demoCache) demoCache = DEMO_SEEDS.map(synthRecord);
+    return demoCache;
+  }
+  function shelfRecords() {
+    const crate = loadCrate();
+    return crate.length >= 2 ? crate : crate.concat(demoRecords());
+  }
+
+  // ── composition ───────────────────────────────────────────────────────────
+  function stripCps(code) {
+    const nl = code.indexOf('\n');
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
+    return code;
+  }
+  function bedFor(which, overrideCps) {
+    const d = state.decks[which];
+    if (!d.rec || !d.rec.code) return null;
+    const g = deckGain(which);
+    if (g <= 0) return null;
+    let bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+    if (d.killLow) bed += '.hpf(300)';
+    if (d.killHi)  bed += '.lpf(700)';
+    // Loop roll wraps the master bed in beat-repeat
+    if (state.loopRoll) bed += '.ply("4")';
+    bed += '.gain(' + n2s(g) + ')';
+    return bed;
+  }
+  function compose(overrideCps) {
+    const rec = masterRec();
+    if (!rec) return null;
+    const cps = overrideCps !== undefined ? overrideCps : masterCps();
+    const layers = [];
+    const bedA = bedFor('a');
+    const bedB = bedFor('b');
+    if (bedA) layers.push(bedA);
+    if (bedB) layers.push(bedB);
+    if (!layers.length) return null;
+    return 'setcps(' + cps + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  // ── throttled evaluate ────────────────────────────────────────────────────
+  let evalTimer = 0, lastEval = 0;
+  function doEval(overrideCps) {
+    lastEval = Date.now();
+    const code = compose(overrideCps);
+    if (!code) { if (typeof window.hush === 'function') window.hush(); return; }
+    window.__lastCode = code;
+    if (typeof window.evaluate === 'function') window.evaluate(code);
+  }
+  function refresh() {
+    const code = compose();
+    $('program').textContent = code || '— nothing loaded —';
+    updatePlatters();
+    updateTempoDisplay();
+    if (!state.playing) return;
+    clearTimeout(evalTimer);
+    const wait = Math.max(0, 150 - (Date.now() - lastEval));
+    evalTimer = setTimeout(function() { doEval(); }, wait);
+  }
+  // Immediate evaluate at a specific cps, bypassing the debounce
+  function evalNow(overrideCps) {
+    clearTimeout(evalTimer);
+    doEval(overrideCps);
+  }
+
+  // ── transport ─────────────────────────────────────────────────────────────
+  async function play() {
+    if (!masterRec()) { setStatus('Load a record onto a deck first.'); return; }
+    if (state.playing) return;
+    setStatus('Waking the audio engine…');
+    try {
+      if (!state.audioReady) {
+        await window.initStrudel();
+        await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        state.audioReady = true;
+      }
+    } catch (err) {
+      setStatus('Audio failed to start — ' + err);
+      return;
+    }
+    state.playing   = true;
+    state.playStart = Date.now();
+    lastEval = 0;
+    $('playBtn').classList.add('live');
+    startClock();
+    refresh();
+    setStatus('Live. Cue the incoming deck, arm a drop.');
+  }
+  function stop() {
+    if (!state.playing) { setStatus('Already stopped.'); return; }
+    state.playing = false;
+    clearTimeout(evalTimer);
+    stopClock();
+    // Clear any armed state
+    if (state.armed) clearArm();
+    if (state.cued)  clearCue();
+    // Restore original cps if a spinback was in progress
+    if (state.preSpinCps !== null) { state.preSpinCps = null; }
+    if (typeof window.hush === 'function') window.hush();
+    $('playBtn').classList.remove('live');
+    updatePlatters();
+    $('beatPos').textContent   = 'BAR — / 16';
+    $('countdown').textContent = '—';
+    $('countdown').className   = 'countdown';
+    renderPips(0);
+    setStatus('Stopped.');
+  }
+
+  // ── decks + platters ──────────────────────────────────────────────────────
+  function loadDeck(which, entry) {
+    state.decks[which].rec = entry;
+    const platterEl = $(which === 'a' ? 'platterA' : 'platterB');
+    platterEl.innerHTML = '<div class="disc">' +
+      (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>';
+    $(which === 'a' ? 'metaA' : 'metaB').innerHTML =
+      '<strong>' + escapeHtml(entry.name || 'Untitled') + '</strong><br>' +
+      escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' +
+      (entry.bpm || '?') + ' BPM';
+    refresh();
+    setStatus('"' + (entry.name || 'Untitled') + '" on deck ' + which.toUpperCase() + '.');
+  }
+  function updatePlatters() {
+    ['a', 'b'].forEach(function(which) {
+      const platterEl = $(which === 'a' ? 'platterA' : 'platterB');
+      const audible = state.playing && !!state.decks[which].rec && deckGain(which) > 0;
+      platterEl.classList.toggle('spin',  audible);
+      platterEl.classList.toggle('cued',  state.cued === which);
+    });
+  }
+  function updateTempoDisplay() {
+    const rec = masterRec();
+    $('tempoDisplay').textContent = rec
+      ? masterCps() + ' cps · ' + Math.round(masterCps() * 240) + ' BPM'
+      : '— cps';
+  }
+
+  // ── phrase clock (rAF loop) ───────────────────────────────────────────────
+  // Light: 1 bar = 1 cycle at masterCps(). Drifts vs Strudel's scheduler
+  // because evaluate() has its own startup latency — acceptable for a spike.
+  let clockRaf = 0;
+  function startClock() {
+    if (clockRaf) cancelAnimationFrame(clockRaf);
+    function tick() {
+      if (!state.playing) return;
+      const elapsed   = (Date.now() - state.playStart) / 1000;
+      const barPos    = elapsed * masterCps();
+      const bar       = Math.floor(barPos) % PHRASE_LEN;
+      const totalBars = Math.floor(barPos);
+      state.currentBar = bar;
+
+      // Update bar readout
+      $('beatPos').textContent = 'BAR ' + (bar + 1) + ' / ' + PHRASE_LEN;
+      renderPips(bar);
+
+      // Countdown and phrase-locked drop execution
+      if (state.armed) {
+        const barsLeft = PHRASE_LEN - bar - 1;
+        const cdEl = $('countdown');
+        cdEl.className = 'countdown armed';
+
+        // FADE 4: start ramping in the 4 bars before the boundary
+        if (state.dropMode === 'fade' && barsLeft <= 4 && barsLeft > 0) {
+          // Ramp cross toward target across the last 4 bars.
+          // We want cross = target at barsLeft = 0.
+          const progress = (4 - barsLeft) / 4;  // 0 → 1 over 4 bars
+          const targetCross = state.armed === 'b' ? 1 : 0;
+          const startCross  = state.armed === 'b' ? 0 : 1;
+          // Interpolate toward the target: only move if we haven't hit it
+          const nextCross = startCross + (targetCross - startCross) * progress;
+          // Throttle: only update if the value meaningfully changed
+          if (Math.abs(nextCross - state.cross) > 0.009) {
+            state.cross = Math.round(nextCross * 100) / 100;
+            $('cross').value = state.cross;
+            refresh();
+          }
+          cdEl.textContent = 'FADING · ' + barsLeft + ' bars';
+        } else if (barsLeft === 0) {
+          // On the last bar before the boundary — check if we've just crossed
+          // We detect phrase boundary by: bar === 0 AND totalBars > 0
+          // Actually detect it: bar === PHRASE_LEN - 1 means we're ON that bar
+          cdEl.textContent = 'DROP INCOMING…';
+        } else {
+          cdEl.textContent = 'drop in ' + barsLeft + ' bar' + (barsLeft !== 1 ? 's' : '');
+        }
+
+        // Execute the drop at the phrase boundary (bar 0 after at least one full bar has played)
+        if (bar === 0 && totalBars > 0) {
+          const wasArmed = state.armed;
+          // Check this is a fresh boundary (not re-triggering on same bar)
+          if (!state._dropFired || state._dropFiredTotal !== totalBars) {
+            state._dropFired      = true;
+            state._dropFiredTotal = totalBars;
+            executeDrop(wasArmed);
+          }
+        } else {
+          state._dropFired = false;
+        }
+      } else {
+        $('countdown').className   = 'countdown';
+        $('countdown').textContent = state.playing ? '' : '—';
+      }
+
+      clockRaf = requestAnimationFrame(tick);
+    }
+    clockRaf = requestAnimationFrame(tick);
+  }
+  function stopClock() {
+    if (clockRaf) { cancelAnimationFrame(clockRaf); clockRaf = 0; }
+    state._dropFired = false;
+  }
+  function renderPips(bar) {
+    const container = $('phrasePips');
+    // Build pips once, then update classes
+    if (container.children.length !== PHRASE_LEN) {
+      container.innerHTML = '';
+      for (let i = 0; i < PHRASE_LEN; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'pip';
+        container.appendChild(pip);
+      }
+    }
+    const near = PHRASE_LEN - 4; // last 4 bars light up amber when armed
+    const pips  = container.children;
+    for (let i = 0; i < PHRASE_LEN; i++) {
+      const lit  = i <= bar && state.playing;
+      const warn = state.armed && i >= near && lit;
+      pips[i].className = 'pip' + (warn ? ' near' : lit ? ' lit' : '');
+    }
+  }
+
+  // ── drop execution ────────────────────────────────────────────────────────
+  function executeDrop(target) {
+    // target: 'a' or 'b'
+    if (state.dropMode === 'slam') {
+      state.cross = target === 'b' ? 1 : 0;
+      $('cross').value = state.cross;
+    } else {
+      // Fade should have run to completion, but snap the remainder
+      state.cross = target === 'b' ? 1 : 0;
+      $('cross').value = state.cross;
+    }
+    clearArm();
+    refresh();
+    flashStatus('DROPPED → ' + target.toUpperCase());
+    const cdEl = $('countdown');
+    cdEl.className   = 'countdown dropped';
+    cdEl.textContent = '✓ DROPPED →' + target.toUpperCase();
+    setTimeout(function() {
+      cdEl.className   = 'countdown';
+      cdEl.textContent = '';
+    }, 2000);
+  }
+
+  // ── cue (solo-preview) ────────────────────────────────────────────────────
+  // Only one deck cued at a time. While cued, the other deck's gain = 0.
+  function toggleCue(which) {
+    if (state.cued === which) {
+      clearCue();
+    } else {
+      state.cued = which;
+      $('cueA').classList.toggle('on', which === 'a');
+      $('cueB').classList.toggle('on', which === 'b');
+      refresh();
+      setStatus('CUE ' + which.toUpperCase() + ' — solo preview. Toggle again to return to the mix.');
+    }
+  }
+  function clearCue() {
+    state.cued = null;
+    $('cueA').classList.remove('on');
+    $('cueB').classList.remove('on');
+    refresh();
+  }
+
+  // ── arm / drop ────────────────────────────────────────────────────────────
+  function toggleArm(target) {
+    if (state.armed === target) {
+      clearArm();
+      setStatus('Drop disarmed.');
+    } else {
+      if (state.armed) clearArm();
+      state.armed = target;
+      $('armA').classList.toggle('on', target === 'a');
+      $('armB').classList.toggle('on', target === 'b');
+      state._dropFired = false;
+      setStatus('DROP ARMED → ' + target.toUpperCase() + ' · waiting for phrase boundary…');
+    }
+  }
+  function clearArm() {
+    state.armed = null;
+    $('armA').classList.remove('on');
+    $('armB').classList.remove('on');
+  }
+
+  // ── RELOAD — re-evaluate target deck from stored code ────────────────────
+  // Substitutes for the "pull-up / rewind": resets the loop of the target deck.
+  // We re-compose with only the target deck audible for one evaluate, then restore.
+  function reload(which) {
+    if (!state.decks[which].rec) {
+      setStatus('Nothing on deck ' + which.toUpperCase() + ' to reload.');
+      return;
+    }
+    flashStatus('↺ RELOAD →' + which.toUpperCase());
+    // Re-evaluate from scratch by calling doEval immediately
+    doEval();
+  }
+
+  // ── LOOP ROLL — hold for beat-repeat ─────────────────────────────────────
+  // While held, wraps the master stack bed in .ply("4").
+  // Released → removes the ply and re-evaluates.
+  function startLoopRoll() {
+    if (state.loopRoll) return;
+    state.loopRoll = true;
+    $('loopRollBtn').classList.add('on');
+    if (state.playing) doEval();
+  }
+  function stopLoopRoll() {
+    if (!state.loopRoll) return;
+    state.loopRoll = false;
+    $('loopRollBtn').classList.remove('on');
+    if (state.playing) doEval();
+  }
+
+  // ── SPINBACK — ramp cps to near-zero, then hush ──────────────────────────
+  // Approximate: ramps setcps down via a handful of throttled re-evaluates
+  // (~0.5s total). Real deceleration is smoother; noted in footer.
+  // On the next PLAY, masterCps() resumes from the record's real cps.
+  let spinbackTimer = 0;
+  function spinback() {
+    if (!state.playing) { setStatus('Start playback first.'); return; }
+    if (state.preSpinCps !== null) return; // already spinning back
+    const startCps  = masterCps();
+    state.preSpinCps = startCps;
+    const steps  = 8;
+    const stepMs = 65; // ~0.5s total
+    let   step   = 0;
+    flashStatus('SPINBACK…');
+    $('spinbackBtn').classList.add('on');
+    function doStep() {
+      step++;
+      if (step >= steps) {
+        // Final: hush
+        if (typeof window.hush === 'function') window.hush();
+        state.playing   = false;
+        state.playStart = 0;
+        state.preSpinCps = null;
+        clearTimeout(evalTimer);
+        stopClock();
+        clearArm();
+        clearCue();
+        $('playBtn').classList.remove('live');
+        $('spinbackBtn').classList.remove('on');
+        updatePlatters();
+        $('beatPos').textContent   = 'BAR — / 16';
+        $('countdown').textContent = '—';
+        $('countdown').className   = 'countdown';
+        renderPips(0);
+        setStatus('Stopped (spinback). Hit PLAY to restart.');
+        return;
+      }
+      // Ramp: exponential decay toward 0
+      const progress = step / steps;
+      const cps = Math.round(startCps * Math.pow(1 - progress, 2) * 1000) / 1000;
+      evalNow(cps > 0.01 ? cps : 0.01);
+      spinbackTimer = setTimeout(doStep, stepMs);
+    }
+    spinbackTimer = setTimeout(doStep, 20);
+  }
+
+  // ── status flash ─────────────────────────────────────────────────────────
+  let statusTimer = 0;
+  function flashStatus(msg, durationMs) {
+    setStatus(msg);
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function() {
+      if (state.playing) setStatus('Live. Cue the incoming deck, arm a drop.');
+    }, durationMs || 1800);
+  }
+
+  // ── shelf ─────────────────────────────────────────────────────────────────
+  function renderShelf() {
+    const box = $('sleeves');
+    box.innerHTML = '';
+    shelfRecords().forEach(function(entry) {
+      const sleeve = document.createElement('div');
+      sleeve.className = 'sleeve';
+      sleeve.innerHTML =
+        '<div class="vin">' + (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>' +
+        '<div class="nm"><b>' + escapeHtml(entry.name || 'Untitled') + '</b>' +
+        '<span>' + escapeHtml(entry.key || '') + ' · ' + (entry.bpm || '?') + ' BPM</span>' +
+        (entry.demo ? '<br><span class="demo-tag">demo pressing</span>' : '') + '</div>' +
+        '<div class="load"><button data-to="a">→A</button><button data-to="b">→B</button></div>';
+      sleeve.querySelectorAll('button').forEach(function(btn) {
+        btn.addEventListener('click', function() { loadDeck(btn.dataset.to, entry); });
+      });
+      box.appendChild(sleeve);
+    });
+  }
+
+  // ── PRESS ─────────────────────────────────────────────────────────────────
+  function shortName(name) {
+    const n = String(name || 'Untitled');
+    return n.length > 16 ? n.slice(0, 15) + '…' : n;
+  }
+  function press() {
+    const rec  = masterRec();
+    const code = compose();
+    if (!rec || !code) { setStatus('Nothing to press — load a deck first.'); return; }
+    const a = state.decks.a.rec, b = state.decks.b.rec;
+    const name = (a && b)
+      ? shortName(a.name) + ' × ' + shortName(b.name)
+      : shortName(rec.name) + ' × Cue Drop';
+    const genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
+    const lane   = genome ? topLane(genome) : 0;
+    const cps    = masterCps();
+    const entry  = {
+      id: 'rec-' + Date.now().toString(36) + '-cd',
+      name: name,
+      key: rec.key, scaleType: rec.scaleType,
+      bpm: Math.round(cps * 240), cps: cps,
+      genre: rec.genre || null, genreLabel: rec.genreLabel || null,
+      code: code, genome: genome,
+      art: { seed: Date.now() >>> 0, layer: lane, variant: genome ? (genome.variant[lane] || 0) : 0 },
+      approval: null, source: 'remix', savedAt: Date.now(),
+    };
+    const crate = loadCrate();
+    if (crate.length && crate[0].code === code) {
+      setStatus('Already pressed — the newest record in the crate is this exact cut.');
+      return;
+    }
+    crate.unshift(entry);
+    if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
+    saveCrate(crate);
+    renderShelf();
+    setStatus('Pressed "' + name + '" into the crate.');
+  }
+
+  // ── UI wiring ─────────────────────────────────────────────────────────────
+  $('playBtn').addEventListener('click', play);
+  $('stopBtn').addEventListener('click', stop);
+  $('pressBtn').addEventListener('click', press);
+
+  $('cross').addEventListener('input', function(e) {
+    state.cross = parseFloat(e.target.value);
+    refresh();
+  });
+  $('nudge').addEventListener('input', function(e) {
+    state.nudge = parseFloat(e.target.value);
+    $('nudgeVal').textContent = (state.nudge >= 0 ? '+' : '') + state.nudge.toFixed(1) + '%';
+    refresh();
+  });
+  [['trimA', 'a'], ['trimB', 'b']].forEach(function(pair) {
+    const id = pair[0], which = pair[1];
+    $(id).addEventListener('input', function(e) {
+      state.decks[which].trim = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].trim.toFixed(2);
+      refresh();
+    });
+  });
+  document.querySelectorAll('.kill').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const d = state.decks[btn.dataset.deck];
+      d[btn.dataset.kill] = !d[btn.dataset.kill];
+      btn.classList.toggle('on', d[btn.dataset.kill]);
+      refresh();
+    });
+  });
+
+  // Cue buttons
+  $('cueA').addEventListener('click', function() { toggleCue('a'); });
+  $('cueB').addEventListener('click', function() { toggleCue('b'); });
+
+  // Arm drop buttons
+  $('armA').addEventListener('click', function() { toggleArm('a'); });
+  $('armB').addEventListener('click', function() { toggleArm('b'); });
+
+  // Reload buttons
+  $('reloadA').addEventListener('click', function() { reload('a'); });
+  $('reloadB').addEventListener('click', function() { reload('b'); });
+
+  // Drop mode toggle
+  $('modeSlamBtn').addEventListener('click', function() {
+    state.dropMode = 'slam';
+    $('modeSlamBtn').classList.add('active');
+    $('modeFadeBtn').classList.remove('active');
+  });
+  $('modeFadeBtn').addEventListener('click', function() {
+    state.dropMode = 'fade';
+    $('modeFadeBtn').classList.add('active');
+    $('modeSlamBtn').classList.remove('active');
+  });
+
+  // Loop roll — mousedown/mouseup + touchstart/touchend for hold behaviour
+  var loopRollEl = $('loopRollBtn');
+  loopRollEl.addEventListener('mousedown',  function(e) { e.preventDefault(); startLoopRoll(); });
+  loopRollEl.addEventListener('touchstart', function(e) { e.preventDefault(); startLoopRoll(); });
+  document.addEventListener('mouseup',  stopLoopRoll);
+  document.addEventListener('touchend', stopLoopRoll);
+
+  // Spinback
+  $('spinbackBtn').addEventListener('click', spinback);
+
+  // ── headless hooks ────────────────────────────────────────────────────────
+  window.__spike = {
+    compose: compose,
+    state: function() {
+      return {
+        playing:    state.playing,
+        cross:      state.cross,
+        nudge:      state.nudge,
+        masterCps:  masterRec() ? masterCps() : null,
+        currentBar: state.currentBar,
+        armed:      state.armed,
+        cued:       state.cued,
+        dropMode:   state.dropMode,
+        loopRoll:   state.loopRoll,
+        deckA: state.decks.a.rec
+          ? { id: state.decks.a.rec.id, name: state.decks.a.rec.name,
+              gain: deckGain('a'), killLow: state.decks.a.killLow, killHi: state.decks.a.killHi }
+          : null,
+        deckB: state.decks.b.rec
+          ? { id: state.decks.b.rec.id, name: state.decks.b.rec.name,
+              gain: deckGain('b'), killLow: state.decks.b.killLow, killHi: state.decks.b.killHi }
+          : null,
+      };
+    },
+    loadDemo: function() {
+      var demos = demoRecords();
+      loadDeck('a', demos[0]);
+      loadDeck('b', demos[1]);
+    },
+  };
+  window.__lastCode = null;
+
+  renderShelf();
+  refresh();
+})();
+</script>
+</body>
+</html>

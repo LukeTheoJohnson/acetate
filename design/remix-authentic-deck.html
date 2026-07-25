@@ -1,0 +1,1421 @@
+<!doctype html>
+<!--
+  ── THE AUTHENTIC DECK ────────────────────────────────────────────────────────
+  The union of three winning spikes on one two-deck chassis, unified by ONE idea:
+  the phrase is the clock; everything else snaps to it.
+
+  · Phrase timeline + quantised timed transition (from Phrase Deck) — 32-bar ruler,
+    playhead, MIX NOW pulse, ARM →A / →B with 8/16/32-bar boundary selector,
+    SLAM or auto-fade on the line.
+  · Per-deck stems with mute/solo/SWAP (from Stem Deck) — splitStack parser,
+    colour→lane→group map, DRUMS/BASS/CHORDS/LEAD/AIR chips; splittable:false
+    fallback for arranged/remix pressings.  Muting BASS IS the bass-swap — exact,
+    no fake 3-band EQ.
+  · Per-deck filter sweep knob + hold-to-fire FX paddles (from Channel Deck) —
+    single filter knob per deck (centre open; left → LP sweep, right → HP sweep),
+    STUTTER / GATE / ECHO-OUT on mousedown/touchstart, lifted on mouseup/touchend.
+
+  What is deferred: solo-cue, loop-roll, reload, spinback, 3-band EQ.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Authentic Deck · Strudel Auto-DJ</title>
+<style>
+  :root {
+    --bg:     #06040d;
+    --panel:  #0d0a1a;
+    --panel2: #120e24;
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --green:  #2edb8b;
+    --amber:  #ffb830;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font:   "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    /* stem group colours */
+    --drums:  #2ee6d6;
+    --bass:   #a64dff;
+    --chords: #2edb8b;
+    --lead:   #ff4dd2;
+    --air:    #4da6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #120a2a 0%, var(--bg) 55%);
+    color: var(--ink); font-family: var(--font);
+  }
+  body { padding: 26px clamp(14px, 4vw, 48px) 60px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; margin-bottom: 6px; }
+  header h1 {
+    margin: 0; font-size: clamp(22px, 3.5vw, 36px); letter-spacing: 2px;
+    background: linear-gradient(110deg, #fff, var(--cyan) 40%, var(--violet) 70%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .concept { color: var(--muted); font-size: 13px; max-width: 68ch; }
+  header .back { margin-left: auto; font-size: 12px; letter-spacing: 1px; }
+  #status { min-height: 18px; font-size: 12px; color: var(--cyan); letter-spacing: 0.5px; margin: 4px 0 14px; }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     PHRASE TIMELINE — the hero, full width
+  ───────────────────────────────────────────────────────────────────────── */
+  .timeline-wrap {
+    background: linear-gradient(180deg, #0f0c1f, #080615);
+    border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px 16px; margin-bottom: 18px;
+  }
+  .timeline-header {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .timeline-header h2 {
+    margin: 0; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .phrase-readouts {
+    display: flex; align-items: center; gap: 18px; flex: 1; flex-wrap: wrap;
+  }
+  .readout { display: flex; flex-direction: column; gap: 1px; }
+  .readout .label { font-size: 9px; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; }
+  .readout .value { font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: 0.5px; }
+  .readout .value.cyan  { color: var(--cyan); }
+  .readout .value.amber { color: var(--amber); }
+  .mix-now {
+    margin-left: auto;
+    padding: 10px 18px; border-radius: 10px; font-size: 12px; letter-spacing: 3px;
+    font-weight: 700; text-transform: uppercase;
+    border: 1px solid rgba(255,184,48,0.25); color: rgba(255,184,48,0.3);
+    background: rgba(255,184,48,0.04); transition: all .12s;
+    min-width: 110px; text-align: center; white-space: nowrap;
+  }
+  .mix-now.pulse {
+    color: #1a0a00; background: var(--amber);
+    border-color: var(--amber); box-shadow: 0 0 24px rgba(255,184,48,0.7);
+    animation: mixpulse .35s ease-in-out infinite alternate;
+  }
+  @keyframes mixpulse { from { opacity: 0.85; } to { opacity: 1; transform: scale(1.03); } }
+
+  #timelineCanvas {
+    width: 100%; height: 64px; display: block; border-radius: 8px;
+    background: #05030e;
+  }
+
+  .arm-row {
+    display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap;
+  }
+  .arm-label { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .arm-btn {
+    font-family: var(--font); font-size: 12px; letter-spacing: 2px; cursor: pointer;
+    padding: 10px 20px; border-radius: 10px; color: var(--ink); font-weight: 600;
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+    text-transform: uppercase;
+  }
+  .arm-btn:hover { border-color: var(--cyan); }
+  .arm-btn[data-target="a"].armed { background: var(--cyan); border-color: var(--cyan); color: #06202a; box-shadow: 0 0 18px rgba(34,211,238,0.55); }
+  .arm-btn[data-target="b"].armed { background: var(--pink); border-color: var(--pink); color: #1a000e; box-shadow: 0 0 18px rgba(255,61,129,0.55); }
+  .boundary-select {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 9px 14px; border-radius: 9px; background: #0b0916; color: var(--ink);
+    border: 1px solid rgba(255,255,255,0.14); appearance: none; -webkit-appearance: none;
+  }
+  .boundary-select:focus { outline: none; border-color: var(--violet); }
+  .autofade-wrap { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .autofade-wrap label { font-size: 10px; letter-spacing: 2px; color: var(--muted); cursor: pointer; text-transform: uppercase; }
+  .autofade-wrap input[type=checkbox] { accent-color: var(--violet); width: 14px; height: 14px; cursor: pointer; }
+  #droppedMsg {
+    font-size: 11px; letter-spacing: 2px; color: var(--green); text-transform: uppercase;
+    min-width: 80px; transition: opacity .4s; opacity: 0;
+  }
+  #droppedMsg.show { opacity: 1; }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     THE RIG — Deck A | Mixer | Deck B
+  ───────────────────────────────────────────────────────────────────────── */
+  .rig {
+    display: grid; grid-template-columns: 1fr minmax(240px, 320px) 1fr;
+    gap: 18px; align-items: start;
+  }
+  .deck {
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .deck h2 { margin: 0; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .deck.a h2 b { color: var(--cyan); }
+  .deck.b h2 b { color: var(--pink); }
+
+  /* Small spinning platter — identity badge, timeline is the hero */
+  .platter {
+    width: min(130px, 40vw); aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 40%, #171226, #0a0814 70%);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.7);
+  }
+  .platter .disc { width: 92%; height: 92%; border-radius: 50%; }
+  .platter.spin .disc { animation: rot 2.2s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .platter .empty {
+    width: 88%; height: 88%; border-radius: 50%;
+    border: 2px dashed rgba(157,143,199,0.35);
+    display: grid; place-items: center;
+    color: var(--muted); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    text-align: center; padding: 12%;
+  }
+  .deck-meta { text-align: center; font-size: 11px; color: var(--muted); line-height: 1.5; min-height: 30px; }
+  .deck-meta strong { color: var(--ink); font-size: 12px; letter-spacing: 0.5px; }
+
+  /* ── Stem strip ───────────────────────────────────────────────────────── */
+  .stem-strip { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+  .stem-strip-head {
+    font-size: 9px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase;
+    text-align: center; margin-bottom: 2px;
+  }
+  .stem-chip {
+    display: flex; align-items: center; gap: 5px; width: 100%;
+    background: rgba(0,0,0,0.25); border-radius: 7px; padding: 4px 7px;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .stem-chip .stem-label {
+    flex: 1; font-size: 9.5px; letter-spacing: 1.5px; font-weight: 600; text-transform: uppercase;
+  }
+  .stem-chip button {
+    font-family: var(--font); font-size: 9px; letter-spacing: 1px; cursor: pointer;
+    padding: 2px 7px; border-radius: 5px; background: #0b0916;
+    border: 1px solid rgba(255,255,255,0.14); color: var(--muted); transition: all .12s;
+  }
+  .stem-chip button.mute.on { background: var(--pink); border-color: var(--pink); color: #1a0008; font-weight: 700; }
+  .stem-chip button.solo.on { background: #f5c842; border-color: #f5c842; color: #1a1000; font-weight: 700; }
+  .stem-full-note { font-size: 10px; color: var(--muted); text-align: center; font-style: italic; padding: 3px 0; }
+
+  /* ── Per-deck filter knob ─────────────────────────────────────────────── */
+  .filter-row {
+    width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    border-top: 1px solid rgba(255,255,255,0.07); padding-top: 8px; margin-top: 2px;
+  }
+  .filter-row .filter-label { font-size: 9px; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; }
+  .filter-row input[type=range] { width: 100%; accent-color: var(--amber); }
+  .filter-row .filter-val { font-size: 10px; color: var(--ink); }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     CENTRE MIXER
+  ───────────────────────────────────────────────────────────────────────── */
+  .mixer {
+    background: linear-gradient(180deg, #100c20, #0a0716);
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px 14px 18px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .mixer h2 { margin: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+
+  /* Crossfader */
+  .xfade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 4px 6px 0; }
+  .xfade span { font-size: 12px; font-weight: 700; }
+  .xfade span:first-child { color: var(--cyan); }
+  .xfade span:last-child  { color: var(--pink); }
+  .xfade input { width: 100%; accent-color: var(--cyan); }
+  .xfade-cap { text-align: center; font-size: 9.5px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  /* Gain trims */
+  .mixer-gains { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mixer-chan {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.25));
+    padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .mixer-chan .tag { font-size: 10px; letter-spacing: 3px; }
+  .mixer-chan[data-deck="a"] .tag { color: var(--cyan); }
+  .mixer-chan[data-deck="b"] .tag { color: var(--pink); }
+  .mixer-chan label { font-size: 8.5px; letter-spacing: 2px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .mixer-chan input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 22px; height: 72px; accent-color: var(--violet); }
+  .mixer-chan .trimval { font-size: 9.5px; color: var(--ink); }
+
+  /* Swap macros */
+  .swap-row { display: flex; flex-direction: column; gap: 6px; }
+  .swap-row .swap-head { font-size: 9px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; text-align: center; }
+  .btn-swap {
+    font-family: var(--font); font-size: 10.5px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 8px 10px; border-radius: 9px; color: var(--violet);
+    background: rgba(122,92,255,0.08); border: 1px solid rgba(122,92,255,0.35);
+    transition: all .15s; text-transform: uppercase; font-weight: 600; width: 100%;
+  }
+  .btn-swap:hover { background: rgba(122,92,255,0.18); box-shadow: 0 0 12px rgba(122,92,255,0.4); }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     MASTER BAR
+  ───────────────────────────────────────────────────────────────────────── */
+  .master {
+    margin-top: 18px; border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
+  }
+  .master .group { display: flex; flex-direction: column; gap: 7px; }
+  .master .group h3 { margin: 0; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .master .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.play { border-color: var(--cyan); color: var(--cyan); }
+  .btn.play.live { background: var(--cyan); color: #06202a; font-weight: 700; box-shadow: 0 0 18px rgba(34,211,238,0.6); }
+
+  /* Hold-to-fire FX paddles */
+  .paddle {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14);
+    transition: all .1s; user-select: none; -webkit-user-select: none;
+  }
+  .paddle small { display: block; font-size: 9px; letter-spacing: 1px; color: var(--muted); margin-top: 3px; }
+  .paddle.held { background: var(--pink); border-color: var(--pink); color: #fff; box-shadow: 0 0 18px rgba(255,61,129,0.6); font-weight: 700; }
+  .paddle.held small { color: rgba(255,255,255,0.7); }
+
+  .nudge { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .nudge input { width: 120px; accent-color: var(--pink); }
+  .nudge b { color: var(--ink); font-size: 11px; min-width: 46px; }
+  #tempo { font-size: 11px; color: var(--cyan); letter-spacing: 1px; }
+
+  .press {
+    margin-left: auto; padding: 14px 22px; border-radius: 12px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; letter-spacing: 2px; font-weight: 700;
+    color: #2a0614; background: linear-gradient(110deg, var(--pink), #ff7ab0);
+    border: none; box-shadow: 0 0 22px rgba(255,61,129,0.35); transition: transform .12s;
+  }
+  .press:hover { transform: translateY(-1px); }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     RECORD SHELF
+  ───────────────────────────────────────────────────────────────────────── */
+  .shelf { margin-top: 20px; }
+  .shelf h2 { font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; margin: 0 0 10px; }
+  .sleeves { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+  .sleeve {
+    flex: 0 0 144px; background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .sleeve .vin { width: 112px; height: 112px; }
+  .sleeve .nm { font-size: 11px; text-align: center; line-height: 1.35; }
+  .sleeve .nm b { display: block; letter-spacing: 0.5px; }
+  .sleeve .nm span { color: var(--muted); font-size: 10px; }
+  .sleeve .load { display: flex; gap: 6px; }
+  .sleeve .load button {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    padding: 5px 11px; border-radius: 7px; background: #0b0916; color: var(--ink);
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .sleeve .load button:first-child:hover { border-color: var(--cyan); color: var(--cyan); }
+  .sleeve .load button:last-child:hover  { border-color: var(--pink); color: var(--pink); }
+  .demo-tag { font-size: 9px; letter-spacing: 2px; color: var(--violet); text-transform: uppercase; }
+
+  details { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(13,10,26,0.7); }
+  details summary { cursor: pointer; padding: 10px 16px; font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  details pre {
+    margin: 0; padding: 14px 18px; font-size: 11.5px; line-height: 1.6; color: #b9f5ef;
+    overflow-x: auto; border-top: 1px solid var(--line); white-space: pre;
+  }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; max-width: 78ch; }
+  footer h2 { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
+  footer ul { margin: 0; padding-left: 18px; }
+  footer code { color: var(--cyan); font-size: 0.92em; }
+
+  @media (max-width: 900px) {
+    .rig { grid-template-columns: 1fr; }
+    .press { margin-left: 0; }
+    .autofade-wrap { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>THE AUTHENTIC DECK</h1>
+    <span class="concept">
+      Phrase timeline + quantised ARM transition · per-deck stems with mute/solo/SWAP
+      · filter sweep knob · hold-to-fire FX paddles — one two-deck chassis, one idea:
+      the phrase is the clock.
+    </span>
+    <a class="back" href="../index.html">&#8592; back to the app</a>
+  </header>
+  <div id="status">Load a record onto each deck, then hit PLAY.</div>
+
+  <!-- ── PHRASE TIMELINE ─────────────────────────────────────────────────── -->
+  <div class="timeline-wrap">
+    <div class="timeline-header">
+      <h2>Phrase Clock &middot; 32 bars</h2>
+      <div class="phrase-readouts">
+        <div class="readout">
+          <span class="label">Bar</span>
+          <span class="value cyan" id="readBar">&#8212; / 32</span>
+        </div>
+        <div class="readout">
+          <span class="label">Phrase</span>
+          <span class="value" id="readPhrase">&#8212;</span>
+        </div>
+        <div class="readout">
+          <span class="label">Next boundary in</span>
+          <span class="value amber" id="readNext">&#8212; bars</span>
+        </div>
+        <div class="readout">
+          <span class="label">Armed</span>
+          <span class="value" id="readArmed">&#8212;</span>
+        </div>
+      </div>
+      <div class="mix-now" id="mixNow">MIX NOW</div>
+    </div>
+
+    <canvas id="timelineCanvas" height="64"></canvas>
+
+    <div class="arm-row">
+      <span class="arm-label">Arm</span>
+      <button class="arm-btn" data-target="a" id="armA">ARM &#8594;A</button>
+      <button class="arm-btn" data-target="b" id="armB">ARM &#8594;B</button>
+      <span class="arm-label" style="margin-left:8px">Boundary</span>
+      <select class="boundary-select" id="boundarySelect">
+        <option value="8">8 bars</option>
+        <option value="16" selected>16 bars</option>
+        <option value="32">32 bars</option>
+      </select>
+      <div class="autofade-wrap">
+        <input type="checkbox" id="autofadeCheck" />
+        <label for="autofadeCheck">Auto-fade</label>
+      </div>
+      <span id="droppedMsg">DROPPED</span>
+    </div>
+  </div>
+
+  <!-- ── THE RIG ─────────────────────────────────────────────────────────── -->
+  <div class="rig">
+
+    <!-- ── Deck A ──────────────────────────────────────────────────────── -->
+    <section class="deck a">
+      <h2>Deck <b>A</b></h2>
+      <div class="platter" id="platterA"><div class="empty">shelf &#8594;A</div></div>
+      <div class="deck-meta" id="metaA">nothing loaded</div>
+
+      <div class="stem-strip" id="stemStripA">
+        <div class="stem-strip-head">Stems</div>
+        <div class="stem-full-note">&#8212; load a record &#8212;</div>
+      </div>
+
+      <div class="filter-row">
+        <span class="filter-label">Filter</span>
+        <input type="range" id="filterA" min="-1" max="1" step="0.01" value="0" />
+        <span class="filter-val" id="filterAVal">0.00</span>
+      </div>
+    </section>
+
+    <!-- ── Centre mixer ────────────────────────────────────────────────── -->
+    <section class="mixer">
+      <h2>Mixer</h2>
+
+      <!-- Crossfader -->
+      <div>
+        <div class="xfade">
+          <span>A</span>
+          <input type="range" id="cross" min="0" max="1" step="0.01" value="0" />
+          <span>B</span>
+        </div>
+        <div class="xfade-cap">crossfader &middot; equal power</div>
+      </div>
+
+      <!-- Channel gain trims -->
+      <div class="mixer-gains">
+        <div class="mixer-chan" data-deck="a">
+          <span class="tag">CH&middot;A</span>
+          <label>GAIN
+            <input type="range" id="trimA" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimAVal">1.00</span>
+          </label>
+        </div>
+        <div class="mixer-chan" data-deck="b">
+          <span class="tag">CH&middot;B</span>
+          <label>GAIN
+            <input type="range" id="trimB" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimBVal">1.00</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Swap macros -->
+      <div class="swap-row">
+        <div class="swap-head">Swap macros</div>
+        <button class="btn-swap" id="swapArhythmBmelody">A drums &#215; B melody</button>
+        <button class="btn-swap" id="swapAmelodyBrhythm">A melody &#215; B drums</button>
+      </div>
+    </section>
+
+    <!-- ── Deck B ──────────────────────────────────────────────────────── -->
+    <section class="deck b">
+      <h2>Deck <b>B</b></h2>
+      <div class="platter" id="platterB"><div class="empty">shelf &#8594;B</div></div>
+      <div class="deck-meta" id="metaB">nothing loaded</div>
+
+      <div class="stem-strip" id="stemStripB">
+        <div class="stem-strip-head">Stems</div>
+        <div class="stem-full-note">&#8212; load a record &#8212;</div>
+      </div>
+
+      <div class="filter-row">
+        <span class="filter-label">Filter</span>
+        <input type="range" id="filterB" min="-1" max="1" step="0.01" value="0" />
+        <span class="filter-val" id="filterBVal">0.00</span>
+      </div>
+    </section>
+
+  </div><!-- /.rig -->
+
+  <!-- ── MASTER BAR ─────────────────────────────────────────────────────── -->
+  <section class="master">
+    <div class="group">
+      <h3>Master</h3>
+      <div class="row">
+        <button class="btn play" id="playBtn">&#9654; PLAY</button>
+        <button class="btn" id="stopBtn">&#9209; STOP</button>
+        <span class="nudge">NUDGE
+          <input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" />
+          <b id="nudgeVal">+0.0%</b>
+        </span>
+        <span id="tempo">&#8212; cps</span>
+      </div>
+    </div>
+    <div class="group">
+      <h3>FX paddles &middot; hold to fire</h3>
+      <div class="row">
+        <button class="paddle" id="padStutter">STUTTER<small>ply &#215; 4</small></button>
+        <button class="paddle" id="padGate">GATE<small>1 0 1 0 1 0 1 0</small></button>
+        <button class="paddle" id="padEcho">ECHO-OUT<small>delay + room</small></button>
+      </div>
+    </div>
+    <button class="press" id="pressBtn">&#9679; PRESS TO CRATE</button>
+  </section>
+
+  <!-- ── RECORD SHELF ───────────────────────────────────────────────────── -->
+  <section class="shelf">
+    <h2>Record shelf</h2>
+    <div class="sleeves" id="sleeves"></div>
+  </section>
+
+  <details>
+    <summary>Live program</summary>
+    <pre id="program">&#8212; nothing loaded &#8212;</pre>
+  </details>
+
+  <footer>
+    <h2>What this deck is</h2>
+    <ul>
+      <li><b>One idea:</b> the phrase is the clock. The 32-bar timeline drives everything —
+        ARM a transition and it fires <em>on the bar</em>, not whenever.</li>
+      <li><b>Stems are exact, not AI:</b> because this app composed the record, it can split it
+        for free. Muting BASS on a deck IS the bass-swap — no approximation, no fake EQ.</li>
+      <li><b>Filter per deck:</b> centre = open; left (negative) &#8594; LP sweep down to ~200 Hz;
+        right (positive) &#8594; HP sweep up to ~3.2 kHz. Single knob, no fake 3-band.</li>
+      <li><b>Hold-to-fire paddles:</b> STUTTER (<code>.ply("4")</code>), GATE
+        (<code>.struct("1 0 1 0 1 0 1 0")</code>), ECHO-OUT
+        (<code>.delay(0.4).delaytime(0.1875).delayfeedback(0.6).room(0.3)</code>) — lifted
+        on mouseup, no lingering state.</li>
+      <li><b>Deferred:</b> solo-cue, loop-roll, reload, spinback.</li>
+    </ul>
+  </footer>
+
+<!-- Strudel live-coding engine -->
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<!-- Repo scripts in dependency order, all on window.SDJ -->
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── helpers ────────────────────────────────────────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  var CRATE_KEY = 'sdj.crate';
+  var CRATE_CAP = 64;
+  var DEMO_SEEDS = [20260724, 47810923];
+
+  /* Phrase clock */
+  var PHRASE_BARS = 32;
+  var GROUP_BARS  = 8;
+
+  /* ── colour → stem group map (from Stem Deck) ─────────────────────────── */
+  var COLOUR_GROUP = {
+    '#f43f7d': 'DRUMS',
+    '#2ee6d6': 'DRUMS',
+    '#a64dff': 'BASS',
+    '#ff9a1f': 'DRUMS',
+    '#2edb8b': 'CHORDS',
+    '#ff4dd2': 'LEAD',
+    '#4da6ff': 'AIR',
+  };
+  var GROUP_COLOUR = {
+    DRUMS:  '#2ee6d6',
+    BASS:   '#a64dff',
+    CHORDS: '#2edb8b',
+    LEAD:   '#ff4dd2',
+    AIR:    '#4da6ff',
+  };
+  var GROUP_ORDER = ['DRUMS', 'BASS', 'CHORDS', 'LEAD', 'AIR'];
+
+  /* ── state ───────────────────────────────────────────────────────────────── */
+  var state = {
+    playing:    false,
+    audioReady: false,
+    cross:      0,       /* 0 = full A, 1 = full B */
+    nudge:      0,       /* ±8% tempo trim */
+    decks: {
+      a: { rec: null, trim: 1, stems: null, filter: 0 },
+      b: { rec: null, trim: 1, stems: null, filter: 0 },
+    },
+    /* hold-to-fire FX paddles — true while button held */
+    paddles: { stutter: false, gate: false, echo: false },
+    /* Phrase clock */
+    playStart:  0,
+    currentBar: 0,
+    barFrac:    0,
+    /* ARM system */
+    armed:      null,   /* null | 'a' | 'b' */
+    boundary:   16,
+    autofade:   false,
+  };
+
+  /* ── utility ─────────────────────────────────────────────────────────────── */
+  function setStatus(msg) { $('status').textContent = msg; }
+  function n2s(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ── crate ───────────────────────────────────────────────────────────────── */
+  function loadCrate() {
+    try { return JSON.parse(localStorage.getItem(CRATE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCrate(crate) {
+    try { localStorage.setItem(CRATE_KEY, JSON.stringify(crate)); } catch (e) { /* quota */ }
+  }
+  function topLane(g) {
+    var hi = 0;
+    for (var i = 0; i < g.active.length; i++) { if (g.active[i]) hi = i; }
+    return hi;
+  }
+
+  /* ── deterministic demo records ──────────────────────────────────────────── */
+  function synthRecord(seed) {
+    var e = new SDJ.DJEngine();
+    e.masterSeed = seed;
+    e.newSong();
+    for (var i = 0; i < 20; i++) {
+      var act = e.song.genome.active.filter(Boolean).length;
+      if (act >= 5) break;
+      if (!e.proposeChange()) break;
+      e.acceptChange();
+    }
+    var code = e.render();
+    var m = /setcps\(([0-9.]+)\)/.exec((code.split('\n')[0]) || '');
+    var s = e.song;
+    var genome = JSON.parse(JSON.stringify(s.genome));
+    var lane = topLane(genome);
+    return {
+      id: 'demo-' + (seed >>> 0).toString(36),
+      name: s.name, key: s.key, scaleType: s.scaleType,
+      bpm: s.bpm, cps: m ? parseFloat(m[1]) : s.cps,
+      genre: s.genre ? s.genre.id : null,
+      genreLabel: s.genre ? s.genre.label : null,
+      code: code, genome: genome,
+      art: { seed: s.seed >>> 0, layer: lane, variant: genome.variant[lane] || 0 },
+      demo: true,
+    };
+  }
+  var demoCache = null;
+  function demoRecords() {
+    if (!demoCache) { demoCache = DEMO_SEEDS.map(synthRecord); }
+    return demoCache;
+  }
+  function shelfRecords() {
+    var crate = loadCrate();
+    return crate.length >= 2 ? crate : crate.concat(demoRecords());
+  }
+
+  /* ── splitStack parser (from Stem Deck, verbatim) ────────────────────────── */
+  function splitStack(code) {
+    var nl = code.indexOf('\n'), cpsLine = '', body = code;
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) {
+      cpsLine = code.slice(0, nl); body = code.slice(nl + 1);
+    }
+    var open = body.indexOf('stack('); if (open < 0) return null;
+    var i = open + 6, depth = 1, inStr = false, q = '', start = i, parts = [];
+    for (; i < body.length && depth > 0; i++) {
+      var ch = body[i];
+      if (inStr) { if (ch === q) inStr = false; continue; }
+      if (ch === '"' || ch === "'") { inStr = true; q = ch; continue; }
+      if (ch === '(') depth++;
+      else if (ch === ')') {
+        depth--;
+        if (depth === 0) { parts.push(body.slice(start, i)); break; }
+      } else if (ch === ',' && depth === 1) {
+        parts.push(body.slice(start, i)); start = i + 1;
+      }
+    }
+    return parts.map(function (p) {
+      var s2 = p.trim(); if (!s2) return null;
+      var mc = s2.match(/\.color\("(#[0-9a-fA-F]{3,8})"\)/);
+      return { code: s2, colour: mc ? mc[1].toLowerCase() : null };
+    }).filter(Boolean);
+  }
+
+  /* ── build stems from a record ───────────────────────────────────────────── */
+  function buildStems(rec) {
+    if (!rec || !rec.code) return null;
+    var parts = splitStack(rec.code);
+    if (!parts || parts.length === 0) {
+      return { splittable: false, fullCode: rec.code, muted: false, solo: false };
+    }
+    var tagged = parts.filter(function (p) { return p.colour && COLOUR_GROUP[p.colour]; });
+    if (tagged.length < 2) {
+      return { splittable: false, fullCode: rec.code, muted: false, solo: false };
+    }
+    var groups = {};
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var grp = (p.colour && COLOUR_GROUP[p.colour]) || 'OTHER';
+      if (!groups[grp]) groups[grp] = [];
+      groups[grp].push(p.code);
+    }
+    var presentGroups = {};
+    GROUP_ORDER.forEach(function (g) { if (groups[g]) presentGroups[g] = groups[g]; });
+    if (groups['OTHER']) presentGroups['OTHER'] = groups['OTHER'];
+    var muted = {}, solo = {};
+    Object.keys(presentGroups).forEach(function (g) { muted[g] = false; solo[g] = false; });
+    return { splittable: true, groups: presentGroups, muted: muted, solo: solo };
+  }
+
+  /* ── audible layers for a deck ───────────────────────────────────────────── */
+  function audibleLayers(which) {
+    var st = state.decks[which].stems;
+    if (!st) return null;
+    if (!st.splittable) {
+      if (st.muted) return null;
+      return ['__FULL__'];
+    }
+    var groups = st.groups, muted = st.muted, solo = st.solo;
+    var hasSolo = Object.keys(solo).some(function (g) { return solo[g]; });
+    var result = [];
+    Object.keys(groups).forEach(function (g) {
+      var audible = hasSolo ? solo[g] : !muted[g];
+      if (audible) groups[g].forEach(function (layer) { result.push(layer); });
+    });
+    return result.length > 0 ? result : null;
+  }
+
+  /* ── transport helpers ───────────────────────────────────────────────────── */
+  function masterRec() { return state.decks.a.rec || state.decks.b.rec || null; }
+  function masterCps() {
+    var rec = masterRec();
+    var base = (rec && rec.cps) || 0.5;
+    return Math.round(base * (1 + state.nudge / 100) * 1000) / 1000;
+  }
+  /* Equal-power crossfade × trim, scaled to ~0.95, 2dp */
+  function deckGain(which) {
+    var m = state.cross;
+    var curve = which === 'a' ? Math.cos(m * Math.PI / 2) : Math.sin(m * Math.PI / 2);
+    return Math.round(curve * 0.95 * state.decks[which].trim * 100) / 100;
+  }
+  function stripCps(code) {
+    var nl = code.indexOf('\n');
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
+    return code;
+  }
+
+  /* ── apply per-deck filter sweep ────────────────────────────────────────── */
+  /* centre = open; negative → LP sweep down to ~200 Hz; positive → HP sweep up */
+  function applyFilter(bed, filter) {
+    if (filter < 0) {
+      var freq = Math.round(200 * Math.pow(90, 1 + filter));
+      bed += '.lpf(' + freq + ')';
+    } else if (filter > 0) {
+      var freq2 = Math.round(200 + filter * 3000);
+      bed += '.hpf(' + freq2 + ')';
+    }
+    return bed;
+  }
+
+  /* ── COMPOSE — the single balanced program per state change ─────────────── */
+  function compose() {
+    var rec = masterRec();
+    if (!rec) return null;
+    var layers = [];
+
+    ['a', 'b'].forEach(function (which) {
+      var d = state.decks[which];
+      if (!d.rec || !d.rec.code) return;
+      var g = deckGain(which);
+      if (g <= 0) return;
+
+      var st = d.stems;
+      if (!st) return;
+
+      var bed;
+      if (!st.splittable) {
+        /* unsplittable: wrap entire body */
+        if (st.muted) return;
+        bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+      } else {
+        var audible = audibleLayers(which);
+        if (!audible || audible.length === 0) return;
+        if (audible[0] === '__FULL__') {
+          bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+        } else if (audible.length === 1) {
+          bed = '(' + audible[0] + ')';
+        } else {
+          bed = '(stack(\n    ' + audible.join(',\n    ') + '\n  ))';
+        }
+      }
+
+      /* Per-deck filter sweep */
+      bed = applyFilter(bed, d.filter);
+      /* Equal-power deck gain */
+      bed += '.gain(' + n2s(g) + ')';
+      layers.push(bed);
+    });
+
+    if (!layers.length) return null;
+
+    /* Hold-to-fire FX paddles — applied to the master stack */
+    var hasPaddle = state.paddles.stutter || state.paddles.gate || state.paddles.echo;
+    if (hasPaddle) {
+      /* Wrap all current layers into an inner stack, then chain the paddle FX */
+      var innerStack = layers.length === 1
+        ? layers[0]
+        : 'stack(\n    ' + layers.join(',\n    ') + '\n  )';
+      var paddled;
+      if (state.paddles.stutter) {
+        paddled = innerStack + '.ply("4")';
+      } else if (state.paddles.gate) {
+        paddled = innerStack + '.struct("1 0 1 0 1 0 1 0")';
+      } else {
+        paddled = innerStack + '.delay(0.4).delaytime(0.1875).delayfeedback(0.6).room(0.3)';
+      }
+      return 'setcps(' + masterCps() + ')\nstack(\n  ' + paddled + '\n)';
+    }
+
+    return 'setcps(' + masterCps() + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  /* ── throttled evaluate ──────────────────────────────────────────────────── */
+  var evalTimer = 0, lastEval = 0;
+  function doEval() {
+    lastEval = Date.now();
+    var code = compose();
+    if (!code) { if (typeof window.hush === 'function') window.hush(); return; }
+    window.__lastCode = code;
+    if (typeof window.evaluate === 'function') window.evaluate(code);
+  }
+  function refresh() {
+    var code = compose();
+    $('program').textContent = code || '— nothing loaded —';
+    /* Sync crossfader slider (ARM may have moved it) */
+    $('cross').value = state.cross;
+    updatePlatters();
+    updateTempo();
+    if (!state.playing) return;
+    clearTimeout(evalTimer);
+    var wait = Math.max(0, 150 - (Date.now() - lastEval));
+    evalTimer = setTimeout(doEval, wait);
+  }
+
+  /* Paddle re-evaluates are immediate (no throttle) — momentary, user-triggered */
+  function paddleRefresh() {
+    var code = compose();
+    $('program').textContent = code || '— nothing loaded —';
+    if (!state.playing || !code) return;
+    window.__lastCode = code;
+    if (typeof window.evaluate === 'function') window.evaluate(code);
+  }
+
+  /* ── transport ───────────────────────────────────────────────────────────── */
+  async function play() {
+    if (!masterRec()) { setStatus('Load a record onto a deck first.'); return; }
+    if (state.playing) return;
+    setStatus('Waking the audio engine…');
+    try {
+      if (!state.audioReady) {
+        await window.initStrudel();
+        await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        state.audioReady = true;
+      }
+    } catch (err) {
+      setStatus('Audio failed to start — ' + err); return;
+    }
+    state.playing   = true;
+    state.playStart = Date.now();
+    lastEval = 0;
+    $('playBtn').classList.add('live');
+    refresh();
+    startClock();
+    setStatus('Live. ARM a transition or work the stems and filter.');
+  }
+  function stop() {
+    if (!state.playing) { setStatus('Already stopped.'); return; }
+    state.playing = false;
+    clearArm();
+    clearTimeout(evalTimer);
+    stopClock();
+    if (typeof window.hush === 'function') window.hush();
+    $('playBtn').classList.remove('live');
+    updatePlatters();
+    updateReadouts();
+    setStatus('Stopped.');
+  }
+
+  /* ── phrase clock ────────────────────────────────────────────────────────── */
+  var rafHandle = 0;
+
+  function barPosition() {
+    var elapsed  = (Date.now() - state.playStart) / 1000;
+    var barLen   = 1 / masterCps(); /* one cycle = one bar = 1/cps seconds */
+    var totalBars = elapsed / barLen;
+    var wrapped  = totalBars % PHRASE_BARS;
+    state.currentBar = Math.floor(wrapped);
+    state.barFrac    = wrapped - state.currentBar;
+    return totalBars;
+  }
+  function nextBoundaryIn() {
+    var b = state.boundary;
+    var currentWithFrac = state.currentBar + state.barFrac;
+    var nextAbs = (Math.floor(currentWithFrac / b) + 1) * b;
+    return nextAbs - currentWithFrac;
+  }
+  function nextBoundaryAtInterval(interval) {
+    var currentWithFrac = state.currentBar + state.barFrac;
+    var nextAbs = (Math.floor(currentWithFrac / interval) + 1) * interval;
+    return nextAbs - currentWithFrac;
+  }
+
+  function startClock() {
+    stopClock();
+    function tick() {
+      if (!state.playing) return;
+      var total = barPosition();
+      tickArm(total);
+      updateReadouts();
+      drawTimeline();
+      rafHandle = requestAnimationFrame(tick);
+    }
+    rafHandle = requestAnimationFrame(tick);
+  }
+  function stopClock() {
+    if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = 0; }
+  }
+
+  /* ── ARM: quantised transition ───────────────────────────────────────────── */
+  var lastTotalBars    = 0;
+  var autofadeActive   = false;
+  var autofadeStart    = 0;
+  var autofadeFrom     = 0;
+  var autofadeTarget   = 0;
+  var autofadeDuration = 0;
+
+  function tickArm(totalBars) {
+    if (!state.armed && !autofadeActive) {
+      lastTotalBars = totalBars; return;
+    }
+    var b = state.boundary;
+
+    if (autofadeActive) {
+      var elapsed = totalBars - autofadeStart;
+      var t = Math.min(1, elapsed / autofadeDuration);
+      var newCross = autofadeFrom + t * (autofadeTarget - autofadeFrom);
+      var changed = Math.abs(newCross - state.cross) > 0.005;
+      state.cross = newCross;
+      if (changed) refresh();
+      if (t >= 1) {
+        state.cross = autofadeTarget;
+        autofadeActive = false;
+        flashDropped();
+        refresh();
+      }
+      lastTotalBars = totalBars; return;
+    }
+
+    var prevFloor = Math.floor(lastTotalBars / b);
+    var currFloor = Math.floor(totalBars / b);
+    if (currFloor > prevFloor) {
+      var target = state.armed === 'a' ? 0 : 1;
+      if (state.autofade) {
+        autofadeActive   = true;
+        autofadeStart    = totalBars;
+        autofadeFrom     = state.cross;
+        autofadeTarget   = target;
+        autofadeDuration = b;
+        clearArm();
+        setStatus('Auto-fading to deck ' + (target === 0 ? 'A' : 'B') + ' over ' + b + ' bars…');
+      } else {
+        state.cross = target;
+        clearArm();
+        flashDropped();
+        refresh();
+      }
+    }
+    lastTotalBars = totalBars;
+  }
+
+  var droppedTimer = 0;
+  function flashDropped() {
+    var el = $('droppedMsg');
+    el.classList.add('show');
+    clearTimeout(droppedTimer);
+    droppedTimer = setTimeout(function () { el.classList.remove('show'); }, 1800);
+  }
+  function clearArm() {
+    state.armed = null;
+    $('armA').classList.remove('armed');
+    $('armB').classList.remove('armed');
+  }
+
+  /* ── readout updates ─────────────────────────────────────────────────────── */
+  function updateReadouts() {
+    if (!state.playing) {
+      $('readBar').textContent   = '— / ' + PHRASE_BARS;
+      $('readPhrase').textContent = '—';
+      $('readNext').textContent  = '— bars';
+      $('readArmed').textContent = '—';
+      $('mixNow').classList.remove('pulse');
+      return;
+    }
+    var displayBar  = state.currentBar + 1;
+    var phrase      = Math.floor(state.currentBar / GROUP_BARS) + 1;
+    var barInGroup  = (state.currentBar % GROUP_BARS) + 1;
+    var nbars       = nextBoundaryIn();
+    var nbarsFloor  = Math.ceil(nbars * 10) / 10;
+    $('readBar').textContent    = displayBar + ' / ' + PHRASE_BARS;
+    $('readPhrase').textContent = 'P' + phrase + ' · bar ' + barInGroup + ' of ' + GROUP_BARS;
+    $('readNext').textContent   = nbarsFloor.toFixed(1) + ' bars';
+    $('readArmed').textContent  = state.armed
+      ? '→' + state.armed.toUpperCase() + ' @ ' + state.boundary + 'b'
+      : (autofadeActive ? 'fading…' : 'none');
+    var barsToNext8  = nextBoundaryAtInterval(8);
+    var barsToNext16 = nextBoundaryAtInterval(16);
+    var closest = Math.min(barsToNext8, barsToNext16);
+    $('mixNow').classList.toggle('pulse', closest <= 1 && closest > 0);
+  }
+
+  /* ── canvas timeline ─────────────────────────────────────────────────────── */
+  function drawTimeline() {
+    var canvas = $('timelineCanvas');
+    var W = canvas.offsetWidth, H = 64;
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#05030e';
+    ctx.fillRect(0, 0, W, H);
+
+    var barW = W / PHRASE_BARS;
+
+    /* Phrase group fills */
+    for (var gp = 0; gp < PHRASE_BARS / GROUP_BARS; gp++) {
+      ctx.fillStyle = gp % 2 === 0 ? 'rgba(122,92,255,0.05)' : 'rgba(34,211,238,0.03)';
+      ctx.fillRect(gp * GROUP_BARS * barW, 0, GROUP_BARS * barW, H);
+    }
+    /* Thin bar ticks */
+    ctx.strokeStyle = 'rgba(122,92,255,0.20)'; ctx.lineWidth = 1;
+    for (var bar = 1; bar < PHRASE_BARS; bar++) {
+      if (bar % GROUP_BARS === 0) continue;
+      var x = bar * barW;
+      ctx.beginPath(); ctx.moveTo(x, H * 0.55); ctx.lineTo(x, H); ctx.stroke();
+    }
+    /* Heavy group lines at 8-bar boundaries */
+    ctx.strokeStyle = 'rgba(122,92,255,0.55)'; ctx.lineWidth = 1.5;
+    for (var bar2 = GROUP_BARS; bar2 < PHRASE_BARS; bar2 += GROUP_BARS) {
+      var x2 = bar2 * barW;
+      ctx.beginPath(); ctx.moveTo(x2, H * 0.25); ctx.lineTo(x2, H); ctx.stroke();
+    }
+
+    if (state.playing) {
+      var b   = state.boundary;
+      var pos = state.currentBar + state.barFrac;
+      var nextBB = (Math.floor(pos / b) + 1) * b;
+
+      /* ARM boundary markers */
+      ctx.strokeStyle = state.armed
+        ? (state.armed === 'a' ? 'rgba(34,211,238,0.85)' : 'rgba(255,61,129,0.85)')
+        : 'rgba(255,184,48,0.45)';
+      ctx.lineWidth = 2;
+      for (var bar3 = b; bar3 <= PHRASE_BARS; bar3 += b) {
+        var xb = (bar3 % PHRASE_BARS) * barW;
+        if (xb === 0 && bar3 !== PHRASE_BARS) continue;
+        var xbd = bar3 === PHRASE_BARS ? W - 1 : xb;
+        ctx.beginPath(); ctx.moveTo(xbd, 0); ctx.lineTo(xbd, H); ctx.stroke();
+      }
+      /* Next boundary highlight */
+      var nextX = (nextBB % PHRASE_BARS) * barW;
+      var nx = nextBB >= PHRASE_BARS ? W - 1 : nextX;
+      ctx.strokeStyle = state.armed
+        ? (state.armed === 'a' ? '#22d3ee' : '#ff3d81')
+        : '#ffb830';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(nx, 0); ctx.lineTo(nx, H); ctx.stroke();
+
+      /* Auto-fade progress band */
+      if (autofadeActive) {
+        var fadeProgress = Math.min(1, (state.currentBar + state.barFrac - autofadeStart) / autofadeDuration);
+        var fadeX = autofadeStart * barW;
+        var fadeW = autofadeDuration * barW * fadeProgress;
+        ctx.fillStyle = 'rgba(255,184,48,0.18)';
+        ctx.fillRect(fadeX % W, H * 0.15, Math.min(fadeW, W - (fadeX % W)), H * 0.7);
+      }
+
+      /* Playhead */
+      var playheadX = pos * barW;
+      var grad = ctx.createLinearGradient(playheadX - 18, 0, playheadX + 8, 0);
+      grad.addColorStop(0, 'rgba(34,211,238,0)');
+      grad.addColorStop(1, 'rgba(34,211,238,0.18)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(playheadX - 18, 0, 26, H);
+      ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2;
+      ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, H); ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    /* Bar labels (every 8) */
+    ctx.fillStyle = 'rgba(157,143,199,0.65)';
+    ctx.font = '9px "Space Grotesk", monospace';
+    ctx.textAlign = 'center';
+    for (var lbar = 0; lbar < PHRASE_BARS; lbar += GROUP_BARS) {
+      ctx.fillText(lbar + 1, lbar * barW + barW / 2, 12);
+    }
+  }
+
+  /* ── stem strip UI ───────────────────────────────────────────────────────── */
+  function renderStemStrip(which) {
+    var el = $('stemStrip' + (which === 'a' ? 'A' : 'B'));
+    var st = state.decks[which].stems;
+    if (!st) {
+      el.innerHTML =
+        '<div class="stem-strip-head">Stems</div>' +
+        '<div class="stem-full-note">— load a record —</div>';
+      return;
+    }
+    var html = '<div class="stem-strip-head">Stems</div>';
+    if (!st.splittable) {
+      html += '<div class="stem-chip">' +
+        '<span class="stem-label" style="color:var(--muted)">FULL</span>' +
+        '<button class="mute' + (st.muted ? ' on' : '') +
+        '" data-deck="' + which + '" data-action="mutefull">MUTE</button></div>' +
+        '<div class="stem-full-note">arranged / remix — not splittable</div>';
+      el.innerHTML = html;
+      el.querySelectorAll('[data-action="mutefull"]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          state.decks[which].stems.muted = !state.decks[which].stems.muted;
+          renderStemStrip(which);
+          refresh();
+        });
+      });
+      return;
+    }
+    var groups = st.groups, muted = st.muted, solo = st.solo;
+    Object.keys(groups).forEach(function (grp) {
+      var col = GROUP_COLOUR[grp] || '#9d8fc7';
+      html += '<div class="stem-chip">' +
+        '<span class="stem-label" style="color:' + col + '">' + escapeHtml(grp) + '</span>' +
+        '<button class="mute' + (muted[grp] ? ' on' : '') +
+        '" data-deck="' + which + '" data-group="' + grp + '" data-action="mute">MUTE</button>' +
+        '<button class="solo' + (solo[grp] ? ' on' : '') +
+        '" data-deck="' + which + '" data-group="' + grp + '" data-action="solo">SOLO</button>' +
+        '</div>';
+    });
+    el.innerHTML = html;
+    el.querySelectorAll('button[data-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var d = btn.dataset.deck, g = btn.dataset.group, action = btn.dataset.action;
+        var stemState = state.decks[d].stems;
+        if (action === 'mute') stemState.muted[g] = !stemState.muted[g];
+        else if (action === 'solo') stemState.solo[g] = !stemState.solo[g];
+        renderStemStrip(d);
+        refresh();
+      });
+    });
+  }
+
+  /* ── load deck ───────────────────────────────────────────────────────────── */
+  function loadDeck(which, entry) {
+    state.decks[which].rec   = entry;
+    state.decks[which].stems = buildStems(entry);
+    var platter = $(which === 'a' ? 'platterA' : 'platterB');
+    platter.innerHTML = '<div class="disc">' +
+      (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>';
+    $(which === 'a' ? 'metaA' : 'metaB').innerHTML =
+      '<strong>' + escapeHtml(entry.name || 'Untitled') + '</strong><br>' +
+      escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) +
+      ' · ' + (entry.bpm || '?') + ' BPM';
+    renderStemStrip(which);
+    refresh();
+    setStatus('"' + (entry.name || 'Untitled') + '" on deck ' + which.toUpperCase() + '.');
+  }
+
+  function updatePlatters() {
+    ['a', 'b'].forEach(function (which) {
+      var platter = $(which === 'a' ? 'platterA' : 'platterB');
+      var audible = state.playing && !!state.decks[which].rec && deckGain(which) > 0;
+      platter.classList.toggle('spin', audible);
+    });
+  }
+  function updateTempo() {
+    var rec = masterRec();
+    $('tempo').textContent = rec
+      ? masterCps() + ' cps · ' + Math.round(masterCps() * 240) + ' BPM'
+      : '— cps';
+  }
+
+  /* ── shelf ───────────────────────────────────────────────────────────────── */
+  function renderShelf() {
+    var box = $('sleeves');
+    box.innerHTML = '';
+    shelfRecords().forEach(function (entry) {
+      var sleeve = document.createElement('div');
+      sleeve.className = 'sleeve';
+      sleeve.innerHTML =
+        '<div class="vin">' + (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>' +
+        '<div class="nm"><b>' + escapeHtml(entry.name || 'Untitled') + '</b>' +
+        '<span>' + escapeHtml(entry.key || '') + ' · ' + (entry.bpm || '?') + ' BPM</span>' +
+        (entry.demo ? '<br><span class="demo-tag">demo pressing</span>' : '') + '</div>' +
+        '<div class="load">' +
+        '<button data-to="a">→A</button>' +
+        '<button data-to="b">→B</button></div>';
+      sleeve.querySelectorAll('button').forEach(function (btn) {
+        btn.addEventListener('click', function () { loadDeck(btn.dataset.to, entry); });
+      });
+      box.appendChild(sleeve);
+    });
+  }
+
+  /* ── SWAP MACROS ─────────────────────────────────────────────────────────── */
+  function applySwap(aGroups, bGroups) {
+    ['a', 'b'].forEach(function (which) {
+      var st = state.decks[which].stems;
+      if (!st || !st.splittable) return;
+      var mask = which === 'a' ? aGroups : bGroups;
+      Object.keys(st.muted).forEach(function (g) { st.muted[g] = false; st.solo[g] = false; });
+      mask.forEach(function (g) { if (st.muted[g] !== undefined) st.muted[g] = true; });
+      renderStemStrip(which);
+    });
+    refresh();
+  }
+
+  /* ── PRESS ───────────────────────────────────────────────────────────────── */
+  function shortName(name) {
+    var n = String(name || 'Untitled');
+    return n.length > 16 ? n.slice(0, 15) + '…' : n;
+  }
+  function press() {
+    var rec = masterRec(), code = compose();
+    if (!rec || !code) { setStatus('Nothing to press — load a deck first.'); return; }
+    var a = state.decks.a.rec, b = state.decks.b.rec;
+    var name = (a && b)
+      ? shortName(a.name) + ' × ' + shortName(b.name)
+      : shortName(rec.name) + ' × Authentic Deck';
+    var genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
+    var lane = genome ? topLane(genome) : 0;
+    var cps = masterCps();
+    var entry = {
+      id: 'rec-' + Date.now().toString(36) + '-ad',
+      name: name, key: rec.key, scaleType: rec.scaleType,
+      bpm: Math.round(cps * 240), cps: cps,
+      genre: rec.genre || null, genreLabel: rec.genreLabel || null,
+      code: code, genome: genome,
+      art: { seed: Date.now() >>> 0, layer: lane, variant: genome ? (genome.variant[lane] || 0) : 0 },
+      approval: null, source: 'remix', savedAt: Date.now(),
+    };
+    var crate = loadCrate();
+    if (crate.length && crate[0].code === code) {
+      setStatus('Already pressed — the newest record in the crate is this exact cut.');
+      return;
+    }
+    crate.unshift(entry);
+    if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
+    saveCrate(crate);
+    renderShelf();
+    setStatus('Pressed "' + name + '" into the crate.');
+  }
+
+  /* ── UI wiring ───────────────────────────────────────────────────────────── */
+  $('playBtn').addEventListener('click', play);
+  $('stopBtn').addEventListener('click', stop);
+  $('pressBtn').addEventListener('click', press);
+
+  /* Crossfader — manual override cancels ARM / autofade */
+  $('cross').addEventListener('input', function (e) {
+    if (autofadeActive || state.armed) {
+      autofadeActive = false;
+      clearArm();
+      setStatus('Manual override — ARM cleared.');
+    }
+    state.cross = parseFloat(e.target.value);
+    refresh();
+  });
+
+  /* Nudge */
+  $('nudge').addEventListener('input', function (e) {
+    state.nudge = parseFloat(e.target.value);
+    $('nudgeVal').textContent = (state.nudge >= 0 ? '+' : '') + state.nudge.toFixed(1) + '%';
+    refresh();
+  });
+
+  /* Gain trims */
+  [['trimA', 'a'], ['trimB', 'b']].forEach(function (pair) {
+    var id = pair[0], which = pair[1];
+    $(id).addEventListener('input', function (e) {
+      state.decks[which].trim = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].trim.toFixed(2);
+      refresh();
+    });
+  });
+
+  /* Per-deck filter knobs */
+  [['filterA', 'a'], ['filterB', 'b']].forEach(function (pair) {
+    var id = pair[0], which = pair[1];
+    $(id).addEventListener('input', function (e) {
+      state.decks[which].filter = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].filter.toFixed(2);
+      refresh();
+    });
+  });
+
+  /* ARM buttons */
+  ['a', 'b'].forEach(function (target) {
+    $('arm' + target.toUpperCase()).addEventListener('click', function () {
+      if (autofadeActive) {
+        autofadeActive = false;
+        clearArm();
+        setStatus('Auto-fade cancelled.');
+        return;
+      }
+      if (state.armed === target) {
+        clearArm();
+        setStatus('ARM cleared.');
+      } else {
+        state.armed = target;
+        if (state.playing) lastTotalBars = barPosition();
+        $('arm' + target.toUpperCase()).classList.add('armed');
+        $('arm' + (target === 'a' ? 'B' : 'A')).classList.remove('armed');
+        setStatus(
+          'Armed →' + target.toUpperCase() +
+          ' · will ' + (state.autofade ? 'fade' : 'drop') +
+          ' on next ' + state.boundary + '-bar boundary.'
+        );
+      }
+    });
+  });
+
+  $('boundarySelect').addEventListener('change', function (e) {
+    state.boundary = parseInt(e.target.value, 10);
+    if (state.armed) setStatus('Boundary changed to ' + state.boundary + ' bars · ARM still active.');
+  });
+  $('autofadeCheck').addEventListener('change', function (e) {
+    state.autofade = e.target.checked;
+    if (autofadeActive) { autofadeActive = false; setStatus('Auto-fade mode changed — current fade cancelled.'); }
+  });
+
+  /* Swap macros */
+  $('swapArhythmBmelody').addEventListener('click', function () {
+    applySwap(['CHORDS', 'LEAD', 'AIR'], ['DRUMS', 'BASS']);
+    setStatus('Swap: A rhythm × B melody.');
+  });
+  $('swapAmelodyBrhythm').addEventListener('click', function () {
+    applySwap(['DRUMS', 'BASS'], ['CHORDS', 'LEAD', 'AIR']);
+    setStatus('Swap: A melody × B drums.');
+  });
+
+  /* Hold-to-fire FX paddles */
+  function bindPaddle(btnId, key) {
+    var btn = $(btnId);
+    function activate(e) {
+      e.preventDefault();
+      state.paddles[key] = true;
+      btn.classList.add('held');
+      paddleRefresh();
+    }
+    function release() {
+      state.paddles[key] = false;
+      btn.classList.remove('held');
+      paddleRefresh();
+    }
+    btn.addEventListener('mousedown',   activate);
+    btn.addEventListener('touchstart',  activate, { passive: false });
+    btn.addEventListener('mouseup',     release);
+    btn.addEventListener('mouseleave',  release);
+    btn.addEventListener('touchend',    release);
+    btn.addEventListener('touchcancel', release);
+  }
+  bindPaddle('padStutter', 'stutter');
+  bindPaddle('padGate',    'gate');
+  bindPaddle('padEcho',    'echo');
+
+  /* ── headless hooks ──────────────────────────────────────────────────────── */
+  function deckStemInfo(which) {
+    var st = state.decks[which].stems;
+    if (!st) return null;
+    if (!st.splittable) return { splittable: false, groups: null, muted: { FULL: st.muted }, solo: {} };
+    return {
+      splittable: true,
+      groups: Object.keys(st.groups),
+      muted: JSON.parse(JSON.stringify(st.muted)),
+      solo:  JSON.parse(JSON.stringify(st.solo)),
+    };
+  }
+  window.__spike = {
+    compose: compose,
+    state: function () {
+      return {
+        playing:    state.playing,
+        cross:      state.cross,
+        nudge:      state.nudge,
+        masterCps:  masterRec() ? masterCps() : null,
+        currentBar: state.currentBar,
+        barFrac:    state.barFrac,
+        nextBoundaryIn: state.playing ? nextBoundaryIn() : null,
+        armed:      state.armed,
+        boundary:   state.boundary,
+        autofade:   state.autofade,
+        autofadeActive: autofadeActive,
+        deckA: state.decks.a.rec ? {
+          id: state.decks.a.rec.id, name: state.decks.a.rec.name,
+          gain: deckGain('a'), filter: state.decks.a.filter,
+          stems: deckStemInfo('a'),
+        } : null,
+        deckB: state.decks.b.rec ? {
+          id: state.decks.b.rec.id, name: state.decks.b.rec.name,
+          gain: deckGain('b'), filter: state.decks.b.filter,
+          stems: deckStemInfo('b'),
+        } : null,
+        paddles: { stutter: state.paddles.stutter, gate: state.paddles.gate, echo: state.paddles.echo },
+      };
+    },
+    loadDemo: function () {
+      var demos = demoRecords();
+      loadDeck('a', demos[0]);
+      loadDeck('b', demos[1]);
+    },
+  };
+
+  /* ── initial render ──────────────────────────────────────────────────────── */
+  drawTimeline();
+  renderShelf();
+  refresh();
+})();
+</script>
+</body>
+</html>

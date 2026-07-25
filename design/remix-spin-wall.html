@@ -1,0 +1,642 @@
+<!doctype html>
+<!--
+  ── SPIKE · SPIN WALL ──────────────────────────────────────────────────────
+  Thesis: the remix view spins ONE record as a bed, but the owner's intent was
+  "a place you can spin multiple decks". This is the MAXIMAL take: a wall of
+  FOUR mini-decks, every record tempo-locked to one master clock, all layered
+  into a single balanced Strudel program. The question it exists to answer:
+  how many records can you actually stack before it turns to mud — and do
+  classic EQ-kill moves (one record supplies the LOWS, another the TOPS)
+  rescue the blend and make it musical rather than merely loud?
+
+  Composition mirrors src/app.js composeRemix: each record's code is
+  `setcps(X)\n<expr>`; strip the setcps line, wrap the expr in parens, chain
+  the deck's focus filter / master FX / gain onto it, then stack every live
+  bed under ONE master setcps. Pure string concatenation — parens and quotes
+  stay balanced by construction.
+
+  Standalone: no build, no deps beyond the Strudel CDN. Serve over HTTP from
+  the repo root (python serve.py 8124) so ../src/*.js resolve.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Spin Wall</title>
+<style>
+  :root {
+    --bg:     #05030b;
+    --panel:  rgba(22, 15, 44, 0.55);
+    --edge:   rgba(122, 92, 255, 0.26);
+    --ink:    #f2ecff;
+    --muted:  #9a8fc0;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background:
+      radial-gradient(90% 60% at 20% 0%, rgba(122,92,255,0.14) 0%, transparent 60%),
+      radial-gradient(70% 50% at 85% 100%, rgba(255,61,129,0.10) 0%, transparent 60%),
+      var(--bg);
+    color: var(--ink); font-family: var(--font);
+  }
+  .grain { position: fixed; inset: 0; pointer-events: none; opacity: 0.05; z-index: 40;
+    background-image: radial-gradient(#fff 0.5px, transparent 0.6px); background-size: 3px 3px; }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 26px 4vw 60px; }
+
+  /* ── header ─────────────────────────────────────────────────────────── */
+  header.top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .kicker { font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--cyan); }
+  h1 { margin: 6px 0 4px; font-size: clamp(30px, 4.6vw, 52px); line-height: 1; letter-spacing: -0.01em;
+    background: linear-gradient(105deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .concept { margin: 0; color: var(--muted); font-size: 13px; max-width: 62ch; line-height: 1.5; }
+  a.back { color: var(--cyan); text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  a.back:hover { text-shadow: 0 0 12px var(--cyan); }
+
+  /* ── master console ──────────────────────────────────────────────────── */
+  .console {
+    margin-top: 22px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 14px 18px; border: 1px solid var(--edge); border-radius: 16px;
+    background: linear-gradient(90deg, rgba(122,92,255,0.10), rgba(34,211,238,0.05));
+  }
+  button { font-family: var(--font); cursor: pointer; }
+  #playBtn {
+    font-size: 15px; font-weight: 700; letter-spacing: 2px; padding: 12px 26px; border-radius: 12px;
+    border: 1px solid var(--pink); background: rgba(255,61,129,0.12); color: var(--ink);
+    transition: box-shadow .2s, background .2s;
+  }
+  #playBtn:hover { box-shadow: 0 0 22px rgba(255,61,129,0.45); }
+  #playBtn.on { background: var(--pink); color: #14020a; box-shadow: 0 0 26px rgba(255,61,129,0.6); }
+  .tempo { display: flex; align-items: center; gap: 10px; min-width: 240px; flex: 1; }
+  .tempo label { font-size: 10.5px; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+  .tempo output { font-size: 12px; color: var(--cyan); min-width: 88px; text-align: right; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--violet), var(--cyan)); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+    border-radius: 50%; background: var(--ink); border: 2px solid var(--violet); box-shadow: 0 0 10px var(--violet); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%;
+    background: var(--ink); border: 2px solid var(--violet); box-shadow: 0 0 10px var(--violet); cursor: pointer; }
+  .rack { display: flex; gap: 8px; }
+  .rack button {
+    padding: 9px 14px; border-radius: 10px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    border: 1px solid var(--edge); background: rgba(10,7,22,0.6); color: var(--muted); transition: all .18s;
+  }
+  .rack button:hover { border-color: var(--violet); color: var(--ink); }
+  .rack button.on { border-color: var(--cyan); color: #041418; background: var(--cyan); box-shadow: 0 0 18px rgba(34,211,238,0.5); }
+  #status { width: 100%; font-size: 11.5px; color: var(--muted); letter-spacing: 0.5px; min-height: 15px; }
+
+  /* ── the wall ────────────────────────────────────────────────────────── */
+  .wall { margin-top: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (min-width: 1400px) { .wall { grid-template-columns: repeat(4, 1fr); } }
+  @media (max-width: 720px)  { .wall { grid-template-columns: 1fr; } }
+
+  .deck {
+    position: relative; border: 1px solid var(--edge); border-radius: 18px; padding: 14px;
+    background: var(--panel); backdrop-filter: blur(4px); transition: border-color .2s, box-shadow .2s, opacity .2s;
+    display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px;
+  }
+  .deck.live { border-color: rgba(34,211,238,0.5); box-shadow: 0 8px 34px rgba(34,211,238,0.10); }
+  .deck.muted { opacity: 0.5; }
+  .deck.target { border-color: var(--pink); box-shadow: 0 0 0 1px var(--pink), 0 0 26px rgba(255,61,129,0.35); cursor: copy; }
+  .deck header { display: flex; justify-content: space-between; align-items: center; }
+  .deck .slot { font-size: 10.5px; letter-spacing: 3px; color: var(--muted); }
+  .deck .mute {
+    font-size: 10px; letter-spacing: 2px; padding: 5px 11px; border-radius: 8px;
+    border: 1px solid var(--edge); background: transparent; color: var(--muted); transition: all .15s;
+  }
+  .deck .mute.on { border-color: var(--pink); background: var(--pink); color: #14020a; box-shadow: 0 0 14px rgba(255,61,129,0.55); }
+  .platter { display: grid; place-items: center; }
+  .disc { width: min(180px, 60vw); aspect-ratio: 1; }
+  .disc.spin { animation: rot 1.8s linear infinite; will-change: transform; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .empty-slot {
+    width: min(180px, 60vw); aspect-ratio: 1; border-radius: 50%; border: 2px dashed var(--edge);
+    display: grid; place-items: center; color: var(--muted); font-size: 11px; letter-spacing: 1.5px;
+    text-align: center; padding: 20px;
+  }
+  .meta { text-align: center; min-height: 34px; }
+  .meta .name { display: block; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; }
+  .meta .sub { font-size: 11px; color: var(--muted); }
+  .strip { display: grid; gap: 9px; align-content: end; }
+  .gainrow { display: grid; grid-template-columns: auto 1fr auto; gap: 9px; align-items: center; }
+  .gainrow label { font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .gainrow output { font-size: 11px; color: var(--cyan); min-width: 32px; text-align: right; }
+  .focus { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .focus button {
+    padding: 7px 0; font-size: 10px; letter-spacing: 1.5px; border-radius: 8px;
+    border: 1px solid var(--edge); background: rgba(10,7,22,0.6); color: var(--muted); transition: all .15s;
+  }
+  .focus button:hover { color: var(--ink); }
+  .focus button.on[data-f=full] { border-color: var(--violet); background: var(--violet); color: #0d0620; box-shadow: 0 0 14px rgba(122,92,255,0.55); }
+  .focus button.on[data-f=lows] { border-color: var(--pink); background: var(--pink); color: #14020a; box-shadow: 0 0 14px rgba(255,61,129,0.55); }
+  .focus button.on[data-f=tops] { border-color: var(--cyan); background: var(--cyan); color: #041418; box-shadow: 0 0 14px rgba(34,211,238,0.55); }
+
+  /* ── the shelf ───────────────────────────────────────────────────────── */
+  .shelf-head { margin: 30px 0 10px; display: flex; align-items: baseline; justify-content: space-between; }
+  .shelf-head h2 { margin: 0; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  #fillBtn { font-size: 10.5px; letter-spacing: 2px; padding: 7px 14px; border-radius: 9px;
+    border: 1px solid var(--edge); background: transparent; color: var(--cyan); }
+  #fillBtn:hover { border-color: var(--cyan); box-shadow: 0 0 14px rgba(34,211,238,0.35); }
+  .shelf { display: flex; gap: 12px; overflow-x: auto; padding: 6px 2px 14px; }
+  .shelf-rec {
+    flex: 0 0 auto; width: 96px; display: grid; gap: 6px; justify-items: center;
+    background: transparent; border: 1px solid transparent; border-radius: 12px; padding: 8px 6px;
+    color: var(--muted); transition: all .15s;
+  }
+  .shelf-rec:hover { border-color: var(--edge); color: var(--ink); }
+  .shelf-rec.armed { border-color: var(--pink); box-shadow: 0 0 18px rgba(255,61,129,0.4); color: var(--ink); }
+  .shelf-rec .disc-sm { width: 68px; height: 68px; }
+  .shelf-rec .nm { font-size: 10px; letter-spacing: 0.5px; text-align: center; max-width: 90px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .shelf-rec .tag { font-size: 8.5px; letter-spacing: 2px; color: var(--violet); font-style: normal; }
+  .hint { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+
+  /* ── program panel + footer ─────────────────────────────────────────── */
+  details.program { margin-top: 24px; border: 1px solid var(--edge); border-radius: 12px; background: rgba(8,5,18,0.7); }
+  details.program summary { padding: 11px 16px; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase;
+    color: var(--muted); cursor: pointer; }
+  details.program pre { margin: 0; padding: 4px 16px 16px; font-size: 11.5px; line-height: 1.55;
+    color: var(--cyan); overflow-x: auto; white-space: pre; }
+  footer.tests { margin-top: 30px; border-top: 1px solid var(--edge); padding-top: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.65; }
+  footer.tests h2 { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); margin: 0 0 8px; }
+  footer.tests ul { margin: 0; padding-left: 18px; }
+  footer.tests em { color: var(--pink); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="kicker">Spike · Spin Wall</div>
+      <h1>SPIN WALL</h1>
+      <p class="concept">Four records on one wall, tempo-locked to a master clock and layered into a
+      single Strudel program — EQ-kill FOCUS switches decide which record owns the lows and which owns the tops.</p>
+    </div>
+    <a class="back" href="../index.html">← back to the app</a>
+  </header>
+
+  <section class="console" aria-label="Master console">
+    <button id="playBtn">▶ PLAY</button>
+    <div class="tempo">
+      <label for="tempoSlider">Master tempo</label>
+      <input id="tempoSlider" type="range" min="0.3" max="0.8" step="0.005" value="0.5" />
+      <output id="tempoOut">0.50 cps</output>
+    </div>
+    <div class="rack" role="group" aria-label="Master FX">
+      <button id="fxSweep">Sweep</button>
+      <button id="fxStutter">Stutter</button>
+      <button id="fxRiser">Riser</button>
+    </div>
+    <div id="status">Pick a record from the shelf, then click a deck to drop it on the wall.</div>
+  </section>
+
+  <section class="wall" id="wall" aria-label="The deck wall"></section>
+
+  <div class="shelf-head">
+    <h2>Record shelf</h2>
+    <button id="fillBtn">Fill the wall</button>
+  </div>
+  <section class="shelf" id="shelf" aria-label="Record shelf"></section>
+  <p class="hint">Click a disc to pick it up, then click any deck slot to drop it there. Demo pressings are cut fresh from the engine when your crate runs thin.</p>
+
+  <details class="program">
+    <summary>Live program</summary>
+    <pre id="programOut">// nothing composed yet</pre>
+  </details>
+
+  <footer class="tests">
+    <h2>What this spike tests</h2>
+    <ul>
+      <li><em>The honest question:</em> does 4-deck layering hold up musically, or does it turn to mud — and do the FOCUS kills (one record on LOWS, another on TOPS) rescue it, classic EQ-mixing style?</li>
+      <li>Where the practical ceiling sits: is the sweet spot two full records plus two killed ones, or can four coexist at reduced gains?</li>
+      <li>Tempo-lock only fixes <b>time</b> — records in clashing keys will still fight harmonically. Does that matter in practice, or does the drum-heavy material shrug it off?</li>
+      <li>Gain staging: four beds default to 0.70 each — is that enough headroom, or does the wall need an automatic gain share (1/√n) per live deck?</li>
+      <li>One caveat baked in: the master sweep chains a second <code>.lpf()</code> after a LOWS kill's <code>.lpf(400)</code>; if Strudel's control semantics let the later value win, the sweep temporarily opens a killed deck back up. Worth probing against the CDN bundle before productising.</li>
+    </ul>
+  </footer>
+
+</div>
+
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = (s) => document.querySelector(s);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  // ---- the record pool --------------------------------------------------
+  // Real pressings from the crate first; the wall then tops itself up with
+  // deterministic demo pressings cut by the engine, so all four decks can
+  // always be filled even on a fresh browser. Distinct fixed seeds → the same
+  // four demo records every load.
+  const DEMO_SEEDS = [190393, 411807, 2640077, 8873131];
+
+  function partsOn(g) {
+    let n = 0;
+    for (let i = 0; i < g.active.length; i++) if (g.active[i]) n++;
+    return n;
+  }
+
+  // Cut one demo pressing: fresh engine, fixed seed, then approve up to 20
+  // pitched changes until the track carries 5+ active parts. Mirrors how the
+  // Live set builds a record, so demo beds are idiomatic engine output.
+  function synthRecord(seed) {
+    const e = new SDJ.DJEngine();
+    e.masterSeed = seed >>> 0;
+    e.newSong();
+    for (let i = 0; i < 20 && partsOn(e.song.genome) < 5; i++) {
+      const p = e.proposeChange();
+      if (!p) break;
+      e.acceptChange();
+    }
+    const code = e.render();
+    const m = /setcps\(([0-9.]+)\)/.exec(code.split('\n')[0] || '');
+    return {
+      id: 'demo-' + seed.toString(36),
+      name: e.song.name,
+      key: e.song.key,
+      scaleType: e.song.scaleType,
+      bpm: e.song.bpm,
+      cps: m ? parseFloat(m[1]) : e.song.cps,
+      code: code,
+      genome: JSON.parse(JSON.stringify(e.song.genome)),
+      art: { seed: e.song.seed },
+      demo: true,
+    };
+  }
+
+  let crate = [];
+  try { crate = JSON.parse(localStorage.getItem('sdj.crate') || '[]'); } catch (e) { crate = []; }
+  const demos = DEMO_SEEDS.map(synthRecord);
+  // The shelf always shows the crate plus enough demo pressings to fill 4 decks.
+  const pool = crate.concat(crate.length >= 4 ? [] : demos);
+
+  // ---- wall state --------------------------------------------------------
+  const decks = [0, 1, 2, 3].map(() => ({ record: null, gain: 0.7, focus: 'full', muted: false }));
+  const fx = { sweep: false, stutter: false, riser: false };
+  let masterCps = null;      // set from the first loaded record
+  let playing = false;
+  let audioReady = false;
+  let armed = -1;            // shelf index picked up, waiting for a deck slot
+  let evalTimer = 0;
+
+  // ---- composition (mirrors src/app.js composeRemix) ---------------------
+  // Each live deck contributes one bed: the record's whole expression nested
+  // as a single pattern arg, with the deck's focus filter, the latched master
+  // FX and its gain chained on. All beds stack under ONE master setcps —
+  // that's the tempo lock. String concatenation: parens/quotes stay balanced.
+  function bedFor(deck) {
+    if (!deck.record || deck.muted) return null;
+    const code = deck.record.code || '';
+    const nl = code.indexOf('\n');
+    let expr = code;
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) expr = code.slice(nl + 1);
+    let bed = '(' + expr.trim() + ')';
+    // FOCUS — the EQ-kill switch that lets four records coexist: one deck
+    // keeps only its kick/bass, another only its hats/leads.
+    if (deck.focus === 'lows') bed += '.lpf(400)';
+    else if (deck.focus === 'tops') bed += '.hpf(1200)';
+    // master FX latch onto every bed (see footer caveat re sweep after a kill)
+    if (fx.sweep) bed += '.lpf(sine.range(500,4500).slow(8))';
+    if (fx.stutter) bed += '.sometimesBy(0.25, x => x.ply("2 4"))';
+    bed += '.gain(' + deck.gain.toFixed(2) + ')';
+    return bed;
+  }
+
+  function compose() {
+    const beds = [];
+    decks.forEach((d) => { const b = bedFor(d); if (b) beds.push(b); });
+    if (!beds.length) return null; // an empty wall composes nothing
+    if (fx.riser) beds.push('s("white").gain(0.1).lpf(sine.range(400,9000).slow(8)).hpf(300).room(0.5)');
+    const cps = Math.round((masterCps == null ? 0.5 : masterCps) * 1000) / 1000;
+    return 'setcps(' + cps + ')\nstack(\n  ' + beds.join(',\n  ') + '\n)';
+  }
+
+  // ---- evaluation --------------------------------------------------------
+  // Every control change recomposes the ONE program. Buttons evaluate
+  // immediately; faders throttle to ~150ms so a drag doesn't spam the audio
+  // engine. Everything latches — no timed removals anywhere.
+  function evaluateNow() {
+    const code = compose();
+    refreshProgram(code);
+    if (!playing) return;
+    if (!code) { if (typeof window.hush === 'function') window.hush(); return; }
+    window.__lastCode = code;
+    window.evaluate(code);
+  }
+
+  function evaluateThrottled() {
+    if (evalTimer) return;
+    evalTimer = setTimeout(() => { evalTimer = 0; evaluateNow(); }, 150);
+  }
+
+  async function onPlay() {
+    if (playing) { stopWall(); return; }
+    if (!compose()) { setStatus('Load at least one record onto the wall first.'); return; }
+    if (!audioReady) {
+      if (typeof window.initStrudel !== 'function') {
+        setStatus('Strudel failed to load from the CDN — are you online?');
+        return;
+      }
+      setStatus('Loading sounds…');
+      try {
+        await window.initStrudel();
+        await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+      } catch (err) { console.error(err); }
+      audioReady = true;
+    }
+    playing = true;
+    evaluateNow();
+    updatePlayBtn();
+    updateSpin();
+    setStatus('The wall is live — ride the gains, kill the lows.');
+  }
+
+  function stopWall() {
+    playing = false;
+    if (typeof window.hush === 'function') window.hush();
+    updatePlayBtn();
+    updateSpin();
+    setStatus('Stopped.');
+  }
+
+  // ---- deck operations ---------------------------------------------------
+  function loadRecordIntoDeck(i, rec, quiet) {
+    const d = decks[i];
+    d.record = rec;
+    d.muted = false;
+    if (masterCps == null && rec && rec.cps) {
+      masterCps = clamp(+rec.cps || 0.5, 0.3, 0.8);
+      $('#tempoSlider').value = masterCps;
+      updateTempoOut();
+    }
+    renderDeck(i);
+    updateSpin();
+    if (quiet) refreshProgram(compose());
+    else evaluateNow();
+  }
+
+  function setFocus(i, f) {
+    decks[i].focus = f;
+    renderDeck(i);
+    evaluateNow();
+  }
+
+  function toggleMute(i) {
+    decks[i].muted = !decks[i].muted;
+    renderDeck(i);
+    updateSpin();
+    evaluateNow();
+  }
+
+  function toggleFx(key, btn) {
+    fx[key] = !fx[key];
+    btn.classList.toggle('on', fx[key]);
+    evaluateNow();
+  }
+
+  // ---- rendering ---------------------------------------------------------
+  const FOCUS_LABELS = { full: 'FULL', lows: 'LOWS', tops: 'TOPS' };
+
+  function renderDeck(i) {
+    const host = document.querySelector('.deck[data-i="' + i + '"]');
+    const d = decks[i];
+    host.classList.toggle('muted', d.muted);
+    host.innerHTML = '';
+
+    const head = document.createElement('header');
+    const slot = document.createElement('span');
+    slot.className = 'slot';
+    slot.textContent = 'DECK 0' + (i + 1);
+    const mute = document.createElement('button');
+    mute.className = 'mute' + (d.muted ? ' on' : '');
+    mute.textContent = d.muted ? 'MUTED' : 'MUTE';
+    mute.addEventListener('click', () => toggleMute(i));
+    head.appendChild(slot);
+    head.appendChild(mute);
+    host.appendChild(head);
+
+    const platter = document.createElement('div');
+    platter.className = 'platter';
+    if (d.record) {
+      const disc = document.createElement('div');
+      disc.className = 'disc';
+      disc.innerHTML = SDJ.Vinyl.forEntry(d.record);
+      platter.appendChild(disc);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'empty-slot';
+      empty.textContent = 'EMPTY — pick a record from the shelf';
+      platter.appendChild(empty);
+    }
+    host.appendChild(platter);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    if (d.record) {
+      const nm = document.createElement('strong');
+      nm.className = 'name';
+      nm.textContent = d.record.name || 'Untitled';
+      const sub = document.createElement('span');
+      sub.className = 'sub';
+      sub.textContent = (d.record.key || '?') + ' · ' + (d.record.bpm || '?') + ' BPM';
+      meta.appendChild(nm);
+      meta.appendChild(sub);
+    }
+    host.appendChild(meta);
+
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+
+    const gr = document.createElement('div');
+    gr.className = 'gainrow';
+    const gl = document.createElement('label');
+    gl.textContent = 'GAIN';
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.step = '1';
+    slider.value = String(Math.round(d.gain * 100));
+    const go = document.createElement('output');
+    go.textContent = d.gain.toFixed(2);
+    slider.addEventListener('input', () => {
+      d.gain = (+slider.value || 0) / 100;
+      go.textContent = d.gain.toFixed(2);
+      evaluateThrottled();          // fader: throttled, not per-event
+    });
+    gr.appendChild(gl); gr.appendChild(slider); gr.appendChild(go);
+    strip.appendChild(gr);
+
+    const foc = document.createElement('div');
+    foc.className = 'focus';
+    ['full', 'lows', 'tops'].forEach((f) => {
+      const b = document.createElement('button');
+      b.dataset.f = f;
+      b.textContent = FOCUS_LABELS[f];
+      b.title = f === 'full' ? 'No filter — the whole record'
+        : f === 'lows' ? 'EQ kill: keep only its kick and bass (.lpf(400))'
+        : 'EQ kill: keep only its hats and leads (.hpf(1200))';
+      b.classList.toggle('on', d.focus === f);
+      b.addEventListener('click', () => setFocus(i, f));
+      foc.appendChild(b);
+    });
+    strip.appendChild(foc);
+    host.appendChild(strip);
+  }
+
+  function buildWall() {
+    const wall = $('#wall');
+    wall.innerHTML = '';
+    decks.forEach((_, i) => {
+      const card = document.createElement('article');
+      card.className = 'deck';
+      card.dataset.i = String(i);
+      // dropping an armed shelf record onto this slot — ignore control clicks
+      card.addEventListener('click', (ev) => {
+        if (armed < 0) return;
+        if (ev.target.closest('button, input')) return;
+        const rec = pool[armed];
+        armed = -1;
+        renderShelf();
+        markTargets(false);
+        loadRecordIntoDeck(i, rec);
+        setStatus('Dropped "' + (rec.name || 'Untitled') + '" onto deck ' + (i + 1) + '.');
+      });
+      wall.appendChild(card);
+      renderDeck(i);
+    });
+  }
+
+  function renderShelf() {
+    const shelf = $('#shelf');
+    shelf.innerHTML = '';
+    pool.forEach((rec, idx) => {
+      const b = document.createElement('button');
+      b.className = 'shelf-rec' + (idx === armed ? ' armed' : '');
+      b.title = (rec.name || 'Untitled') + ' · ' + (rec.bpm || '?') + ' BPM';
+      const disc = document.createElement('span');
+      disc.className = 'disc-sm';
+      disc.innerHTML = SDJ.Vinyl.forEntry(rec);
+      const nm = document.createElement('span');
+      nm.className = 'nm';
+      nm.textContent = rec.name || 'Untitled';
+      b.appendChild(disc);
+      b.appendChild(nm);
+      if (rec.demo) {
+        const tag = document.createElement('em');
+        tag.className = 'tag';
+        tag.textContent = 'DEMO CUT';
+        b.appendChild(tag);
+      }
+      b.addEventListener('click', () => {
+        armed = armed === idx ? -1 : idx;
+        renderShelf();
+        markTargets(armed >= 0);
+        setStatus(armed >= 0
+          ? 'Holding "' + (rec.name || 'Untitled') + '" — click a deck slot to drop it.'
+          : 'Put the record back on the shelf.');
+      });
+      shelf.appendChild(b);
+    });
+  }
+
+  function markTargets(on) {
+    document.querySelectorAll('.deck').forEach((d) => d.classList.toggle('target', on));
+  }
+
+  function updateSpin() {
+    decks.forEach((d, i) => {
+      const host = document.querySelector('.deck[data-i="' + i + '"]');
+      const disc = host.querySelector('.disc');
+      if (disc) disc.classList.toggle('spin', playing && !d.muted && !!d.record);
+      host.classList.toggle('live', playing && !d.muted && !!d.record);
+    });
+  }
+
+  function updatePlayBtn() {
+    const b = $('#playBtn');
+    b.textContent = playing ? '■ STOP' : '▶ PLAY';
+    b.classList.toggle('on', playing);
+  }
+
+  function updateTempoOut() {
+    const cps = masterCps == null ? +$('#tempoSlider').value : masterCps;
+    $('#tempoOut').textContent = cps.toFixed(2) + ' cps · ' + Math.round(cps * 240) + ' BPM';
+  }
+
+  function refreshProgram(code) {
+    $('#programOut').textContent = code || '// (no live decks — the wall is silent)';
+  }
+
+  function setStatus(msg) { $('#status').textContent = msg; }
+
+  // Fill every slot from the pool (crate first, demo cuts topping up) — the
+  // one-click way to see the maximal question asked out loud.
+  function fillWall(fromDemos, quiet) {
+    const source = fromDemos ? demos : pool;
+    decks.forEach((_, i) => {
+      loadRecordIntoDeck(i, source[i % source.length], true);
+    });
+    if (!quiet) {
+      evaluateNow();
+      setStatus('Wall filled — four records tempo-locked and ready.');
+    } else {
+      refreshProgram(compose());
+    }
+  }
+
+  // ---- master controls ---------------------------------------------------
+  $('#playBtn').addEventListener('click', onPlay);
+  $('#tempoSlider').addEventListener('input', () => {
+    masterCps = clamp(+$('#tempoSlider').value || 0.5, 0.3, 0.8);
+    updateTempoOut();
+    evaluateThrottled();            // fader: throttled
+  });
+  $('#fxSweep').addEventListener('click', (e) => toggleFx('sweep', e.currentTarget));
+  $('#fxStutter').addEventListener('click', (e) => toggleFx('stutter', e.currentTarget));
+  $('#fxRiser').addEventListener('click', (e) => toggleFx('riser', e.currentTarget));
+  $('#fillBtn').addEventListener('click', () => fillWall(false, false));
+
+  // ---- headless hooks -----------------------------------------------------
+  window.__lastCode = '';
+  window.__spike = {
+    compose: compose,
+    state: function () {
+      return {
+        playing: playing,
+        masterCps: masterCps,
+        fx: { sweep: fx.sweep, stutter: fx.stutter, riser: fx.riser },
+        decks: decks.map((d) => ({
+          loaded: !!d.record,
+          name: d.record ? (d.record.name || 'Untitled') : null,
+          gain: d.gain,
+          focus: d.focus,
+          muted: d.muted,
+        })),
+      };
+    },
+    loadDemo: function () { fillWall(true, true); }, // all four demo cuts, no audio
+  };
+
+  // ---- boot ---------------------------------------------------------------
+  buildWall();
+  renderShelf();
+  updateTempoOut();
+  refreshProgram(null);
+})();
+</script>
+</body>
+</html>

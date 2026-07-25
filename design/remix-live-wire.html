@@ -1,0 +1,700 @@
+<!doctype html>
+<!--
+  ── SPIKE · LIVE WIRE ─────────────────────────────────────────────────────────
+  Thesis: the remix lab becomes a REAL two-channel DJ mixer. Two records from
+  the crate spin against each other through classic channel strips (low/hi
+  kills, gain trims) and an equal-power crossfader, with the proven FX rack on
+  the master bus. Voice is reworked from broken one-shots into exactly two
+  latching, grid-quantised features: a HOOK LINE (three cycleable flavours from
+  the dirt-samples banks, looping in pattern time — no setTimeout, no
+  re-evaluate races) and a CHOIR PAD (sample-free synth "aah/ooh" key-locked to
+  the master deck's record, so it is always in tune). Every control change
+  recomposes ONE balanced Strudel program and evaluates it; PRESS banks the
+  composed program back into the crate as a new record.
+
+  Standalone: no build, no deps beyond the Strudel CDN. Loads the repo's own
+  classic scripts off window.SDJ for the engine, theory, names and vinyl discs.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Live Wire · Strudel Auto-DJ</title>
+<style>
+  :root {
+    --bg:     #06040d;
+    --panel:  #0d0a1a;
+    --panel2: #120e24;
+    --ink:    #f3ecff;
+    --muted:  #9d8fc7;
+    --violet: #7a5cff;
+    --cyan:   #22d3ee;
+    --pink:   #ff3d81;
+    --line:   rgba(122, 92, 255, 0.24);
+    --font: "Space Grotesk", "DM Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #120a2a 0%, var(--bg) 55%);
+    color: var(--ink); font-family: var(--font);
+  }
+  body { padding: 26px clamp(14px, 4vw, 48px) 60px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; margin-bottom: 6px; }
+  header h1 {
+    margin: 0; font-size: clamp(26px, 4vw, 40px); letter-spacing: 2px;
+    background: linear-gradient(110deg, #fff, var(--cyan) 45%, var(--violet) 75%, var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .concept { color: var(--muted); font-size: 13px; max-width: 62ch; }
+  header .back { margin-left: auto; font-size: 12px; letter-spacing: 1px; }
+  #status { min-height: 18px; font-size: 12px; color: var(--cyan); letter-spacing: 0.5px; margin: 4px 0 14px; }
+
+  /* ── the rig: deck A | mixer | deck B ─────────────────────────────────── */
+  .rig {
+    display: grid; grid-template-columns: 1fr minmax(250px, 330px) 1fr;
+    gap: 18px; align-items: stretch;
+  }
+  .deck {
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .deck h2 { margin: 0; font-size: 12px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .deck.a h2 b { color: var(--cyan); } .deck.b h2 b { color: var(--pink); }
+  .platter {
+    width: min(230px, 60vw); aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center; position: relative;
+    background: radial-gradient(circle at 50% 40%, #171226, #0a0814 70%);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7);
+  }
+  .platter .disc { width: 92%; height: 92%; border-radius: 50%; }
+  .platter.spin .disc { animation: rot 2.2s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .platter .empty {
+    width: 88%; height: 88%; border-radius: 50%;
+    border: 2px dashed rgba(157,143,199,0.35);
+    display: grid; place-items: center;
+    color: var(--muted); font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    text-align: center; padding: 10%;
+  }
+  .deck-meta { text-align: center; font-size: 12px; color: var(--muted); line-height: 1.5; min-height: 34px; }
+  .deck-meta strong { color: var(--ink); font-size: 13px; letter-spacing: 0.5px; }
+
+  /* ── centre mixer: two channel strips + crossfader ────────────────────── */
+  .mixer {
+    background: linear-gradient(180deg, #100c20, #0a0716);
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px 14px 18px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .mixer h2 { margin: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; }
+  .strips { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
+  .chan {
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.25));
+    padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .chan .tag { font-size: 11px; letter-spacing: 3px; }
+  .chan[data-deck="a"] .tag { color: var(--cyan); }
+  .chan[data-deck="b"] .tag { color: var(--pink); }
+  .kill {
+    width: 84%; padding: 8px 0; font-family: var(--font); font-size: 10.5px; letter-spacing: 1.5px;
+    color: var(--muted); background: #0b0916; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; cursor: pointer; transition: all .15s;
+  }
+  .kill.on { color: #0b0916; background: var(--pink); border-color: var(--pink); box-shadow: 0 0 14px rgba(255,61,129,0.55); font-weight: 700; }
+  .chan label { font-size: 9.5px; letter-spacing: 2px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 2px; }
+  .chan input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 110px; accent-color: var(--violet); }
+  .chan .trimval { font-size: 10px; color: var(--ink); }
+  .xfade { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 4px 6px 0; }
+  .xfade span { font-size: 12px; font-weight: 700; }
+  .xfade span:first-child { color: var(--cyan); } .xfade span:last-child { color: var(--pink); }
+  .xfade input { width: 100%; accent-color: var(--cyan); }
+  .xfade-cap { text-align: center; font-size: 9.5px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  /* ── master bus: transport, FX rack, voice, press ─────────────────────── */
+  .master {
+    margin-top: 18px; border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, var(--panel), var(--panel2));
+    padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 22px;
+  }
+  .master .group { display: flex; flex-direction: column; gap: 8px; }
+  .master .group h3 { margin: 0; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  .master .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font); font-size: 12px; letter-spacing: 1.5px; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; color: var(--ink);
+    background: #0b0916; border: 1px solid rgba(255,255,255,0.14); transition: all .15s;
+  }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.on { background: var(--violet); border-color: var(--violet); color: #fff; box-shadow: 0 0 16px rgba(122,92,255,0.6); font-weight: 700; }
+  .btn.play { border-color: var(--cyan); color: var(--cyan); }
+  .btn.play.live { background: var(--cyan); color: #06202a; font-weight: 700; box-shadow: 0 0 18px rgba(34,211,238,0.6); }
+  .btn small { display: block; font-size: 9px; letter-spacing: 1px; color: inherit; opacity: 0.8; margin-top: 3px; }
+  .btn.voicepad.on { background: var(--pink); border-color: var(--pink); box-shadow: 0 0 16px rgba(255,61,129,0.6); }
+  .press {
+    margin-left: auto; padding: 14px 22px; border-radius: 12px; cursor: pointer;
+    font-family: var(--font); font-size: 13px; letter-spacing: 2px; font-weight: 700;
+    color: #2a0614; background: linear-gradient(110deg, var(--pink), #ff7ab0);
+    border: none; box-shadow: 0 0 22px rgba(255,61,129,0.35); transition: transform .12s;
+  }
+  .press:hover { transform: translateY(-1px); }
+  .nudge { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+  .nudge input { width: 130px; accent-color: var(--pink); }
+  .nudge b { color: var(--ink); font-size: 11px; min-width: 46px; }
+  #tempo { font-size: 11px; color: var(--cyan); letter-spacing: 1px; }
+
+  /* ── the shelf: crate records as sleeves ──────────────────────────────── */
+  .shelf { margin-top: 20px; }
+  .shelf h2 { font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; margin: 0 0 10px; }
+  .sleeves { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+  .sleeve {
+    flex: 0 0 148px; background: linear-gradient(180deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .sleeve .vin { width: 116px; height: 116px; }
+  .sleeve .nm { font-size: 11px; text-align: center; line-height: 1.35; }
+  .sleeve .nm b { display: block; letter-spacing: 0.5px; }
+  .sleeve .nm span { color: var(--muted); font-size: 10px; }
+  .sleeve .load { display: flex; gap: 6px; }
+  .sleeve .load button {
+    font-family: var(--font); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    padding: 5px 12px; border-radius: 7px; background: #0b0916; color: var(--ink);
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+  .sleeve .load button:first-child:hover { border-color: var(--cyan); color: var(--cyan); }
+  .sleeve .load button:last-child:hover { border-color: var(--pink); color: var(--pink); }
+  .demo-tag { font-size: 9px; letter-spacing: 2px; color: var(--violet); text-transform: uppercase; }
+
+  details { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(13,10,26,0.7); }
+  details summary { cursor: pointer; padding: 10px 16px; font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+  details pre {
+    margin: 0; padding: 14px 18px; font-size: 11.5px; line-height: 1.6; color: #b9f5ef;
+    overflow-x: auto; border-top: 1px solid var(--line); white-space: pre;
+  }
+
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; max-width: 78ch; }
+  footer h2 { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
+  footer ul { margin: 0; padding-left: 18px; }
+
+  @media (max-width: 900px) { .rig { grid-template-columns: 1fr; } .press { margin-left: 0; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>SPIKE · LIVE WIRE</h1>
+    <span class="concept">Two crate records on a real DJ mixer — kills, trims, an equal-power crossfader, the
+      proven FX rack, and a voice section that finally holds the grid.</span>
+    <a class="back" href="../index.html">← back to the app</a>
+  </header>
+  <div id="status">Load a record onto each deck, then hit PLAY.</div>
+
+  <div class="rig">
+    <section class="deck a">
+      <h2>Deck <b>A</b></h2>
+      <div class="platter" id="platterA"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaA">nothing loaded</div>
+    </section>
+
+    <section class="mixer">
+      <h2>Mixer</h2>
+      <div class="strips">
+        <div class="chan" data-deck="a">
+          <span class="tag">CH·A</span>
+          <button class="kill" data-deck="a" data-kill="killLow">LOW KILL</button>
+          <button class="kill" data-deck="a" data-kill="killHi">HI KILL</button>
+          <label>GAIN
+            <input type="range" id="trimA" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimAVal">1.00</span>
+          </label>
+        </div>
+        <div class="chan" data-deck="b">
+          <span class="tag">CH·B</span>
+          <button class="kill" data-deck="b" data-kill="killLow">LOW KILL</button>
+          <button class="kill" data-deck="b" data-kill="killHi">HI KILL</button>
+          <label>GAIN
+            <input type="range" id="trimB" min="0" max="1" step="0.01" value="1" />
+            <span class="trimval" id="trimBVal">1.00</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <div class="xfade">
+          <span>A</span>
+          <input type="range" id="cross" min="0" max="1" step="0.01" value="0.5" />
+          <span>B</span>
+        </div>
+        <div class="xfade-cap">crossfader · equal power</div>
+      </div>
+    </section>
+
+    <section class="deck b">
+      <h2>Deck <b>B</b></h2>
+      <div class="platter" id="platterB"><div class="empty">drop a record from the shelf</div></div>
+      <div class="deck-meta" id="metaB">nothing loaded</div>
+    </section>
+  </div>
+
+  <section class="master">
+    <div class="group">
+      <h3>Master</h3>
+      <div class="row">
+        <button class="btn play" id="playBtn">▶ PLAY</button>
+        <button class="btn" id="stopBtn">⏹ STOP</button>
+        <span class="nudge">NUDGE
+          <input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" />
+          <b id="nudgeVal">+0.0%</b>
+        </span>
+        <span id="tempo">— cps</span>
+      </div>
+    </div>
+    <div class="group">
+      <h3>FX rack</h3>
+      <div class="row">
+        <button class="btn" data-fx="sweep">SWEEP</button>
+        <button class="btn" data-fx="stutter">STUTTER</button>
+        <button class="btn" data-fx="riser">RISER</button>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Voice</h3>
+      <div class="row">
+        <button class="btn voicepad" id="hookBtn">HOOK LINE<small id="hookState">off · tap to cycle</small></button>
+        <button class="btn voicepad" id="choirBtn">CHOIR PAD<small id="choirState">off</small></button>
+      </div>
+    </div>
+    <button class="press" id="pressBtn">● PRESS TO CRATE</button>
+  </section>
+
+  <section class="shelf">
+    <h2>Record shelf</h2>
+    <div class="sleeves" id="sleeves"></div>
+  </section>
+
+  <details>
+    <summary>Live program</summary>
+    <pre id="program">— nothing loaded —</pre>
+  </details>
+
+  <footer>
+    <h2>What this spike tests</h2>
+    <ul>
+      <li>Whether two crate records blend musically through an equal-power crossfader with the
+        gains baked into each bed's <code>.gain()</code> — one program, one evaluate, no dual transports.</li>
+      <li>Whether classic mixer kills (LOW = <code>.hpf(300)</code>, HI = <code>.lpf(700)</code>,
+        both = telephone mid) give enough live shaping to carry a transition on their own.</li>
+      <li>Whether latching, pattern-quantised voice — a looping HOOK LINE with three flavours and a
+        key-locked synth CHOIR PAD — beats the old mistimed one-shot pads. No
+        <code>setTimeout</code>, no re-evaluate races, nothing ever out of tune.</li>
+      <li>Whether PRESS on a two-deck blend produces a crate record worth keeping (the composed
+        program saved with the master deck's genome and key).</li>
+    </ul>
+  </footer>
+
+<!-- Strudel live-coding engine (exposes initStrudel / evaluate / hush globally) -->
+<script src="https://unpkg.com/@strudel/web@latest"></script>
+<!-- The repo's own classic scripts, in dependency order, on window.SDJ -->
+<script src="../src/rng.js"></script>
+<script src="../src/theory.js"></script>
+<script src="../src/names.js"></script>
+<script src="../src/dj.js"></script>
+<script src="../src/art.js"></script>
+<script src="../src/vinyl.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const CRATE_KEY = 'sdj.crate';
+  const CRATE_CAP = 64;
+  // Distinct fixed seeds so the fallback records are the same every visit.
+  const DEMO_SEEDS = [20260724, 47810923];
+
+  // ── state ────────────────────────────────────────────────────────────────
+  const state = {
+    playing: false,
+    audioReady: false,
+    cross: 0.5,          // 0 = full A, 1 = full B
+    nudge: 0,            // ±8% tempo trim on the master deck's cps
+    decks: {
+      a: { rec: null, trim: 1, killLow: false, killHi: false },
+      b: { rec: null, trim: 1, killLow: false, killHi: false },
+    },
+    fx: { sweep: false, stutter: false, riser: false },
+    hook: 0,             // 0 off · 1 sparse · 2 call-response · 3 chopped
+    choir: false,
+  };
+
+  // The HOOK LINE's three flavours — every one a looping pattern that holds the
+  // grid on its own, so there is nothing to schedule or tear down by hand.
+  const HOOK_LINES = [
+    null,
+    { label: 'sparse',
+      code: 's("~ yeah:1 ~ [yeah:1 ho:3]").gain(0.85).room(0.2)' },
+    { label: 'call · response',
+      code: 's("<[yeah:1 ~ ~ ho:0] [~ ~ yeah:5 [ho:3 ho:3]]>").gain(0.82).room(0.25)' },
+    { label: 'chopped',
+      code: 's("speech:2").slow(2).chop(8).gain(0.6).delay(0.3).delaytime(0.16).delayfeedback(0.35)' },
+  ];
+
+  function setStatus(msg) { $('status').textContent = msg; }
+  function n2s(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+
+  // ── the crate + deterministic fallback records ───────────────────────────
+  function loadCrate() {
+    try { return JSON.parse(localStorage.getItem(CRATE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCrate(crate) {
+    try { localStorage.setItem(CRATE_KEY, JSON.stringify(crate)); } catch (e) { /* quota */ }
+  }
+  function topLane(g) {
+    let hi = 0;
+    for (let i = 0; i < g.active.length; i++) if (g.active[i]) hi = i;
+    return hi;
+  }
+
+  // Synthesise one record with the real engine: seed it, then run the same
+  // propose/accept loop the Live set uses until the track has 5+ parts.
+  function synthRecord(seed) {
+    const e = new SDJ.DJEngine();
+    e.masterSeed = seed;
+    e.newSong();
+    for (let i = 0; i < 20; i++) {
+      const act = e.song.genome.active.filter(Boolean).length;
+      if (act >= 5) break;
+      if (!e.proposeChange()) break;   // applies the change; accept confirms it
+      e.acceptChange();
+    }
+    const code = e.render();
+    const m = /setcps\(([0-9.]+)\)/.exec(code.split('\n')[0] || '');
+    const s = e.song;
+    const genome = JSON.parse(JSON.stringify(s.genome));
+    const lane = topLane(genome);
+    return {
+      id: 'demo-' + (seed >>> 0).toString(36),
+      name: s.name, key: s.key, scaleType: s.scaleType,
+      bpm: s.bpm, cps: m ? parseFloat(m[1]) : s.cps,
+      genre: s.genre ? s.genre.id : null,
+      genreLabel: s.genre ? s.genre.label : null,
+      code: code, genome: genome,
+      art: { seed: s.seed >>> 0, layer: lane, variant: genome.variant[lane] || 0 },
+      demo: true,
+    };
+  }
+  let demoCache = null;
+  function demoRecords() {
+    if (!demoCache) demoCache = DEMO_SEEDS.map(synthRecord);
+    return demoCache;
+  }
+  function shelfRecords() {
+    const crate = loadCrate();
+    return crate.length >= 2 ? crate : crate.concat(demoRecords());
+  }
+
+  // ── composition: everything becomes ONE balanced program ─────────────────
+  // Mirrors app.js composeRemix: strip the record's setcps line, wrap the bare
+  // expression in parens, chain the mixer/FX onto the bed, bake the gain last.
+  function masterRec() { return state.decks.a.rec || state.decks.b.rec || null; }
+  function masterCps() {
+    const rec = masterRec();
+    const base = (rec && rec.cps) || 0.5;
+    return Math.round(base * (1 + state.nudge / 100) * 1000) / 1000;
+  }
+  // Equal-power crossfade, scaled to ~0.95, times the channel trim, 2dp.
+  function deckGain(which) {
+    const m = state.cross;
+    const curve = which === 'a' ? Math.cos(m * Math.PI / 2) : Math.sin(m * Math.PI / 2);
+    return Math.round(curve * 0.95 * state.decks[which].trim * 100) / 100;
+  }
+  function stripCps(code) {
+    const nl = code.indexOf('\n');
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
+    return code;
+  }
+  function bedFor(which) {
+    const d = state.decks[which];
+    if (!d.rec || !d.rec.code) return null;
+    const g = deckGain(which);
+    if (g <= 0) return null; // faded right out — off the program, platter stops
+    let bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+    if (state.fx.sweep) bed += '.lpf(sine.range(500,4500).slow(8))';
+    if (d.killLow) bed += '.hpf(300)';
+    if (d.killHi) bed += '.lpf(700)'; // later .lpf wins, so the HI KILL beats the sweep
+    if (state.fx.stutter) bed += '.sometimesBy(0.25, x => x.ply("2 4"))';
+    bed += '.gain(' + n2s(g) + ')';
+    return bed;
+  }
+  function compose() {
+    const rec = masterRec();
+    if (!rec) return null; // both decks empty
+    const layers = [];
+    const bedA = bedFor('a');
+    const bedB = bedFor('b');
+    if (bedA) layers.push(bedA);
+    if (bedB) layers.push(bedB);
+    if (state.fx.riser) {
+      layers.push('s("white").gain(0.1).lpf(sine.range(400,9000).slow(8)).hpf(300).room(0.5)');
+    }
+    if (state.hook > 0) layers.push(HOOK_LINES[state.hook].code);
+    if (state.choir) {
+      // Key-locked to the master deck's record: root + scale quality straight
+      // off the entry, so the pad can never clash and never misses a sample.
+      const root = rec.key || 'A';
+      const quality = rec.scaleType || 'minor';
+      layers.push(
+        'n("<0 [0,2] [0,2,4] [2,4]>").scale("' + root + '4:' + quality + '")' +
+        '.s("sawtooth").vowel("<a o e o>")' +
+        '.attack(0.2).release(0.4).gain(0.28).lpf(2600).room(0.6)'
+      );
+    }
+    if (!layers.length) return null;
+    return 'setcps(' + masterCps() + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  // ── the transport: one throttled evaluate for every control change ───────
+  let evalTimer = 0, lastEval = 0;
+  function doEval() {
+    lastEval = Date.now();
+    const code = compose();
+    if (!code) { if (typeof window.hush === 'function') window.hush(); return; }
+    window.__lastCode = code;
+    if (typeof window.evaluate === 'function') window.evaluate(code);
+  }
+  function refresh() {
+    const code = compose();
+    $('program').textContent = code || '— nothing loaded —';
+    updatePlatters();
+    updateTempo();
+    if (!state.playing) return;
+    clearTimeout(evalTimer);
+    const wait = Math.max(0, 150 - (Date.now() - lastEval));
+    evalTimer = setTimeout(doEval, wait);
+  }
+
+  async function play() {
+    if (!masterRec()) { setStatus('Load a record onto a deck first.'); return; }
+    if (state.playing) return;
+    setStatus('Waking the audio engine…');
+    try {
+      if (!state.audioReady) {
+        await window.initStrudel();
+        // dirt-samples carries both the drum kit AND the vocal banks the hook uses
+        await window.samples('https://raw.githubusercontent.com/tidalcycles/dirt-samples/master/strudel.json');
+        state.audioReady = true;
+      }
+    } catch (err) {
+      setStatus('Audio failed to start — ' + err);
+      return;
+    }
+    state.playing = true;
+    lastEval = 0;
+    $('playBtn').classList.add('live');
+    refresh();
+    setStatus('Live. Work the fader.');
+  }
+  function stop() {
+    if (!state.playing) { setStatus('Already stopped.'); return; }
+    state.playing = false;
+    clearTimeout(evalTimer);
+    if (typeof window.hush === 'function') window.hush();
+    $('playBtn').classList.remove('live');
+    updatePlatters();
+    setStatus('Stopped.');
+  }
+
+  // ── decks + platters ─────────────────────────────────────────────────────
+  function loadDeck(which, entry) {
+    state.decks[which].rec = entry;
+    const platter = $(which === 'a' ? 'platterA' : 'platterB');
+    platter.innerHTML = '<div class="disc">' +
+      (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>';
+    $(which === 'a' ? 'metaA' : 'metaB').innerHTML =
+      '<strong>' + escapeHtml(entry.name || 'Untitled') + '</strong><br>' +
+      escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' +
+      (entry.bpm || '?') + ' BPM';
+    refresh();
+    setStatus('“' + (entry.name || 'Untitled') + '” on deck ' + which.toUpperCase() + '.');
+  }
+  // A platter spins only while its bed is actually audible: playing, loaded,
+  // and not killed by the fader or a zeroed trim.
+  function updatePlatters() {
+    ['a', 'b'].forEach((which) => {
+      const platter = $(which === 'a' ? 'platterA' : 'platterB');
+      const audible = state.playing && !!state.decks[which].rec && deckGain(which) > 0;
+      platter.classList.toggle('spin', audible);
+    });
+  }
+  function updateTempo() {
+    const rec = masterRec();
+    $('tempo').textContent = rec
+      ? masterCps() + ' cps · ' + Math.round(masterCps() * 240) + ' BPM'
+      : '— cps';
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── the shelf ────────────────────────────────────────────────────────────
+  function renderShelf() {
+    const box = $('sleeves');
+    box.innerHTML = '';
+    shelfRecords().forEach((entry) => {
+      const sleeve = document.createElement('div');
+      sleeve.className = 'sleeve';
+      sleeve.innerHTML =
+        '<div class="vin">' + (SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : '') + '</div>' +
+        '<div class="nm"><b>' + escapeHtml(entry.name || 'Untitled') + '</b>' +
+        '<span>' + escapeHtml(entry.key || '') + ' · ' + (entry.bpm || '?') + ' BPM</span>' +
+        (entry.demo ? '<br><span class="demo-tag">demo pressing</span>' : '') + '</div>' +
+        '<div class="load"><button data-to="a">→A</button><button data-to="b">→B</button></div>';
+      sleeve.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => loadDeck(btn.dataset.to, entry));
+      });
+      box.appendChild(sleeve);
+    });
+  }
+
+  // ── PRESS: bank the composed program as a new crate record ───────────────
+  function shortName(name) {
+    const n = String(name || 'Untitled');
+    return n.length > 16 ? n.slice(0, 15) + '…' : n;
+  }
+  function press() {
+    const rec = masterRec();
+    const code = compose();
+    if (!rec || !code) { setStatus('Nothing to press — load a deck first.'); return; }
+    const a = state.decks.a.rec, b = state.decks.b.rec;
+    const name = (a && b)
+      ? shortName(a.name) + ' × ' + shortName(b.name)
+      : shortName(rec.name) + ' × Live Wire';
+    const genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
+    const lane = genome ? topLane(genome) : 0;
+    const cps = masterCps();
+    const entry = {
+      id: 'rec-' + Date.now().toString(36) + '-lw',
+      name: name,
+      key: rec.key,
+      scaleType: rec.scaleType,
+      bpm: Math.round(cps * 240),
+      cps: cps,
+      genre: rec.genre || null,
+      genreLabel: rec.genreLabel || null,
+      code: code,
+      genome: genome,
+      art: { seed: Date.now() >>> 0, layer: lane, variant: genome ? (genome.variant[lane] || 0) : 0 },
+      approval: null,
+      source: 'remix',
+      savedAt: Date.now(),
+    };
+    const crate = loadCrate();
+    if (crate.length && crate[0].code === code) {
+      setStatus('Already pressed — the newest record in the crate is this exact cut.');
+      return;
+    }
+    crate.unshift(entry);
+    if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
+    saveCrate(crate);
+    renderShelf();
+    setStatus('Pressed “' + name + '” into the crate.');
+  }
+
+  // ── UI wiring ────────────────────────────────────────────────────────────
+  $('playBtn').addEventListener('click', play);
+  $('stopBtn').addEventListener('click', stop);
+  $('pressBtn').addEventListener('click', press);
+
+  $('cross').addEventListener('input', (e) => {
+    state.cross = parseFloat(e.target.value);
+    refresh();
+  });
+  $('nudge').addEventListener('input', (e) => {
+    state.nudge = parseFloat(e.target.value);
+    $('nudgeVal').textContent = (state.nudge >= 0 ? '+' : '') + state.nudge.toFixed(1) + '%';
+    refresh();
+  });
+  [['trimA', 'a'], ['trimB', 'b']].forEach(([id, which]) => {
+    $(id).addEventListener('input', (e) => {
+      state.decks[which].trim = parseFloat(e.target.value);
+      $(id + 'Val').textContent = state.decks[which].trim.toFixed(2);
+      refresh();
+    });
+  });
+  document.querySelectorAll('.kill').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = state.decks[btn.dataset.deck];
+      d[btn.dataset.kill] = !d[btn.dataset.kill];
+      btn.classList.toggle('on', d[btn.dataset.kill]);
+      refresh();
+    });
+  });
+  document.querySelectorAll('[data-fx]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.fx;
+      state.fx[key] = !state.fx[key];
+      btn.classList.toggle('on', state.fx[key]);
+      refresh();
+    });
+  });
+  // HOOK LINE — one pad, latching, cycled by re-tapping:
+  // off → sparse → call·response → chopped → off.
+  $('hookBtn').addEventListener('click', () => {
+    state.hook = (state.hook + 1) % HOOK_LINES.length;
+    $('hookState').textContent = state.hook ? HOOK_LINES[state.hook].label : 'off · tap to cycle';
+    $('hookBtn').classList.toggle('on', state.hook > 0);
+    refresh();
+  });
+  $('choirBtn').addEventListener('click', () => {
+    state.choir = !state.choir;
+    const rec = masterRec();
+    $('choirState').textContent = state.choir
+      ? 'on · ' + ((rec && rec.key) || 'A') + ' ' + ((rec && rec.scaleType) || 'minor')
+      : 'off';
+    $('choirBtn').classList.toggle('on', state.choir);
+    refresh();
+  });
+
+  // ── headless hooks ───────────────────────────────────────────────────────
+  function deckInfo(which) {
+    const d = state.decks[which];
+    if (!d.rec) return null;
+    return {
+      id: d.rec.id, name: d.rec.name, key: d.rec.key, bpm: d.rec.bpm, cps: d.rec.cps,
+      trim: d.trim, killLow: d.killLow, killHi: d.killHi, gain: deckGain(which),
+    };
+  }
+  window.__spike = {
+    compose: compose,
+    state: () => ({
+      playing: state.playing,
+      cross: state.cross,
+      nudge: state.nudge,
+      masterCps: masterRec() ? masterCps() : null,
+      deckA: deckInfo('a'),
+      deckB: deckInfo('b'),
+      fx: { sweep: state.fx.sweep, stutter: state.fx.stutter, riser: state.fx.riser },
+      voice: {
+        hook: state.hook,
+        hookLabel: state.hook ? HOOK_LINES[state.hook].label : 'off',
+        choir: state.choir,
+      },
+    }),
+    loadDemo: () => {
+      const demos = demoRecords();
+      loadDeck('a', demos[0]);
+      loadDeck('b', demos[1]);
+    },
+  };
+
+  renderShelf();
+  refresh();
+})();
+</script>
+</body>
+</html>
