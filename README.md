@@ -9,10 +9,6 @@ drops into your crate for keeps.
 **[▶ Play it live](https://luketheojohnson.github.io/strudel-auto-dj/)** &nbsp;·&nbsp;
 No backend · no framework · no bundler · no build step &nbsp;·&nbsp; MIT-licensed
 
-> **Built solo, with AI agents as the team.** This is a small proof of a larger thesis —
-> one founder directing AI coding agents can ship a complete, polished, tested app.
-> The *how* is the interesting part: **[read the making-of →](docs/MAKING-OF.md)**
-
 Strudel is loaded from a CDN and the whole thing is a handful of plain scripts sharing one
 `window.SDJ` namespace.
 
@@ -171,27 +167,6 @@ Everything the UI can do is also exposed headlessly for agents and tests:
 
 ---
 
-## Built solo, with AI agents
-
-This whole app was built by one person directing AI coding agents in
-[Claude Code](https://claude.ai/code) — no team. The interesting part isn't that an AI
-wrote code; it's the *loop* that made the output shippable:
-
-- **Spike, don't guess** — where a design was uncertain (the menu, the remix deck), the
-  agents built several runnable prototypes in `design/` plus a review report, and the human
-  picked from working artefacts.
-- **Adversarial review** — reviewer agents whose job is to break the change before merge.
-- **Test every output** — the deterministic `jsdom` suite below verifies every generated
-  Strudel program stays valid and balanced, even mid-crossfade.
-- **Audit against reality** — listen to the saved records, turn the problems into engine
-  fixes.
-- **Persistent memory** — decisions written once and reused across sessions, so context
-  compounds instead of resetting.
-
-The app is the artefact; the pipeline is the point. **[Full making-of →](docs/MAKING-OF.md)**
-
----
-
 ## Tests
 
 The app needs no dependencies to run; the suite uses `jsdom` to exercise the wiring end to
@@ -243,5 +218,4 @@ tuning the engine from real sessions.
 
 This project's own source is **MIT** — see [LICENSE](LICENSE). It loads the
 [Strudel](https://strudel.cc) live-coding engine at runtime from a CDN; Strudel is not
-bundled or modified here and remains under its own licence (AGPL-3.0). Built by Luke J
-with [Claude Code](https://claude.ai/code).
+bundled or modified here and remains under its own licence (AGPL-3.0).
