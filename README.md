@@ -1,17 +1,19 @@
-# Strudel Auto-DJ 🎧
+# Acetate 🎧
+
 ![The menu hub — Live Set, Crate, Remix](screenshots/01-menu.png)
 
-An AI DJ that **writes and evolves tracks live in [Strudel](https://strudel.cc) code**
-while you play the crowd. It authors every note; you only supply *taste*. Every track is
-a **record being cut**: each part you approve presses a coloured groove-ring onto the disc
-spinning on Deck A, and when you save, the colours and the name are stuck — the record
-drops into your crate for keeps.
+**Acetate** is an AI DJ that **cuts tracks live in [Strudel](https://strudel.cc) code**
+while you steer, turn by turn. It authors every note; you only supply *taste*. Every track
+is a **record being cut**: each part you approve presses a coloured groove-ring onto the
+disc spinning on Deck A, and when you keep one it’s a **dubplate** — a one-off cut, its
+name and colours stuck, dropped into your crate for good.
 
-**[▶ Play it live](https://luketheojohnson.github.io/strudel-auto-dj/)** &nbsp;·&nbsp;
+**[▶ Play it live](https://luketheojohnson.github.io/acetate/)** &nbsp;·&nbsp;
 No backend · no framework · no bundler · no build step &nbsp;·&nbsp; MIT-licensed
 
-Strudel is loaded from a CDN and the whole thing is a handful of plain scripts sharing one
-`window.SDJ` namespace.
+> *Named for the **acetate** — the one-off disc a DJ cuts to test a track before it’s
+> pressed. Built on [Strudel](https://strudel.cc), loaded from a CDN; the whole app is a
+> handful of plain scripts sharing one `window.SDJ` namespace.*
 
 ![The Live set — two turntables and a crossfader on the left, the console on the right, the roll and set history below](screenshots/02-live.png)
 
@@ -23,7 +25,6 @@ The app is one page with four hash-routed views (**Menu · Live · Crate · Remi
 a single source at a time, with one **⏹ stop** in the header that halts whatever's playing.
 On the menu, a random record from your crate drifts underneath at low volume once you click
 in — the place is never silent.
-
 
 ### 🎛 Live Set — two decks, one verdict at a time
 
@@ -44,9 +45,9 @@ and a per-part channel strip (drop / auto / feature). Below, **the roll** (Strud
 layer on its own coloured lane, next to a compact set history. The live code still exists —
 tucked into a `</>` drawer, with the pitched lane's lines tinted.
 
-### ◉ Pressing — saving is cutting a record
+### ◉ Cutting — saving cuts a dubplate
 
-When the arrangement is full (or you hit **◉ Press record** any time), the pressing modal
+When the arrangement is full (or you hit **◉ Cut a dubplate** any time), the press modal
 opens: the disc spins with its accreted colours, you **imprint the name on the label**
 (it updates live as you type), and the modal states exactly **which version is banked** —
 always the *approved* track; an un-judged pitch on Deck B is left off
@@ -57,9 +58,9 @@ the crate wearing its approve-rate. From the save prompt, the DJ then rolls a fr
 
 ![The pressing modal — the disc with its stuck colours, the name imprinted on the label, and which version is being banked](screenshots/03-press.png)
 
-### 🗃 The Crate — your pressed records
+### 🗃 The Crate — your dubplates
 
-A standalone player and your vault. Every saved track is a full record — vinyl face,
+A standalone player and your vault. Every saved track is a full **dubplate** — vinyl face,
 genome snapshot, cover seed, metadata — persisted in `localStorage` and portable via
 Export/Import JSON. Spin (the disc rotates while previewing), re-imprint the label, send
 to Remix, **export to MP3** (⬇ — a real-time render captured and encoded in-browser), or

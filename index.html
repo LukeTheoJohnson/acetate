@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Strudel Auto-DJ · steer the set</title>
+  <title>Acetate · cut tracks live in code</title>
   <link rel="stylesheet" href="styles.css" />
   <!-- Orbitron: synthy/retro wordmark for the menu title (menu-only, graceful fallback) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -17,8 +17,8 @@
     <div class="brand">
       <span class="logo">◈</span>
       <div>
-        <h1>Strudel Auto-DJ</h1>
-        <p class="tagline">An AI DJ builds tracks live in code. You are the crowd.</p>
+        <h1>Acetate</h1>
+        <p class="tagline">An AI DJ cuts tracks live in code. You keep the dubplates.</p>
       </div>
     </div>
     <nav class="topnav">
@@ -42,7 +42,7 @@
     <div class="menu-grain" aria-hidden="true"></div>
 
     <div class="menu-hub">
-      <h1 class="menu-word">StrudelDJ</h1>
+      <h1 class="menu-word">Acetate</h1>
 
       <div class="menu-channels" id="menuChannels" role="menu" aria-label="main menu">
         <a class="channel" role="menuitem" href="#live">Live Set</a>
@@ -70,7 +70,7 @@
         </div>
         <div class="deck-buttons">
           <button id="startBtn" class="btn primary">▶ Start the set</button>
-          <button id="saveBtn" class="btn ghost" title="Press this track to a record in the crate" disabled>◉ Press record</button>
+          <button id="saveBtn" class="btn ghost" title="Cut this track as a dubplate in your crate" disabled>◉ Cut a dubplate</button>
           <button id="skipBtn" class="btn ghost" title="Start a fresh track">⏭ New</button>
         </div>
       </div>
@@ -235,7 +235,7 @@
                 <div class="remix-meta track-meta" id="remixMeta">—</div>
                 <div class="deck-buttons">
                   <button id="remixStart" class="btn primary" disabled>▶ Play bed</button>
-                  <button id="remixSave" class="btn ghost" title="Press this remix as a new record" disabled>◉ Press</button>
+                  <button id="remixSave" class="btn ghost" title="Cut this remix as a new dubplate" disabled>◉ Cut</button>
                 </div>
               </div>
             </div>
@@ -258,7 +258,7 @@
   <!-- ══ PRESS: the save moment — cut this track to a record ═════════════ -->
   <div id="pressModal" class="press-modal" hidden>
     <div class="press-sheet">
-      <h3 class="press-title">Press this record</h3>
+      <h3 class="press-title">Cut a dubplate</h3>
       <p id="pressVersion" class="press-version">—</p>
       <div class="press-disc-wrap"><div id="pressDisc" class="disc press-disc"></div></div>
       <label class="press-name-label">Name on the label
@@ -272,7 +272,7 @@
       <p id="pressFormatHint" class="pf-hint">a 36-bar journey: intro → build → peak → strip → peak → outro</p>
       <div class="press-actions">
         <button id="pressCancel" class="btn ghost">Keep working</button>
-        <button id="pressConfirm" class="btn primary">◉ Press to the crate</button>
+        <button id="pressConfirm" class="btn primary">◉ Cut to the crate</button>
       </div>
     </div>
   </div>

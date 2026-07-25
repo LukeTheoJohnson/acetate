@@ -1,7 +1,7 @@
 {
-  "name": "strudel-auto-dj",
+  "name": "acetate",
   "version": "1.0.0",
-  "description": "An AI DJ that builds tracks live in Strudel code while the crowd (you) steers the evolution via a mood fader.",
+  "description": "Acetate — an AI DJ that cuts tracks live in Strudel code; you steer turn-by-turn and keep the dubplates.",
   "private": true,
   "scripts": {
     "start": "python -m http.server 8123",

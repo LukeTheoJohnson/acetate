@@ -291,9 +291,9 @@
     pitching = 'save';
     pitchLayer = -1;
     showSuggestion(PITCH_KINDS.save,
-      settled ? 'That’s the whole track — press it to a record?'
-              : 'This is sounding full — press it to a record?',
-      '◉ Press it', 'Keep going');
+      settled ? 'That’s the whole track — cut it as a dubplate?'
+              : 'This is sounding full — cut it as a dubplate?',
+      '◉ Cut it', 'Keep going');
     // Deck B shows the finished record, ready for the press
     if (el.deckBDisc) el.deckBDisc.innerHTML = committedDisc();
     showFader(false);
@@ -671,9 +671,9 @@
     const code = (pressFormat === 'arranged' && engine.renderArrangedCommitted)
       ? engine.renderArrangedCommitted()
       : (engine.renderCommitted ? engine.renderCommitted() : engine.render());
-    saveToCrate('◉ pressed “' + name + '” into the crate' +
+    saveToCrate('◉ cut “' + name + '” as a dubplate' +
       (pressFormat === 'arranged' ? ' (arranged)' : ' (loop)'), 'saved', code);
-    setStatus('Pressed “' + name + '” — it’s in the crate.');
+    setStatus('Cut “' + name + '” — it’s in your crate.');
     const fromPrompt = pressOrigin === 'prompt';
     pressOrigin = null;
     if (el.pressModal) {
@@ -1331,7 +1331,7 @@
     if (!crate.length) {
       const empty = document.createElement('div');
       empty.className = 'remix-shelf-empty';
-      empty.textContent = 'No records yet — press some first.';
+      empty.textContent = 'No dubplates yet — cut some first.';
       el.remixShelf.appendChild(empty);
       return;
     }
@@ -1399,8 +1399,8 @@
     saveCrate(crate);
     renderCrate();
     renderRemixShelf();
-    logEvent('◉ pressed the remix “' + entry.name + '” into the crate');
-    setStatus('Pressed the remix into the crate.');
+    logEvent('◉ cut the remix “' + entry.name + '” as a dubplate');
+    setStatus('Cut the remix as a dubplate.');
   }
 
   // Called when the #remix view becomes visible.

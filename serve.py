@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dev static server for Strudel Auto-DJ with caching disabled.
+"""Dev static server for Acetate with caching disabled.
 
 Plain `python -m http.server` sends no Cache-Control header, so browsers apply
 heuristic caching to src/*.js and keep serving *stale* code between edits — you
@@ -23,7 +23,7 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8123
-    print('Serving Strudel Auto-DJ with caching disabled on '
+    print('Serving Acetate with caching disabled on '
           'http://localhost:%d  (Ctrl+C to stop)' % port)
     try:
         HTTPServer(('', port), NoCacheHandler).serve_forever()
