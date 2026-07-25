@@ -1,4 +1,5 @@
 # Strudel Auto-DJ 🎧
+![The menu hub — Live Set, Crate, Remix](screenshots/01-menu.png)
 
 An AI DJ that **writes and evolves tracks live in [Strudel](https://strudel.cc) code**
 while you play the crowd. It authors every note; you only supply *taste*. Every track is
@@ -23,7 +24,6 @@ a single source at a time, with one **⏹ stop** in the header that halts whatev
 On the menu, a random record from your crate drifts underneath at low volume once you click
 in — the place is never silent.
 
-![The menu hub — Live Set, Crate, Remix](screenshots/01-menu.png)
 
 ### 🎛 Live Set — two decks, one verdict at a time
 
