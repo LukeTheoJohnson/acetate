@@ -110,6 +110,7 @@
     buildControls();
     buildRemixRack();
     buildVoiceDeck();
+    installAudioTap();
     resetMind();
     renderCrate();
     renderRemixShelf();
@@ -594,6 +595,7 @@
 
   // Global stop — from the header transport. Stops whatever is playing.
   function stopPlayback() {
+    if (menuAmbient.on) { stopMenuAmbient(); return; }
     if (remixPlaying) stopRemix();
     else if (previewing >= 0) stopPreview();
     else if (running) stopSet();
@@ -612,6 +614,8 @@
     el.transport.hidden = false;
     const token = nowPlaying.kind === 'preview' ? 'preview'
       : nowPlaying.kind === 'remix' ? 'remix'
+      : nowPlaying.kind === 'menu' ? 'ambient'
+      : nowPlaying.kind === 'export' ? 'export'
       : 'live';
     if (el.tpKind) { el.tpKind.textContent = token; el.tpKind.className = 'tp-kind ' + token; }
     if (el.tpName) el.tpName.textContent = nowPlaying.name || '—';
@@ -849,6 +853,7 @@
         '<div class="crate-actions">' +
           '<button data-act="' + (playing ? 'stop' : 'play') + '" data-i="' + i + '" title="' + (playing ? 'Stop' : 'Spin it') + '">' + (playing ? '⏹' : '▶') + '</button>' +
           '<button data-act="remix" data-i="' + i + '" title="DJ this record in the Remix lab">🎚</button>' +
+          '<button data-act="mp3" data-i="' + i + '" title="Export as MP3">⬇</button>' +
           '<button data-act="rename" data-i="' + i + '" title="Rename">✎</button>' +
           '<button data-act="del" data-i="' + i + '" title="Delete">✕</button>' +
         '</div>';
@@ -861,6 +866,7 @@
         if (act === 'play') previewTrack(i);
         else if (act === 'stop') stopPreview();
         else if (act === 'remix') sendToRemix(i);
+        else if (act === 'mp3') exportTrackMp3(i, b);
         else if (act === 'rename') renameTrack(i);
         else deleteTrack(i);
       });
@@ -904,6 +910,139 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     logEvent('⬇ exported the crate — ' + crate.length + ' records → ' + name);
     setStatus('Exported ' + crate.length + ' records.');
+  }
+
+  // ---- MP3 export: render a crate record to an audio file ------------------
+  // Web Audio can't tap ctx.destination directly and Strudel exposes no master
+  // node, so installAudioTap() (called at boot) patches AudioNode.connect once to
+  // remember every node feeding the destination. To export we fan those masters
+  // into a MediaStreamDestination, play the record once through in REAL TIME,
+  // record the stream, then encode it to MP3 with lamejs — loaded on demand, so
+  // the core app stays dependency-free and the encoder only loads when you export.
+  const audioTap = { masters: new Set(), node: null, busy: false };
+
+  function installAudioTap() {
+    if (typeof AudioNode === 'undefined' || AudioNode.prototype.__sdjTap) return;
+    const orig = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (dest) {
+      const ret = orig.apply(this, arguments);
+      try {
+        if (dest && dest.context && dest === dest.context.destination) {
+          audioTap.masters.add(this);
+          if (audioTap.node) orig.call(this, audioTap.node); // also feed a live capture
+        }
+      } catch (e) { /* ignore */ }
+      return ret;
+    };
+    AudioNode.prototype.__sdjTap = orig;
+  }
+
+  function exportCps(entry) {
+    const m = /setcps\(([0-9.]+)\)/.exec((entry.code || '').split('\n')[0] || '');
+    return m ? parseFloat(m[1]) : (entry.cps || 0.5);
+  }
+  function safeFile(name) {
+    return String(name || 'record').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'record';
+  }
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  // Export one crate record as an MP3. Renders in REAL TIME (Strudel has no
+  // offline render): an arranged track is its full 36-bar journey, a loop gets
+  // 16 bars. btn is the clicked button, disabled while the render runs.
+  async function exportTrackMp3(i, btn) {
+    const entry = loadCrate()[i];
+    if (!entry || !entry.code) return;
+    if (audioTap.busy) { setStatus('Already rendering an MP3 — hang on.'); return; }
+    if (typeof MediaRecorder === 'undefined') { setStatus('MP3 export needs a browser with MediaRecorder.'); return; }
+    audioTap.busy = true;
+    if (btn) btn.disabled = true;
+    try {
+      setStatus('Rendering “' + (entry.name || 'record') + '” to MP3 (real time)…');
+      if (!(await ensureAudio())) throw new Error('audio engine unavailable');
+      if (running) stopSet();
+      if (previewing >= 0) stopPreview();
+      if (remixPlaying) stopRemix();
+      stopMenuAmbient();
+      const ctx = audioTap.masters.size ? [...audioTap.masters][0].context
+        : (typeof window.getAudioContext === 'function' ? window.getAudioContext() : null);
+      if (!ctx) throw new Error('no audio context to capture');
+      const cps = exportCps(entry);
+      const bars = /arrange\(/.test(entry.code) ? 36 : 16;
+      const seconds = bars / (cps || 0.5) + 1.5; // a tail so reverb rings out
+      audioTap.node = ctx.createMediaStreamDestination();
+      audioTap.masters.forEach((m) => { try { m.connect(audioTap.node); } catch (e) { /* ignore */ } });
+      const chunks = [];
+      const rec = new MediaRecorder(audioTap.node.stream,
+        MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : undefined);
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise((res) => { rec.onstop = res; });
+      rec.start();
+      play(entry.code, 'export', entry.name); // real playback, captured by the tap
+      await new Promise((r) => setTimeout(r, Math.round(seconds * 1000)));
+      stopAll();
+      rec.stop();
+      await stopped;
+      setStatus('Encoding “' + (entry.name || 'record') + '” to MP3…');
+      const buffer = await ctx.decodeAudioData(await new Blob(chunks).arrayBuffer());
+      const mp3 = await encodeMp3(buffer);
+      downloadBlob(mp3, safeFile(entry.name) + '.mp3');
+      logEvent('⬇ exported “' + (entry.name || 'record') + '” to MP3');
+      setStatus('Exported “' + (entry.name || 'record') + '” as MP3.');
+    } catch (err) {
+      console.error('MP3 export failed:', err);
+      setStatus('MP3 export failed — ' + (err && err.message ? err.message : err));
+    } finally {
+      if (audioTap.node) {
+        audioTap.masters.forEach((m) => { try { m.disconnect(audioTap.node); } catch (e) { /* ignore */ } });
+        audioTap.node = null;
+      }
+      audioTap.busy = false;
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  let lamePromise = null;
+  function loadLame() {
+    if (window.lamejs) return Promise.resolve(window.lamejs);
+    if (lamePromise) return lamePromise;
+    lamePromise = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js';
+      s.onload = () => (window.lamejs ? res(window.lamejs) : rej(new Error('MP3 encoder failed to load')));
+      s.onerror = () => rej(new Error('could not load the MP3 encoder (offline?)'));
+      document.head.appendChild(s);
+    });
+    return lamePromise;
+  }
+  function floatToInt16(f32) {
+    const out = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) {
+      const s = f32[i] < -1 ? -1 : f32[i] > 1 ? 1 : f32[i];
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return out;
+  }
+  async function encodeMp3(buffer) {
+    const lame = await loadLame();
+    const channels = Math.min(2, buffer.numberOfChannels);
+    const enc = new lame.Mp3Encoder(channels, buffer.sampleRate, 128);
+    const left = floatToInt16(buffer.getChannelData(0));
+    const right = channels > 1 ? floatToInt16(buffer.getChannelData(1)) : null;
+    const block = 1152, out = [];
+    for (let p = 0; p < left.length; p += block) {
+      const l = left.subarray(p, p + block);
+      const buf = right ? enc.encodeBuffer(l, right.subarray(p, p + block)) : enc.encodeBuffer(l);
+      if (buf.length) out.push(new Uint8Array(buf));
+    }
+    const tail = enc.flush();
+    if (tail.length) out.push(new Uint8Array(tail));
+    return new Blob(out, { type: 'audio/mpeg' });
   }
 
   // Merge an exported crate back in (skips codes already present).
@@ -1580,13 +1719,60 @@
     if (name === 'live') sizeRoll(); // the canvas was zero-sized while hidden
     if (name === 'crate') renderCrate();
     if (name === 'remix') enterRemix();
-    if (name === 'menu') updateMenu();
+    if (name === 'menu') { updateMenu(); maybeStartMenuAmbient(); } else { stopMenuAmbient(); }
     // the signal-bloom menu canvas only animates while the menu is on screen
     if (SDJ.Menu) { if (name === 'menu') SDJ.Menu.enter(); else SDJ.Menu.leave(); }
   }
 
   function onRoute() {
     showView(currentRoute());
+  }
+
+  // ---- menu ambience: a random crate record spins quietly under the menu ----
+  // Autoplay policy means audio can't begin until a user gesture, so on the menu
+  // we either start straight away (audio already unlocked) or arm a one-shot
+  // listener that unlocks + starts on the first click/key. Leaving the menu or
+  // starting any real source stops it (see showView / stopPlayback). It never
+  // plays over a live set — maybeStart bails if anything else owns the audio.
+  const menuAmbient = { on: false, armed: false };
+
+  function ambientProgram(entry) {
+    const code = entry.code || '';
+    const nl = code.indexOf('\n');
+    let cps = 'setcps(' + (entry.cps || 0.5) + ')', body = code;
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) { cps = code.slice(0, nl); body = code.slice(nl + 1); }
+    return cps + '\n(' + body.trim() + ').gain(0.3)'; // duck the whole mix down low
+  }
+  function maybeStartMenuAmbient() {
+    if (menuAmbient.on) return;
+    if (currentRoute() !== 'menu') return;
+    if (running || remixPlaying || previewing >= 0) return; // something already owns the audio
+    const crate = loadCrate();
+    if (!crate.length) return;
+    if (!started) { armMenuAmbient(); return; } // wait for a gesture to unlock audio
+    const entry = crate[Math.floor(Math.random() * crate.length)];
+    menuAmbient.on = true;
+    play(ambientProgram(entry), 'menu', entry.name);
+    setStatus('♪ “' + (entry.name || 'a record') + '” drifting under the menu — pick a mode to dive in.');
+  }
+  function armMenuAmbient() {
+    if (menuAmbient.armed) return;
+    menuAmbient.armed = true;
+    const unlock = async () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+      menuAmbient.armed = false;
+      if (currentRoute() !== 'menu') return; // navigated away before the gesture resolved
+      await ensureAudio();
+      maybeStartMenuAmbient();
+    };
+    document.addEventListener('pointerdown', unlock);
+    document.addEventListener('keydown', unlock);
+  }
+  function stopMenuAmbient() {
+    if (!menuAmbient.on) return;
+    menuAmbient.on = false;
+    stopAll();
   }
 
   function updateMenu() {
@@ -1651,6 +1837,8 @@
     applyControls();
   };
   SDJ.setGenre = setGenre; // pin the genre for new tracks (agent-native)
+  SDJ.exportMp3 = exportTrackMp3; // render a crate record to MP3 (agent-native)
+  SDJ.menuAmbient = { start: maybeStartMenuAmbient, stop: stopMenuAmbient, playing: function () { return menuAmbient.on; } };
 
   // remix deck, exposed so every action is available headlessly (agent-native)
   SDJ.remix = {

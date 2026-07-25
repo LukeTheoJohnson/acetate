@@ -73,6 +73,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('crate item has play + delete controls',
     !!doc.querySelector('#crate .crate-item [data-act="play"]') &&
     !!doc.querySelector('#crate .crate-item [data-act="del"]'));
+  check('crate item has an MP3 export control',
+    !!doc.querySelector('#crate .crate-item [data-act="mp3"]'));
+  check('MP3 export + menu ambience are agent-native',
+    typeof window.SDJ.exportMp3 === 'function' &&
+    !!window.SDJ.menuAmbient && typeof window.SDJ.menuAmbient.start === 'function');
   check('migrated (art-less) record still gets a vinyl face',
     doc.querySelector('#crate .crate-art svg') != null);
 
@@ -411,6 +416,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     stabCode);
   window.SDJ.remix.stop();
   check('stopping the remix clears the stabs', window.SDJ.remix.state().stabs.length === 0);
+
+  // ---- menu ambience: a random crate record ducked low under the menu ----
+  // Route defaults to #menu in jsdom and audio is unlocked by now, so starting
+  // it evaluates a balanced, gained-down program (and never over a live set).
+  window.SDJ.menuAmbient.stop();
+  const ambEvalsBefore = evalCalls.length;
+  window.SDJ.menuAmbient.start();
+  await sleep(10);
+  const ambCode = evalCalls[evalCalls.length - 1];
+  check('menu ambience spins a balanced, ducked-down program',
+    window.SDJ.menuAmbient.playing() && evalCalls.length > ambEvalsBefore &&
+    balanced(ambCode) && ambCode.includes('.gain(0.3)'), ambCode);
+  window.SDJ.menuAmbient.stop();
+  check('stopping menu ambience clears it', !window.SDJ.menuAmbient.playing());
 
   // report
   let pass = 0;
