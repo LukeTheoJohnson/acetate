@@ -1,4 +1,10 @@
-// app.js — wires the DJ engine, Strudel audio, the crowd panel and the UI.
+// app.js — wires the DJ engine, Strudel audio, the deck rig and the UI.
+// The live view is a two-turntable rig: Deck A carries the committed track as a
+// spinning record (a coloured ring pressed on per approved part), Deck B carries
+// the DJ's pitched change as an acetate, and the crossfader between them blends
+// the change in and out (engine.renderAB). Saving is a deliberate "pressing":
+// a modal names the record, states which version is banked, and drops it into
+// the crate.
 (function (SDJ) {
   'use strict';
 
@@ -17,6 +23,12 @@
   let nowPlaying = { kind: null, name: '' }; // the single audio source: 'live' | 'preview' | 'remix' | null
 
   let crateSort = 'new'; // crate page ordering: 'new' | 'hype' | 'name'
+
+  // ---- A/B blend + press-modal state -------------------------------------
+  let abMix = 1;          // crossfader: 0 = Deck A (committed) only, 1 = full pitch
+  let abTimer = 0;        // throttle so dragging the fader doesn't thrash evaluate
+  let pressOrigin = null; // 'button' | 'prompt' while the pressing modal is open
+  let pressFormat = 'arranged'; // what a press banks: 'arranged' (36-bar track) | 'loop'
 
   // ---- remix deck state (a saved record looped as a bed + vocal/overlays) --
   let remixRecord = null;   // the crate entry currently loaded on the remix deck
@@ -41,10 +53,16 @@
       'trackName', 'trackMeta', 'stageChips', 'roll', 'crate', 'status',
       // deck production controls + unified transport
       'saveBtn', 'transport', 'tpKind', 'tpName', 'tpStop',
-      // the DJ's suggestion card + tuning (genre pills, density, part mixer) + calls panel
-      'sgEmpty', 'sgCard', 'sgKind', 'sgDesc', 'sgCode', 'sgActions', 'sgApprove', 'sgSkip',
+      // the DJ's suggestion card + tuning (genre pills, density, part mixer) + status
+      'sgEmpty', 'sgCard', 'sgKind', 'sgDesc', 'sgActions', 'sgApprove', 'sgSkip',
       'livePartMix', 'liveDensity', 'liveGenrePills',
       'djNow', 'djVerb', 'djMove', 'djFeed',
+      // the deck rig: two platters + the A/B crossfader
+      'deckRig', 'deckAPlatter', 'deckADisc', 'deckACap', 'deckBPlatter', 'deckBDisc',
+      'abWrap', 'abFader', 'abA', 'abB',
+      // the pressing modal (the save moment)
+      'pressModal', 'pressDisc', 'pressName', 'pressMeta', 'pressVersion',
+      'pressConfirm', 'pressCancel', 'pressLoop', 'pressFull', 'pressFormatHint',
       // set-log controls
       'logExport', 'logClear', 'logStat',
       // app-shell menu
@@ -68,6 +86,16 @@
     if (el.tpStop) el.tpStop.addEventListener('click', stopPlayback);
     if (el.sgApprove) el.sgApprove.addEventListener('click', () => liveDecide(true));
     if (el.sgSkip) el.sgSkip.addEventListener('click', () => liveDecide(false));
+    // the A/B crossfader: blend the pitched change against the committed track
+    if (el.abFader) el.abFader.addEventListener('input', onAbInput);
+    if (el.abA) el.abA.addEventListener('click', () => setAbMix(0));
+    if (el.abB) el.abB.addEventListener('click', () => setAbMix(1));
+    // the pressing modal
+    if (el.pressConfirm) el.pressConfirm.addEventListener('click', confirmPress);
+    if (el.pressCancel) el.pressCancel.addEventListener('click', cancelPress);
+    if (el.pressName) el.pressName.addEventListener('input', renderPressDisc); // live imprint
+    if (el.pressFull) el.pressFull.addEventListener('click', () => setPressFormat('arranged'));
+    if (el.pressLoop) el.pressLoop.addEventListener('click', () => setPressFormat('loop'));
     if (el.logExport) el.logExport.addEventListener('click', onExportLog);
     if (el.logClear) el.logClear.addEventListener('click', onClearLog);
     // crate library tools
@@ -145,18 +173,20 @@
     running = true;
     sizeRoll(); // make sure the pianoroll canvas is sized before the first draw
     el.startBtn.textContent = '⏸ Stop the set';
+    if (el.deckRig) el.deckRig.hidden = false;
     syncDeckButtons();
     clearLog();
     updateLogStat();
     freshTrack('set');
-    logEvent('🎧 ' + engine.song.name + ' — building from the kick up…');
-    setStatus('Live. Approve or skip each change the DJ pitches.');
+    logEvent('🎧 ' + engine.song.name + ' — cutting a fresh record from the kick up…');
+    setStatus('Live. Blend each pitch on the fader, then approve or skip.');
   }
 
   function stopSet() {
     running = false;
     hideSuggestion();
     el.startBtn.textContent = '▶ Start the set';
+    if (el.deckRig) el.deckRig.hidden = true;
     syncDeckButtons();
     stopAll(); // hush + clear the transport
     clearRoll(); // wipe the roll so a later preview/session doesn't scroll stale notes
@@ -192,9 +222,10 @@
 
   // ---- turn-based suggestions: the DJ pitches, you approve or skip ---------
   // Nothing commits without you. proposeChange() applies a candidate to the
-  // genome and we audition it; Approve keeps it, Skip reverts + bans it. Once the
-  // arrangement is full the DJ offers a save you can take or wave off. The tuning
-  // controls (genre / density / part mixer) bias what gets pitched next.
+  // genome and we audition it; Approve keeps it, Skip reverts + bans it. The
+  // pitch rides Deck B as an acetate — the crossfader blends it against the
+  // committed track on Deck A so you can actually hear the difference. Once the
+  // arrangement is full the DJ offers a pressing you can take or wave off.
 
   let pitchLayer = -1; // the lane the current suggestion touches (lights its chip)
 
@@ -207,15 +238,31 @@
     fill:    { label: 'fill',        cls: 'k-fill' },
     save:    { label: 'ready?',      cls: 'k-save' },
   };
+  // the acetate's centre mark per pitch kind (what Deck B's test cut wears)
+  const KIND_GLYPHS = { add: '+', drop: '−', reshape: '≈', fx: '✦', double: '≡', fill: '▲', save: '◉' };
+
+  // Lanes that could still be brought in: inactive, not binned for the song,
+  // not marked "drop" on the mixer. When this hits zero the track is as full
+  // as it can get — treat that as full, or the press prompt never comes.
+  function addableLanes() {
+    const s = engine.song, g = s.genome, lm = s.laneMood || [];
+    let n = 0;
+    for (let i = 1; i < g.active.length; i++) {
+      if (!g.active[i] && !(s.banned && s.banned['add:' + i]) && !(lm[i] < -0.3)) n++;
+    }
+    return n;
+  }
 
   // Offer the next thing to judge. A full arrangement (and no snoozed save) gets a
-  // save prompt; otherwise a musical change; if nothing's left to change, a save.
+  // press prompt; otherwise a musical change; if nothing's left to change, a press.
   function livePitch() {
     if (!running) return;
-    const full = engine.state().activeCount >= MIN_FULL;
+    const act = engine.state().activeCount;
+    const full = act >= MIN_FULL || (act >= 3 && addableLanes() === 0);
     if (full && (engine.song.vprop || 0) >= saveCooldown) { presentSave(false); return; }
     const p = engine.proposeChange();
     if (!p) { presentSave(true); return; }
+    resetAb(); // every fresh pitch auditions at full Deck B
     const code = engine.render();
     const layerMap = (engine._lastLayers || []).slice();
     play(withRoll(code), 'live', engine.song.name); // audition the proposed version
@@ -227,10 +274,15 @@
     pitchLayer = p.layer;
     const kind = PITCH_KINDS[p.kind] || PITCH_KINDS.reshape;
     showSuggestion(kind, p.desc ? p.desc.charAt(0).toUpperCase() + p.desc.slice(1) : '—',
-      pitchCodeHtml(code, p.layer, layerMap), '✓ Approve', '✗ Skip');
+      '✓ Approve', '✗ Skip');
+    // the code drawer shows the pattern with the pitched lane's lines tinted
+    if (el.code) el.code.innerHTML = pitchCodeHtml(code, p.layer, layerMap);
+    renderDeckB(p);
+    showFader(true);
     if (el.djVerb) el.djVerb.textContent = 'pitching';
     if (el.djMove) el.djMove.textContent = p.desc || 'a change';
     updateUI();
+    setDeckSpin();
   }
 
   // settled=true when the whole vocabulary is exhausted (nothing left to pitch).
@@ -238,21 +290,24 @@
     pitching = 'save';
     pitchLayer = -1;
     showSuggestion(PITCH_KINDS.save,
-      settled ? 'That’s the whole track — save it to the crate?'
-              : 'This is sounding full — save it to the crate?',
-      '', '💾 Save it', 'Keep going');
+      settled ? 'That’s the whole track — press it to a record?'
+              : 'This is sounding full — press it to a record?',
+      '◉ Press it', 'Keep going');
+    // Deck B shows the finished record, ready for the press
+    if (el.deckBDisc) el.deckBDisc.innerHTML = committedDisc();
+    showFader(false);
     if (el.djVerb) el.djVerb.textContent = 'holding';
     if (el.djMove) el.djMove.textContent = 'ready when you are';
     updateUI();
+    setDeckSpin();
   }
 
-  function showSuggestion(kind, desc, codeHtml, approveLabel, skipLabel) {
+  function showSuggestion(kind, desc, approveLabel, skipLabel) {
     if (el.sgEmpty) el.sgEmpty.hidden = true;
     if (el.sgCard) el.sgCard.hidden = false;
     if (el.sgActions) el.sgActions.hidden = false;
     if (el.sgKind) { el.sgKind.textContent = kind.label; el.sgKind.className = 'sg-kind ' + kind.cls; }
     if (el.sgDesc) el.sgDesc.textContent = desc;
-    if (el.sgCode) { el.sgCode.innerHTML = codeHtml; el.sgCode.hidden = !codeHtml; }
     if (el.sgApprove) el.sgApprove.textContent = approveLabel;
     if (el.sgSkip) el.sgSkip.textContent = skipLabel;
   }
@@ -263,31 +318,132 @@
     if (el.sgCard) el.sgCard.hidden = true;
     if (el.sgActions) el.sgActions.hidden = true;
     if (el.sgEmpty) el.sgEmpty.hidden = false;
+    setDeckSpin();
   }
 
-  // Approve (keep) or skip the pitched change / save prompt.
+  // Approve (keep) or skip the pitched change / press prompt.
   function liveDecide(keep) {
     if (!running || !pitching) return;
     if (pitching === 'save') {
       if (keep) {
-        onSaveCurrent();          // bank the track…
-        logEvent('🎧 next up: fresh track');
-        freshTrack('next');       // …and roll a fresh one (the track's done)
+        openPress('prompt');      // name it, see what's banked, press it
       } else {
         saveCooldown = (engine.song.vprop || 0) + SAVE_SNOOZE; // snooze the prompt
-        pushFeed('→', 'kept going', 'declined the save', 'flat');
+        pushFeed('→', 'kept going', 'declined the press', 'flat');
         livePitch();
       }
       return;
     }
     if (!engine.song.pending) { livePitch(); return; }
+    const wasBlended = abMix < 0.999; // the fader sat mid-blend when judged
     const p = keep ? engine.acceptChange() : engine.rejectChange();
     if (SDJ.SetLog) SDJ.SetLog.mark('vote', { v: keep ? 'up' : 'down', desc: p.desc });
     pushFeed(keep ? '✓' : '↩', p.desc, keep ? 'approved' : 'skipped', keep ? 'up' : 'down');
     logEvent((keep ? '✓ kept: ' : '✗ skipped: ') + p.desc);
-    if (!keep) evaluateCurrent(false); // reverted — reflect the committed track
+    // reverted → reflect the committed track; kept mid-blend → play it clean
+    if (!keep || wasBlended) evaluateCurrent(false);
     pitching = false;
     livePitch();
+  }
+
+  // ---- the A/B crossfader: hear the pitch against the committed track ----
+  // Deck A is the committed track, Deck B the pitched change. The fader drives
+  // engine.renderAB(mix) — one balanced program with the touched lane at
+  // complementary gains — so the change can be blended in and out live.
+
+  function resetAb() {
+    abMix = 1;
+    if (el.abFader) el.abFader.value = '100';
+    reflectAb();
+  }
+
+  function reflectAb() {
+    if (el.abA) el.abA.classList.toggle('on', abMix <= 0.05);
+    if (el.abB) el.abB.classList.toggle('on', abMix >= 0.95);
+    if (el.deckAPlatter) el.deckAPlatter.classList.toggle('hot', abMix < 0.5);
+    if (el.deckBPlatter) el.deckBPlatter.classList.toggle('hot', abMix >= 0.5);
+  }
+
+  function setAbMix(v) {
+    abMix = clamp(v, 0, 1);
+    if (el.abFader) el.abFader.value = String(Math.round(abMix * 100));
+    reflectAb();
+    evaluateAb();
+  }
+
+  // Drag → blend. Throttled to ~130ms so a fast drag doesn't re-evaluate the
+  // audio on every input event.
+  function onAbInput() {
+    if (!el.abFader) return;
+    abMix = (+el.abFader.value || 0) / 100;
+    reflectAb();
+    if (abTimer) return;
+    abTimer = setTimeout(() => { abTimer = 0; evaluateAb(); }, 130);
+  }
+
+  function evaluateAb() {
+    if (!running || !pitching || pitching === 'save') return;
+    if (!engine.song || !engine.song.pending || !engine.renderAB) return;
+    play(withRoll(engine.renderAB(abMix)), 'live', engine.song.name);
+  }
+
+  function showFader(on) {
+    if (el.abWrap) el.abWrap.classList.toggle('off', !on);
+  }
+
+  // ---- the records on the platters ---------------------------------------
+
+  // The committed arrangement — what Deck A wears and what a press banks. While
+  // a pitch is un-judged the genome holds the proposal, so read the snapshot.
+  function committedActive() {
+    const s = engine.song;
+    if (!s) return null;
+    return (s.pending && pitching && pitching !== 'save') ? s.pending.snapshot.active : s.genome.active;
+  }
+
+  // The committed genome — what Deck A's disc (and a press) draws its marks
+  // from. Same snapshot rule as committedActive().
+  function committedGenome() {
+    const s = engine.song;
+    if (!s) return null;
+    return (s.pending && pitching && pitching !== 'save') ? s.pending.snapshot : s.genome;
+  }
+
+  function committedDisc(nameOverride) {
+    if (!SDJ.Vinyl || !engine.song) return '';
+    return SDJ.Vinyl.forLive(engine.song, committedGenome(), nameOverride);
+  }
+
+  function renderDeckA() {
+    if (!el.deckADisc || !SDJ.Vinyl || !engine.song) return;
+    el.deckADisc.innerHTML = committedDisc();
+    if (el.deckACap) {
+      const n = (committedActive() || []).filter(Boolean).length;
+      el.deckACap.textContent = n + ' part' + (n === 1 ? '' : 's') + ' pressed on';
+    }
+  }
+
+  function renderDeckB(p) {
+    if (!el.deckBDisc || !SDJ.Vinyl) return;
+    const colour = (p.layer === SDJ.FILL_IDX) ? SDJ.FILL_COLOR
+      : ((SDJ.LANE_COLORS && SDJ.LANE_COLORS[p.layer]) || '#c3ccff');
+    el.deckBDisc.innerHTML = SDJ.Vinyl.proposal({
+      seed: (engine.song.seed + (engine.song.vprop || 0)) >>> 0,
+      lane: p.layer,
+      kind: p.kind,
+      colour: colour,
+      // the LIVE genome holds the applied pitch, so a rework's acetate shows
+      // the NEW cut — exactly the ring Deck A gains if it's approved
+      variant: (engine.song.genome.variant && engine.song.genome.variant[p.layer]) || 0,
+      glyph: KIND_GLYPHS[p.kind] || '≈',
+    });
+  }
+
+  // The platters only turn while their record is actually sounding.
+  function setDeckSpin() {
+    const liveAudio = nowPlaying.kind === 'live' && running;
+    if (el.deckAPlatter) el.deckAPlatter.classList.toggle('spin', liveAudio);
+    if (el.deckBPlatter) el.deckBPlatter.classList.toggle('spin', liveAudio && !!pitching);
   }
 
   // Current code with the pitched layer's line(s) highlighted in its lane colour.
@@ -318,10 +474,10 @@
 
   // ---- the pianoroll: Strudel's own guitar-hero scroller -----------------
   // .pianoroll() is a Pattern method in the @strudel/web bundle; it draws into
-  // the ctx we hand it. We append it ONLY to the audio string (the live deck AND
-  // the A&R audition), never to render(), so the code panel, crate saves and the
-  // A&R code map stay clean (and never spawn Strudel's full-screen fallback
-  // canvas). Per-layer .color() (added in render) gives each sound its own lane.
+  // the ctx we hand it. We append it ONLY to the audio string, never to
+  // render(), so the code panel and crate saves stay clean (and never spawn
+  // Strudel's full-screen fallback canvas). Per-layer .color() (added in
+  // render) gives each sound its own lane.
   function rollTail(ctxRef) {
     return '.pianoroll({ ctx: ' + ctxRef + ', cycles: 4, playhead: 0.5, labels: 0 })';
   }
@@ -447,6 +603,7 @@
   function setNowPlaying(kind, name) {
     nowPlaying = { kind: kind || null, name: name || '' };
     refreshTransport();
+    setDeckSpin();
   }
 
   function refreshTransport() {
@@ -460,15 +617,95 @@
     if (el.tpName) el.tpName.textContent = nowPlaying.name || '—';
   }
 
-  // ---- production controls: save the current track -----------------------
+  // ---- the pressing: saving is cutting this track to a record -------------
+  // Save never banks silently. The modal shows the record about to be pressed
+  // (its accreted colours), lets you imprint a name, and states exactly which
+  // version is banked: always the APPROVED track — an un-judged pitch on Deck B
+  // is left off (engine.renderCommitted renders from the snapshot).
 
   function onSaveCurrent() {
     if (!running || !engine.song) {
-      setStatus('Start a set first, then save a track you like.');
+      setStatus('Start a set first, then press a version you like.');
       return;
     }
-    saveToCrate('💾 saved “' + engine.song.name + '” to the crate', 'saved');
-    setStatus('Saved “' + engine.song.name + '” to the crate.');
+    openPress('button');
+  }
+
+  function openPress(origin) {
+    if (!engine.song) return;
+    pressOrigin = origin || 'button';
+    const st = engine.state();
+    const n = (committedActive() || []).filter(Boolean).length;
+    if (el.pressName) el.pressName.value = engine.song.name || '';
+    if (el.pressMeta) {
+      el.pressMeta.textContent = st.key + ' ' + st.scaleType + ' · ' + st.bpm + ' BPM' +
+        (st.genreLabel ? ' · ' + st.genreLabel : '') + ' · ' + n + '/7 parts';
+    }
+    if (el.pressVersion) {
+      el.pressVersion.textContent = (engine.song.pending && pitching && pitching !== 'save')
+        ? 'Pressing the approved version — the un-judged pitch on Deck B is left off.'
+        : 'Pressing the track exactly as it sounds now.';
+    }
+    setPressFormat('arranged'); // the shippable default; Loop is one tap away
+    renderPressDisc();
+    if (el.pressModal) { el.pressModal.hidden = false; el.pressModal.classList.remove('pressed'); }
+    if (el.pressName && el.pressName.focus) el.pressName.focus();
+  }
+
+  // The label updates as you type — the name is imprinted live.
+  function renderPressDisc() {
+    if (!el.pressDisc || !SDJ.Vinyl || !engine.song) return;
+    const typed = el.pressName && el.pressName.value.trim();
+    el.pressDisc.innerHTML = committedDisc(typed || engine.song.name);
+  }
+
+  function confirmPress() {
+    if (!engine.song) return;
+    const typed = el.pressName && el.pressName.value.trim();
+    const name = typed || engine.song.name;
+    engine.song.name = name;
+    const code = (pressFormat === 'arranged' && engine.renderArrangedCommitted)
+      ? engine.renderArrangedCommitted()
+      : (engine.renderCommitted ? engine.renderCommitted() : engine.render());
+    saveToCrate('◉ pressed “' + name + '” into the crate' +
+      (pressFormat === 'arranged' ? ' (arranged)' : ' (loop)'), 'saved', code);
+    setStatus('Pressed “' + name + '” — it’s in the crate.');
+    const fromPrompt = pressOrigin === 'prompt';
+    pressOrigin = null;
+    if (el.pressModal) {
+      el.pressModal.classList.add('pressed'); // the disc drops away into the crate
+      setTimeout(() => { if (el.pressModal) el.pressModal.hidden = true; }, 520);
+    }
+    if (fromPrompt) {
+      logEvent('🎧 next up: fresh track');
+      freshTrack('next'); // the track's done — roll a fresh one
+    } else {
+      updateUI();         // keep working; the header wears the new name
+    }
+  }
+
+  // Loop vs arranged: the raw bar as it plays now, or the 36-bar journey
+  // (intro → build → peak → strip → peak → outro) renderArranged builds.
+  function setPressFormat(fmt) {
+    pressFormat = fmt === 'loop' ? 'loop' : 'arranged';
+    if (el.pressFull) el.pressFull.classList.toggle('on', pressFormat === 'arranged');
+    if (el.pressLoop) el.pressLoop.classList.toggle('on', pressFormat === 'loop');
+    if (el.pressFormatHint) {
+      el.pressFormatHint.textContent = pressFormat === 'arranged'
+        ? 'a 36-bar journey: intro → build → peak → strip → peak → outro'
+        : 'the raw loop, exactly as it plays now';
+    }
+  }
+
+  function cancelPress() {
+    const fromPrompt = pressOrigin === 'prompt';
+    pressOrigin = null;
+    if (el.pressModal) el.pressModal.hidden = true;
+    if (fromPrompt) {
+      saveCooldown = (engine.song.vprop || 0) + SAVE_SNOOZE; // snooze the prompt
+      pushFeed('→', 'kept going', 'declined the press', 'flat');
+      livePitch();
+    }
   }
 
   function syncDeckButtons() {
@@ -509,15 +746,25 @@
     return SDJ.Art.cover(seed % 7, (seed >> 4) % 6, seed);
   }
 
-  function saveToCrate(logMsg, source) {
+  // The record as a vinyl disc — the face a record wears everywhere it can spin
+  // (crate rows, the remix platter). The square cover stays for the shelf's
+  // sleeves and as a fallback if vinyl.js didn't load.
+  function discFor(entry) {
+    return SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : coverFor(entry);
+  }
+
+  function saveToCrate(logMsg, source, codeOverride) {
     const s = engine.song;
     if (!s) return;
-    const g = s.genome;
+    // Bank the COMMITTED genome: an un-judged pitch is Deck B's business, not
+    // the record's. (pitching === 'save' means nothing is pending mid-judge.)
+    const g = (s.pending && pitching && pitching !== 'save') ? s.pending.snapshot : s.genome;
     const st = engine.state();
-    const code = engine.render();
+    const code = codeOverride
+      || (engine.renderCommitted ? engine.renderCommitted() : engine.render());
     const crate = loadCrate();
-    // dedupe: don't bank the very same code twice in a row (the loop auto-saves
-    // bangers — this stops an unchanged track piling up duplicates).
+    // dedupe: don't bank the very same code twice in a row (this stops an
+    // unchanged track piling up duplicates).
     if (crate.length && crate[0].code === code) {
       if (logMsg) logEvent('↩ already the newest in the crate — not duplicated');
       return;
@@ -535,7 +782,11 @@
       code: code,
       genome: JSON.parse(JSON.stringify(g)), // snapshot: re-loadable / remixable
       art: { seed: s.seed >>> 0, layer: artLayer, variant: g.variant[artLayer] || 0 },
-      approval: Math.round(s.approval),
+      // approve-rate, not the old crowd-EMA (which never moves in turn-based
+      // mode and stamped every record "50% hype"). Null when nothing was judged.
+      approval: (s.voteLog && s.voteLog.length)
+        ? Math.round((s.voteLog.filter((v) => v.v === 'up').length / s.voteLog.length) * 100)
+        : null,
       source: source || 'saved',
       savedAt: Date.now(),
     };
@@ -571,8 +822,8 @@
     el.crate.innerHTML = '';
     if (!rows.length) {
       el.crate.innerHTML =
-        '<li class="crate-empty">No records yet. Hold the mood high on a full track to bank a banger, ' +
-        'or hit 💾 Save on a version you like — saved tracks become your own library here.</li>';
+        '<li class="crate-empty">No records yet. Go live and press a track — every save cuts a ' +
+        'real record with its own colours and label, and it lands here in your vault.</li>';
       return;
     }
     const SRC = { banger: '★ banger', 'a&r': 'a&r', saved: 'saved' };
@@ -584,19 +835,19 @@
       const when = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : '';
       const src = entry.source ? (SRC[entry.source] || entry.source) : '';
       li.innerHTML =
-        '<div class="crate-art">' + coverFor(entry) + '</div>' +
+        '<div class="crate-art">' + discFor(entry) + '</div>' +
         '<div class="crate-body">' +
           '<div class="crate-meta"><strong>' + escapeHtml(entry.name || 'Untitled') + '</strong>' +
           '<span>' + escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' + entry.bpm + ' BPM' +
           (entry.genreLabel ? ' · ' + escapeHtml(entry.genreLabel) : '') + '</span></div>' +
           '<div class="crate-tags">' +
-            (entry.approval != null ? '<span class="crate-hype">' + entry.approval + '% hype</span>' : '') +
+            (entry.approval != null ? '<span class="crate-hype">' + entry.approval + '% kept</span>' : '') +
             (src ? '<span class="crate-src">' + escapeHtml(src) + '</span>' : '') +
             (when ? '<span class="crate-when">' + when + '</span>' : '') +
           '</div>' +
         '</div>' +
         '<div class="crate-actions">' +
-          '<button data-act="' + (playing ? 'stop' : 'play') + '" data-i="' + i + '" title="' + (playing ? 'Stop' : 'Preview') + '">' + (playing ? '⏹' : '▶') + '</button>' +
+          '<button data-act="' + (playing ? 'stop' : 'play') + '" data-i="' + i + '" title="' + (playing ? 'Stop' : 'Spin it') + '">' + (playing ? '⏹' : '▶') + '</button>' +
           '<button data-act="remix" data-i="' + i + '" title="DJ this record in the Remix lab">🎚</button>' +
           '<button data-act="rename" data-i="' + i + '" title="Rename">✎</button>' +
           '<button data-act="del" data-i="' + i + '" title="Delete">✕</button>' +
@@ -629,7 +880,7 @@
     const crate = loadCrate();
     const entry = crate[i];
     if (!entry) return;
-    const name = window.prompt('Rename this record', entry.name || '');
+    const name = window.prompt('Re-imprint the label', entry.name || '');
     if (name == null) return;
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -703,7 +954,7 @@
     previewing = i;
     play(entry.code, 'preview', entry.name);
     renderCrate();
-    setStatus('Previewing “' + entry.name + '”.');
+    setStatus('Spinning “' + entry.name + '”.');
   }
 
   // Stop the crate preview and go silent (the transport/global stop routes here).
@@ -932,7 +1183,7 @@
     if (el.remixSave) el.remixSave.disabled = !remixRecord;
   }
 
-  // Deck B's record shelf: a strip of cover art — click one to load it.
+  // Deck B's record shelf: a strip of sleeves — click one to load its disc.
   function renderRemixShelf() {
     if (!el.remixShelf) return;
     const crate = loadCrate();
@@ -941,7 +1192,7 @@
     if (!crate.length) {
       const empty = document.createElement('div');
       empty.className = 'remix-shelf-empty';
-      empty.textContent = 'No records yet — save some first.';
+      empty.textContent = 'No records yet — press some first.';
       el.remixShelf.appendChild(empty);
       return;
     }
@@ -979,7 +1230,7 @@
     if (el.remixMeta) el.remixMeta.textContent =
       (remixRecord.key || '') + ' ' + (remixRecord.scaleType || '') + ' · ' + remixRecord.bpm + ' BPM' +
       (remixRecord.genreLabel ? ' · ' + remixRecord.genreLabel : '');
-    if (el.remixArt && SDJ.Art) el.remixArt.innerHTML = coverFor(remixRecord);
+    if (el.remixArt) el.remixArt.innerHTML = discFor(remixRecord); // the disc on the platter
   }
 
   // Save the current remix (bed + active overlays) as a fresh record.
@@ -996,6 +1247,7 @@
       key: base.key, scaleType: base.scaleType, bpm: base.bpm, cps: base.cps,
       genre: base.genre, genreLabel: base.genreLabel,
       code: code,
+      genome: base.genome ? JSON.parse(JSON.stringify(base.genome)) : null, // keep the disc's rings
       art: base.art ? { seed: base.art.seed, layer: base.art.layer, variant: (base.art.variant || 0) + 1 } : null,
       approval: base.approval,
       source: 'remix',
@@ -1008,8 +1260,8 @@
     saveCrate(crate);
     renderCrate();
     renderRemixShelf();
-    logEvent('💾 saved remix “' + entry.name + '” to the crate');
-    setStatus('Saved the remix to the crate.');
+    logEvent('◉ pressed the remix “' + entry.name + '” into the crate');
+    setStatus('Pressed the remix into the crate.');
   }
 
   // Called when the #remix view becomes visible.
@@ -1181,17 +1433,17 @@
     }
     // Chips show the COMMITTED arrangement — when a suggestion is applied but not
     // yet judged, that comes from the pre-pitch snapshot; the pitched lane pulses.
-    const pend = engine.song.pending;
-    const committed = (pend && pitching && pitching !== 'save') ? pend.snapshot.active : st.activeLayers;
+    const committed = committedActive();
     Array.from(el.stageChips.children).forEach((c, i) => {
       c.classList.toggle('on', !!(committed && committed[i]));
       const isPitch = i === pitchLayer;
       c.classList.toggle('pitching', isPitch);
       if (isPitch && SDJ.LANE_COLORS) c.style.setProperty('--pitch', SDJ.LANE_COLORS[i]);
     });
+    renderDeckA(); // Deck A wears the committed record — rings accrete as parts land
   }
 
-  // ---- the DJ's calls: current status + a running approve/skip history ----
+  // ---- the DJ's status + a running approve/skip history ------------------
 
   function resetMind() {
     if (el.djFeed) el.djFeed.innerHTML = '';
@@ -1212,7 +1464,7 @@
     while (el.djFeed.childElementCount > 40) el.djFeed.lastChild.remove();
   }
 
-  // ---- live code panel ---------------------------------------------------
+  // ---- live code panel (the drawer) --------------------------------------
 
   function showCode(code, flash) {
     el.code.innerHTML = highlight(code);
@@ -1305,7 +1557,7 @@
   }
 
   // ---- app shell: hash-routed views (menu / live / crate) ----------------
-  // One index.html, three views. The engine, audio and crate all live in this
+  // One index.html, four views. The engine, audio and crate all live in this
   // module, so state persists as you move between the menu, the live deck and
   // the crate — navigating is just showing a different section.
 
@@ -1369,6 +1621,19 @@
     approve: function () { liveDecide(true); },
     skip: function () { liveDecide(false); },
     pitching: function () { return pitching; },
+  };
+  // the A/B crossfader (agent-native): blend the pitch against the committed track
+  SDJ.ab = {
+    set: setAbMix,
+    mix: function () { return abMix; },
+  };
+  // the pressing flow (agent-native): open / confirm / cancel the save moment
+  SDJ.press = {
+    open: openPress,
+    confirm: confirmPress,
+    cancel: cancelPress,
+    format: setPressFormat, // 'arranged' | 'loop'
+    isOpen: function () { return !!(el.pressModal && !el.pressModal.hidden); },
   };
   SDJ.setDensity = function (v) {
     intentIn = clamp(v, -1, 1);

@@ -107,6 +107,43 @@
     '0 3 ~ 2 ~ 4 ~ 5',              // stepwise rise
     '<0 4> ~ <5 7> ~ 4 ~ 2 ~',      // alternating bright cells
     '2 ~ 0 ~ 4 ~ 5 7',              // pickup into a leap
+    // — ornamented & rhythmic cells: grace notes, trills, triplet turns —
+    '0 ~ [0 2] ~ 4 ~ [5 4] ~',      // grace-note pairs
+    '~ [4 5] ~ 7 ~ [5 4] 2 ~',      // ornamented upper line
+    '0*2 ~ 4*2 ~ 5 ~ 4',           // stutter accents
+    '~ 0 ~ 2 ~ [3 4 5] ~ ~',        // triplet run up
+    '7 ~ [7 5] 4 ~ [4 2] 0 ~',      // descending with grace notes
+    '0 ~ 4 ~ [7 5 4] ~ 2 ~',        // triplet turn mid-phrase
+    '~ ~ 0 [2 3] 4 ~ 5 ~',          // pickup ornament into the hook
+    '4 [5 4] 2 ~ 0 ~ ~ 0',          // trill-head, settle on the root
+    '<0 4 7> ~ 5 ~ 4 ~ 2 ~',        // three-way degree rotation
+    '0 ~ 2 ~ 4 ~ [5 7] ~',          // clean rise into an octave lift
+    '~ 5 [4 5] ~ 7 ~ 4 ~',          // hovering ornament up high
+    '0 [2 0] ~ 4 [5 4] ~ 2 ~',      // call-heavy grace phrase
+  ];
+
+  // Two-bar phrases — a CALL and its RESPONSE. Rendered as "<[call] [resp]>" so
+  // the lead alternates them each cycle: a question that answers itself instead
+  // of one motif looping forever. Each half is a full 8-step bar; calls open and
+  // leave space, responses resolve back toward the tonic. This is the main lever
+  // that stops every lead reading as the same two-note hook.
+  const MELODY_PHRASES = [
+    ['~ ~ 0 ~ 2 ~ 4 ~', '5 ~ 4 ~ 2 ~ 0 ~'],       // rise, then resolve home
+    ['0 ~ ~ 4 ~ 5 ~ ~', '~ 7 ~ 5 4 ~ 2 ~'],       // leap up, fall back
+    ['0 2 4 ~ ~ ~ ~ ~', '~ ~ 4 2 ~ 3 ~ 0'],       // statement, echoed answer
+    ['~ 4 ~ 5 ~ 7 ~ ~', '7 ~ 5 ~ 4 ~ 2 0'],       // climb, then cascade down
+    ['0 ~ 3 ~ 5 ~ 3 ~', '4 ~ 2 ~ 0 ~ ~ ~'],       // pentatonic call, soft land
+    ['[0 2 4] ~ 5 ~ 4 ~', '~ 2 ~ 4 3 ~ 0 ~'],     // triplet call, winding reply
+    ['7 ~ ~ 5 ~ ~ 4 ~', '2 ~ 0 ~ ~ 0 ~ ~'],       // high hold, resolve to root
+    ['0 ~ 4 ~ 7 ~ 5 ~', '4 ~ 5 ~ 4 2 ~ 0'],       // arpeggio up, melodic down
+    ['~ ~ 5 4 ~ 2 ~ 0', '0 ~ 2 ~ 3 ~ 4 ~'],       // fall, answered rising
+    ['0 0 ~ 2 ~ 4 ~ ~', '~ 5 4 ~ 2 ~ 0 ~'],       // stutter start, graceful fall
+    ['4 ~ 3 ~ 4 ~ 5 ~', '7 ~ 5 ~ 4 ~ 3 ~'],       // hover, lift then settle
+    ['<0 7> ~ 4 ~ 5 ~ ~', '~ 4 ~ 2 ~ 3 ~ 0'],     // octave call, resolving reply
+    ['0 ~ 2 [3 4] ~ 5 ~', '5 4 ~ 2 ~ 0 ~ ~'],     // slide up, tumble down
+    ['~ 5 ~ 7 ~ 5 4 ~', '2 ~ 4 ~ 2 ~ 0 ~'],       // upper float, gentle descent
+    ['0 ~ ~ ~ 4 ~ 5 7', '~ 5 ~ 4 ~ 2 0 ~'],       // sparse leap, run home
+    ['0 2 3 ~ 4 ~ 2 ~', '3 ~ 2 ~ 0 ~ ~ 0'],       // stepwise wander, cadence
   ];
 
   // Drum machines — 808 leads because it defines modern hip-hop; 909 for energy.
@@ -128,6 +165,7 @@
     GENRE_SCALES,
     PROGRESSIONS,
     MELODY_CELLS,
+    MELODY_PHRASES,
     DRUM_BANKS,
     GENRES,
 
@@ -150,6 +188,44 @@
     // 7th chord (four stacked scale degrees) — R&B / neo-soul depth
     seventh(d) {
       return d + ',' + (d + 2) + ',' + (d + 4) + ',' + (d + 6);
+    },
+
+    // Chord voicings in scale-degree space, beyond the plain triad. Quartal
+    // (stacked fourths) and shell (3rd + 7th, no 5th) are the neo-soul / modern
+    // colours; sixth and ninth add extension depth; sus4 and spread open it up.
+    // All stay inside the scale, so they never fight the mood palette.
+    VOICINGS: ['triad', 'seventh', 'sixth', 'ninth', 'quartal', 'shell', 'sus4', 'spread'],
+    voicing(kind, d) {
+      switch (kind) {
+        case 'seventh': return [d, d + 2, d + 4, d + 6];
+        case 'sixth':   return [d, d + 2, d + 4, d + 5];
+        case 'ninth':   return [d, d + 2, d + 4, d + 6, d + 8];
+        case 'quartal': return [d, d + 3, d + 6];        // stacked fourths
+        case 'shell':   return [d, d + 2, d + 6];        // 3rd + 7th, drop the 5th
+        case 'sus4':    return [d, d + 3, d + 4];        // suspended 4th
+        case 'spread':  return [d, d + 4, d + 9];        // open: root, 5th, 9th up top
+        default:        return [d, d + 2, d + 4];        // triad
+      }
+    },
+
+    // Per-cycle chord sequence in a named voicing, e.g. voicingSeq([0,5],'ninth')
+    voicingSeq(prog, kind) {
+      return '<' + prog.map((d) => '[' + Theory.voicing(kind, d).join(',') + ']').join(' ') + '>';
+    },
+
+    // A walking bassline for the progression: each chord's root, then a single
+    // scale-step toward the next chord's root — the classic "walk into the one".
+    // Stepwise motion keeps it valid in any scale (no octave-size assumptions),
+    // and two notes per chord give the low end forward momentum.
+    walkingSeq(prog) {
+      const out = [];
+      for (let i = 0; i < prog.length; i++) {
+        const root = prog[i];
+        const next = prog[(i + 1) % prog.length];
+        const step = next > root ? 1 : next < root ? -1 : 1;
+        out.push('[' + root + ' ' + (root + step) + ']');
+      }
+      return '<' + out.join(' ') + '>';
     },
 
     // Per-cycle root sequence: [0,5,3,4] -> "<0 5 3 4>"

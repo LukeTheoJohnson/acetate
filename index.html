@@ -52,106 +52,130 @@
     </div>
   </main>
 
-  <!-- ══ LIVE: the DJ deck, the crowd control and the visualisation ══════ -->
+  <!-- ══ LIVE: two turntables + a console — the track is a record being cut ══ -->
   <main class="view view-live stage" data-view="live" hidden>
-    <!-- ── DECK: the live track + code ────────────────────────────────── -->
-    <section class="deck panel">
-      <div class="track-head">
-        <div>
+    <!-- ── THE RIG: Deck A (the track so far) · crossfader · Deck B (the pitch) ── -->
+    <section class="rig panel">
+      <div class="rig-head">
+        <div class="rig-title">
           <h2 id="trackName">—</h2>
           <p id="trackMeta" class="track-meta">press start to begin</p>
         </div>
-        <div class="deck-buttons">
-          <button id="startBtn" class="btn primary">▶ Start the set</button>
-          <button id="saveBtn" class="btn ghost" title="Save this track to the crate" disabled>💾 Save</button>
-          <button id="skipBtn" class="btn ghost" title="Start a fresh track">⏭ New</button>
-        </div>
-      </div>
-
-      <div id="stageChips" class="chips" aria-label="arrangement layers"></div>
-
-      <pre id="code" class="code" aria-label="live Strudel code">// the DJ hasn't started yet</pre>
-
-      <div class="log-wrap">
-        <div class="log-head">
-          <h3>DJ moves</h3>
-          <div class="log-tools">
-            <span id="logStat" class="log-stat" title="live set-log summary">—</span>
-            <button id="logExport" class="btn small" title="Download the full set trace as JSON">⬇ Log</button>
-            <button id="logClear" class="btn small ghost" title="Clear the captured trace">clear</button>
-          </div>
-        </div>
-        <ul id="log" class="log"></ul>
-      </div>
-    </section>
-
-    <!-- ── STEER: the crowd (2-axis emotion pad) + the DJ's mind ──────── -->
-    <div class="steer">
-      <section class="padcol panel">
-        <h3>The DJ suggests</h3>
-        <!-- turn-based: the DJ pitches one change; nothing commits until you approve -->
-        <div id="sgEmpty" class="sg-empty">Press ▶ Start. The DJ builds from the kick up, pitching
-          one change at a time — approve what you like, skip what you don’t. Nothing changes until you say so.</div>
-        <div id="sgCard" class="sg-card" hidden>
-          <div class="sg-kind" id="sgKind">new part</div>
-          <div class="sg-desc" id="sgDesc">—</div>
-          <pre class="sg-code" id="sgCode" aria-label="the lines this change touches"></pre>
-        </div>
-        <div id="sgActions" class="sg-actions" hidden>
-          <button id="sgSkip" class="btn vote-down">✗ Skip</button>
-          <button id="sgApprove" class="btn vote-up">✓ Approve</button>
-        </div>
-
-        <!-- tuning: bias what the DJ pitches next -->
-        <div class="ctrl-block">
-          <h4 class="ctrl-title">Genre <small>new tracks come out in this style</small></h4>
-          <div id="liveGenrePills" class="genre-pills" role="radiogroup" aria-label="genre for new tracks"></div>
-        </div>
-
-        <!-- density: one dial — how busy the arrangement gets -->
-        <div class="ctrl-block density-block">
-          <h4 class="ctrl-title">Density <small>how many layers</small></h4>
-          <input id="liveDensity" class="density" type="range" min="-100" max="100" value="0"
-                 aria-label="density dial: strip back to pile on" />
-          <div class="density-scale"><span>strip</span><span>hold</span><span>pile on</span></div>
-        </div>
-
-        <!-- the parts: one row each — drop / auto / feature -->
-        <div class="ctrl-block">
-          <h4 class="ctrl-title">The parts <small>drop · auto · feature</small></h4>
-          <div id="livePartMix" class="part-mix" aria-label="per-part emphasis"></div>
-        </div>
-      </section>
-
-      <section class="mind panel">
-        <h3>🧠 The DJ's calls</h3>
-        <div id="djNow" class="now">
+        <div id="djNow" class="now-mini">
           <span class="spinner"></span>
           <div>
             <div id="djVerb" class="now-verb">warming up</div>
             <div id="djMove" class="now-move">press start to begin…</div>
           </div>
         </div>
-        <div class="feed-head">What you kept and skipped</div>
-        <ul id="djFeed" class="feed"></ul>
-      </section>
-    </div>
-
-    <!-- ── FLOOR: the live pianoroll (Strudel's own .pianoroll draws here) ── -->
-    <section class="floor panel">
-      <h3>The roll</h3>
-      <div class="floor-viz">
-        <canvas id="roll" aria-label="live pianoroll — the DJ's notes scroll past as they play"></canvas>
+        <div class="deck-buttons">
+          <button id="startBtn" class="btn primary">▶ Start the set</button>
+          <button id="saveBtn" class="btn ghost" title="Press this track to a record in the crate" disabled>◉ Press record</button>
+          <button id="skipBtn" class="btn ghost" title="Start a fresh track">⏭ New</button>
+        </div>
       </div>
+
+      <div id="stageChips" class="chips" aria-label="arrangement layers"></div>
+
+      <div id="sgEmpty" class="sg-empty">Press ▶ Start. The DJ cuts one change at a time onto
+        Deck&nbsp;B — slide the crossfader to hear it blended against the record on Deck&nbsp;A,
+        approve to press it onto the track, skip to bin it. Nothing changes until you say so.</div>
+
+      <div id="deckRig" class="deck-rig" hidden>
+        <div class="tdeck tdeck-a">
+          <div class="tdeck-tag"><span class="deck-tag">Deck A</span> the track so far</div>
+          <div id="deckAPlatter" class="platter2"><div id="deckADisc" class="disc"></div></div>
+          <div id="deckACap" class="tdeck-cap">—</div>
+        </div>
+
+        <div id="abWrap" class="xfade">
+          <div class="xfade-caps">
+            <button id="abA" class="btn small ghost" title="Snap to the current track">A</button>
+            <span class="xfade-word">blend</span>
+            <button id="abB" class="btn small ghost" title="Snap to the pitched change">B</button>
+          </div>
+          <input id="abFader" class="xfader" type="range" min="0" max="100" value="100"
+                 aria-label="crossfade: the current track to the pitched change" />
+          <div class="xfade-hint">slide to hear the change in &amp; out</div>
+        </div>
+
+        <div class="tdeck tdeck-b">
+          <div class="tdeck-tag"><span class="deck-tag">Deck B</span> the DJ's pitch</div>
+          <div id="deckBPlatter" class="platter2"><div id="deckBDisc" class="disc"></div></div>
+          <div id="sgCard" class="sg-card" hidden>
+            <div class="sg-kind" id="sgKind">new part</div>
+            <div class="sg-desc" id="sgDesc">—</div>
+          </div>
+          <div id="sgActions" class="sg-actions" hidden>
+            <button id="sgSkip" class="btn vote-down">✗ Skip</button>
+            <button id="sgApprove" class="btn vote-up">✓ Approve</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── THE CONSOLE: dials that bias what the DJ pitches next ─────────── -->
+    <aside class="console panel">
+      <h3>The console</h3>
+
+      <div class="ctrl-block">
+        <h4 class="ctrl-title">Genre <small>new tracks come out in this style</small></h4>
+        <div id="liveGenrePills" class="genre-pills" role="radiogroup" aria-label="genre for new tracks"></div>
+      </div>
+
+      <!-- density: one dial — how busy the arrangement gets -->
+      <div class="ctrl-block density-block">
+        <h4 class="ctrl-title">Density <small>how many layers</small></h4>
+        <input id="liveDensity" class="density" type="range" min="-100" max="100" value="0"
+               aria-label="density dial: strip back to pile on" />
+        <div class="density-scale"><span>strip</span><span>hold</span><span>pile on</span></div>
+      </div>
+
+      <!-- the parts: one channel strip each — drop / auto / feature -->
+      <div class="ctrl-block">
+        <h4 class="ctrl-title">The parts <small>drop · auto · feature</small></h4>
+        <div id="livePartMix" class="part-mix" aria-label="per-part emphasis"></div>
+      </div>
+    </aside>
+
+    <!-- ── FLOOR: the live pianoroll + a compact set history ─────────────── -->
+    <section class="floor panel">
+      <div class="floor-main">
+        <h3>The roll</h3>
+        <div class="floor-viz">
+          <canvas id="roll" aria-label="live pianoroll — the DJ's notes scroll past as they play"></canvas>
+        </div>
+      </div>
+      <aside class="floor-side">
+        <div class="log-head">
+          <h3>Set history</h3>
+          <div class="log-tools">
+            <span id="logStat" class="log-stat" title="live set-log summary">—</span>
+            <button id="logExport" class="btn small" title="Download the full set trace as JSON">⬇ Log</button>
+            <button id="logClear" class="btn small ghost" title="Clear the captured trace">clear</button>
+          </div>
+        </div>
+        <div class="feed-head">Kept · skipped</div>
+        <ul id="djFeed" class="feed"></ul>
+        <div class="feed-head">DJ moves</div>
+        <ul id="log" class="log"></ul>
+      </aside>
+    </section>
+
+    <!-- ── CODE: the live Strudel the DJ is running, syntax-highlighted ──── -->
+    <section class="codepanel panel">
+      <h3>&lt;/&gt; The live code</h3>
+      <pre id="code" class="code" aria-label="live Strudel code">// the DJ hasn't started yet</pre>
     </section>
   </main>
 
 
-  <!-- ══ CRATE: your record library, its own page ════════════════════════ -->
+  <!-- ══ CRATE: your record vault, its own page ══════════════════════════ -->
   <main class="view view-crate" data-view="crate" hidden>
     <section class="crate-page panel">
       <div class="crate-page-head">
-        <h2>🗃 The crate <small>your record library</small></h2>
+        <h2>🗃 The crate <small>your pressed records</small></h2>
         <div class="crate-tools">
           <select id="crateSort" class="crate-sort" aria-label="sort records">
             <option value="new">Newest</option>
@@ -176,18 +200,18 @@
       <div class="remix-head">
         <div>
           <h2>🎛 Remix <small>DJ console</small></h2>
-          <p class="track-meta">Load a record onto Deck&nbsp;B, spin it, then finger the vox pads on Deck&nbsp;A over the loop.</p>
+          <p class="track-meta">Pull a sleeve from the shelf to drop its record onto Deck&nbsp;B, spin it, then finger the vox pads on Deck&nbsp;A over the loop.</p>
         </div>
         <span id="remixVocalState" class="remix-vocal idle">🎤 vocals load on play</span>
       </div>
 
-      <!-- record shelf: pick a visual record to load onto Deck B -->
+      <!-- record shelf: the sleeves — pick one to load its disc onto Deck B -->
       <div class="remix-shelf-wrap">
-        <div id="remixShelf" class="remix-shelf" aria-label="your records — click to load onto the deck"></div>
+        <div id="remixShelf" class="remix-shelf" aria-label="your records — click a sleeve to load its disc onto the deck"></div>
       </div>
 
       <div id="remixEmpty" class="vote-empty">
-        No records yet. Open <b>Live Set</b> or <b>Tinker</b>, save a track, and it drops into the shelf above ready to spin.
+        No records yet. Open <b>Live Set</b>, press a track to a record, and it drops into the shelf above ready to spin.
       </div>
 
       <div id="remixStage" class="remix-stage" hidden>
@@ -211,7 +235,7 @@
                 <div class="remix-meta track-meta" id="remixMeta">—</div>
                 <div class="deck-buttons">
                   <button id="remixStart" class="btn primary" disabled>▶ Play bed</button>
-                  <button id="remixSave" class="btn ghost" title="Save this remix as a new record" disabled>💾 Save</button>
+                  <button id="remixSave" class="btn ghost" title="Press this remix as a new record" disabled>◉ Press</button>
                 </div>
               </div>
             </div>
@@ -231,6 +255,28 @@
     </section>
   </main>
 
+  <!-- ══ PRESS: the save moment — cut this track to a record ═════════════ -->
+  <div id="pressModal" class="press-modal" hidden>
+    <div class="press-sheet">
+      <h3 class="press-title">Press this record</h3>
+      <p id="pressVersion" class="press-version">—</p>
+      <div class="press-disc-wrap"><div id="pressDisc" class="disc press-disc"></div></div>
+      <label class="press-name-label">Name on the label
+        <input id="pressName" class="press-name" type="text" maxlength="40" spellcheck="false" />
+      </label>
+      <p id="pressMeta" class="track-meta">—</p>
+      <div class="press-format" role="radiogroup" aria-label="press format">
+        <button id="pressFull" class="pf-btn on" title="Render the record as a full arranged track">Arranged track</button>
+        <button id="pressLoop" class="pf-btn" title="Bank the raw loop as it plays now">Loop</button>
+      </div>
+      <p id="pressFormatHint" class="pf-hint">a 36-bar journey: intro → build → peak → strip → peak → outro</p>
+      <div class="press-actions">
+        <button id="pressCancel" class="btn ghost">Keep working</button>
+        <button id="pressConfirm" class="btn primary">◉ Press to the crate</button>
+      </div>
+    </div>
+  </div>
+
   <!-- app modules (classic scripts, order matters) -->
   <script src="src/rng.js"></script>
   <script src="src/theory.js"></script>
@@ -239,6 +285,7 @@
   <script src="src/viz.js"></script>
   <script src="src/log.js"></script>
   <script src="src/art.js"></script>
+  <script src="src/vinyl.js"></script>
   <script src="src/menu.js"></script>
   <script src="src/app.js"></script>
 </body>
