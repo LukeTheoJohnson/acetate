@@ -194,63 +194,113 @@
     </section>
   </main>
 
-  <!-- ══ REMIX: a 2-deck DJ console — spin a saved record, fire vox over it ══ -->
+  <!-- ══ REMIX: the Authentic Deck — a two-deck DJ console ════════════════ -->
+  <!-- The phrase is the clock: a 32-bar timeline drives quantised ARM        -->
+  <!-- transitions; each deck splits into stems and owns a filter sweep; three -->
+  <!-- hold-to-fire paddles ride the master. Wired in src/app.js (initRemix). -->
   <main class="view view-remix" data-view="remix" hidden>
     <section class="remix-console panel">
       <div class="remix-head">
         <div>
-          <h2>🎛 Remix <small>DJ console</small></h2>
-          <p class="track-meta">Pull a sleeve from the shelf to drop its record onto Deck&nbsp;B, spin it, then finger the vox pads on Deck&nbsp;A over the loop.</p>
+          <h2>🎛 Remix <small>the authentic deck</small></h2>
+          <p class="track-meta">Pull sleeves onto Deck&nbsp;A and Deck&nbsp;B, then ARM a transition on the phrase line and work the stems, filters and paddles.</p>
         </div>
-        <span id="remixVocalState" class="remix-vocal idle">🎤 vocals load on play</span>
       </div>
 
-      <!-- record shelf: the sleeves — pick one to load its disc onto Deck B -->
+      <!-- record shelf: the sleeves — load one onto either deck -->
       <div class="remix-shelf-wrap">
-        <div id="remixShelf" class="remix-shelf" aria-label="your records — click a sleeve to load its disc onto the deck"></div>
+        <div id="remixShelf" class="remix-shelf" aria-label="your dubplates — load a sleeve onto deck A or B"></div>
       </div>
 
-      <div id="remixEmpty" class="vote-empty">
-        No records yet. Open <b>Live Set</b>, press a track to a record, and it drops into the shelf above ready to spin.
+      <!-- PHRASE TIMELINE — the hero: everything snaps to it -->
+      <div class="rx-timeline">
+        <div class="rx-timeline-head">
+          <h3>Phrase clock · 32 bars</h3>
+          <div class="rx-readouts">
+            <div class="rx-readout"><span class="rx-k">Bar</span><span class="rx-v cyan" id="readBar">— / 32</span></div>
+            <div class="rx-readout"><span class="rx-k">Phrase</span><span class="rx-v" id="readPhrase">—</span></div>
+            <div class="rx-readout"><span class="rx-k">Next line in</span><span class="rx-v amber" id="readNext">— bars</span></div>
+            <div class="rx-readout"><span class="rx-k">Armed</span><span class="rx-v" id="readArmed">—</span></div>
+          </div>
+          <div class="rx-mixnow" id="mixNow">MIX NOW</div>
+        </div>
+        <canvas id="remixTimeline" class="rx-canvas" height="64" aria-label="phrase timeline: playhead, boundary markers, armed transition"></canvas>
+        <div class="rx-arm-row">
+          <span class="rx-arm-label">Arm</span>
+          <button class="rx-arm" data-target="a" id="armA">ARM →A</button>
+          <button class="rx-arm" data-target="b" id="armB">ARM →B</button>
+          <span class="rx-arm-label">Boundary</span>
+          <select class="rx-boundary" id="boundarySelect" aria-label="transition boundary">
+            <option value="8">8 bars</option>
+            <option value="16" selected>16 bars</option>
+            <option value="32">32 bars</option>
+          </select>
+          <label class="rx-autofade"><input type="checkbox" id="autofadeCheck" /> Auto-fade</label>
+          <span id="droppedMsg" class="rx-dropped">DROPPED</span>
+        </div>
       </div>
 
-      <div id="remixStage" class="remix-stage" hidden>
-        <div class="remix-decks">
-          <!-- DECK A: the vox sampler — a square pad grid of one-shot vocals -->
-          <section class="deck deck-a">
-            <div class="deck-label"><span class="deck-tag">Deck A</span> Vox sampler</div>
-            <div id="remixVox" class="vox-grid" aria-label="vocal one-shot pads"></div>
-            <p class="deck-hint">Tap a pad to stab that vocal once over the loop.</p>
-          </section>
+      <!-- THE RIG: Deck A | Mixer | Deck B -->
+      <div class="rx-rig">
+        <section class="rx-deck a">
+          <div class="deck-label"><span class="deck-tag">Deck A</span></div>
+          <div class="platter rx-platter" id="platterA" aria-hidden="true"><div class="rx-empty">shelf →A</div></div>
+          <div class="rx-meta" id="metaA">nothing loaded</div>
+          <div class="rx-stem" id="stemStripA"><div class="rx-stem-head">Stems</div><div class="rx-stem-note">— pull a sleeve —</div></div>
+          <div class="rx-filter">
+            <span class="rx-filter-k">Filter</span>
+            <input type="range" id="filterA" min="-1" max="1" step="0.01" value="0" aria-label="Deck A filter sweep" />
+            <span class="rx-filter-v" id="filterAVal">0.00</span>
+          </div>
+        </section>
 
-          <!-- DECK B: the base track — the loaded record spinning as a bed -->
-          <section class="deck deck-b">
-            <div class="deck-label"><span class="deck-tag">Deck B</span> Base track</div>
-            <div class="base-deck">
-              <div class="platter" id="remixPlatter" aria-hidden="true">
-                <div class="platter-art" id="remixArt"></div>
-              </div>
-              <div class="base-info">
-                <div class="remix-name" id="remixName">—</div>
-                <div class="remix-meta track-meta" id="remixMeta">—</div>
-                <div class="deck-buttons">
-                  <button id="remixStart" class="btn primary" disabled>▶ Play bed</button>
-                  <button id="remixSave" class="btn ghost" title="Cut this remix as a new dubplate" disabled>◉ Cut</button>
-                </div>
-              </div>
-            </div>
-            <div id="remixRack" class="remix-rack" aria-label="deck FX"></div>
-            <label class="transition">
-              <span class="transition-label">Transition <small>filter the bed down for a drop</small></span>
-              <input id="remixTransition" class="transition-fader" type="range" min="0" max="100" value="100"
-                     aria-label="transition filter: closed to fully open" />
-            </label>
-          </section>
-        </div>
+        <section class="rx-mixer">
+          <h3>Mixer</h3>
+          <div class="rx-xfade">
+            <span class="a">A</span>
+            <input type="range" id="cross" min="0" max="1" step="0.01" value="0" aria-label="crossfader" />
+            <span class="b">B</span>
+          </div>
+          <div class="rx-xfade-cap">crossfader · equal power</div>
+          <div class="rx-trims">
+            <label class="rx-trim a">CH·A<input type="range" id="trimA" min="0" max="1" step="0.01" value="1" aria-label="Deck A gain" /><span id="trimAVal">1.00</span></label>
+            <label class="rx-trim b">CH·B<input type="range" id="trimB" min="0" max="1" step="0.01" value="1" aria-label="Deck B gain" /><span id="trimBVal">1.00</span></label>
+          </div>
+          <div class="rx-swaps">
+            <span class="rx-swap-head">Swap macros</span>
+            <button class="rx-swap" id="swapAdrumsBmelody">A drums × B melody</button>
+            <button class="rx-swap" id="swapAmelodyBdrums">A melody × B drums</button>
+          </div>
+        </section>
 
-        <div class="remix-roll">
-          <canvas id="remixRoll" aria-label="pianoroll — the remix scrolls past as it plays"></canvas>
-        </div>
+        <section class="rx-deck b">
+          <div class="deck-label"><span class="deck-tag">Deck B</span></div>
+          <div class="platter rx-platter" id="platterB" aria-hidden="true"><div class="rx-empty">shelf →B</div></div>
+          <div class="rx-meta" id="metaB">nothing loaded</div>
+          <div class="rx-stem" id="stemStripB"><div class="rx-stem-head">Stems</div><div class="rx-stem-note">— pull a sleeve —</div></div>
+          <div class="rx-filter">
+            <span class="rx-filter-k">Filter</span>
+            <input type="range" id="filterB" min="-1" max="1" step="0.01" value="0" aria-label="Deck B filter sweep" />
+            <span class="rx-filter-v" id="filterBVal">0.00</span>
+          </div>
+        </section>
+      </div>
+
+      <!-- MASTER BAR: transport · hold-to-fire paddles · nudge · press -->
+      <div class="rx-master">
+        <button id="remixStart" class="btn primary rx-play" disabled>▶ Play</button>
+        <span class="rx-paddles" aria-label="hold-to-fire FX paddles">
+          <button class="rx-paddle" id="padStutter">STUTTER<small>ply ×4</small></button>
+          <button class="rx-paddle" id="padGate">GATE<small>1 0 1 0</small></button>
+          <button class="rx-paddle" id="padEcho">ECHO-OUT<small>delay + room</small></button>
+        </span>
+        <span class="rx-nudge">Nudge<input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" aria-label="tempo nudge" /><b id="nudgeVal">+0.0%</b></span>
+        <span class="rx-tempo" id="tempo">— cps</span>
+        <button id="remixSave" class="btn ghost rx-press" title="Cut this blend as a new dubplate" disabled>◉ Cut to crate</button>
+      </div>
+
+      <div class="remix-roll">
+        <canvas id="remixRoll" aria-label="pianoroll — the remix scrolls past as it plays"></canvas>
       </div>
     </section>
   </main>

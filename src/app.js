@@ -31,14 +31,23 @@
   let pressFormat = 'arranged'; // what a press banks: 'arranged' (36-bar track) | 'loop'
 
   // ---- remix deck state (a saved record looped as a bed + vocal/overlays) --
-  let remixRecord = null;   // the crate entry currently loaded on the remix deck
-  let remixPlaying = false; // the remix bed is playing
-  let vocalsLoaded = false; // the dirt-samples vocal banks loaded with the kit at boot
-  const remixFx = { chops: false, topline: false, sweep: false, stutter: false, riser: false };
-  let remixWord = 0;        // rotating index into the vocal word bank for variety
-  const activeStabs = [];   // vocal one-shots sounding right now (momentary voice pads)
-  let remixTransition = 1;  // 0..1 bed transition filter (1 = fully open — no filtering)
-  let transitionTimer = 0;  // throttle so dragging the fader doesn't thrash evaluate
+  let remixPlaying = false; // the remix deck is live (external transport checks this)
+  let vocalsLoaded = false; // dirt-samples banks loaded with the kit at boot
+
+  // The Authentic Deck: a two-deck remix console. One idea — the phrase is the
+  // clock; ARM transitions, stems, filters and paddles all snap to a 32-bar line.
+  const REMIX_PHRASE_BARS = 32, REMIX_GROUP_BARS = 8;
+  const remix = {
+    cross: 0,   // 0 = full A, 1 = full B (equal-power)
+    nudge: 0,   // ±8% master tempo trim
+    decks: {
+      a: { rec: null, trim: 1, stems: null, filter: 0 },
+      b: { rec: null, trim: 1, stems: null, filter: 0 },
+    },
+    paddles: { stutter: false, gate: false, echo: false }, // hold-to-fire
+    playStart: 0, currentBar: 0, barFrac: 0,               // phrase clock
+    armed: null, boundary: 16, autofade: false,            // quantised transition
+  };
 
   // ---- element handles (filled on DOMContentLoaded) ----------------------
   const el = {};
@@ -69,10 +78,15 @@
       'menuLiveState', 'menuCrateCount',
       // crate library tools
       'crateSort', 'crateExport', 'crateImport',
-      // remix console (2 decks: a vox sampler + the base-track record)
-      'remixShelf', 'remixStart', 'remixSave', 'remixEmpty', 'remixStage', 'remixArt',
-      'remixPlatter', 'remixName', 'remixMeta', 'remixRack', 'remixVox', 'remixTransition',
-      'remixVocalState', 'remixRoll',
+      // remix console — the Authentic Deck (two-deck DJ console)
+      'remixShelf', 'remixRoll', 'remixStart', 'remixSave', 'remixTimeline',
+      'readBar', 'readPhrase', 'readNext', 'readArmed', 'mixNow', 'droppedMsg',
+      'armA', 'armB', 'boundarySelect', 'autofadeCheck',
+      'platterA', 'metaA', 'stemStripA', 'filterA', 'filterAVal',
+      'platterB', 'metaB', 'stemStripB', 'filterB', 'filterBVal',
+      'cross', 'trimA', 'trimAVal', 'trimB', 'trimBVal',
+      'swapAdrumsBmelody', 'swapAmelodyBdrums',
+      'nudge', 'nudgeVal', 'tempo', 'padStutter', 'padGate', 'padEcho',
     ].forEach((id) => (el[id] = $(id)));
 
     // The floor now hosts Strudel's own pianoroll (the crowd viz was retired).
@@ -102,14 +116,10 @@
     if (el.crateSort) el.crateSort.addEventListener('change', () => { crateSort = el.crateSort.value; renderCrate(); });
     if (el.crateExport) el.crateExport.addEventListener('click', exportCrate);
     if (el.crateImport) el.crateImport.addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) importCrate(f); e.target.value = ''; });
-    // remix console
-    if (el.remixStart) el.remixStart.addEventListener('click', onRemixStart);
-    if (el.remixSave) el.remixSave.addEventListener('click', onRemixSave);
-    if (el.remixTransition) el.remixTransition.addEventListener('input', onTransition);
+    // remix console — the Authentic Deck (two-deck DJ console)
+    initRemix();
     window.addEventListener('hashchange', onRoute);
     buildControls();
-    buildRemixRack();
-    buildVoiceDeck();
     installAudioTap();
     resetMind();
     renderCrate();
@@ -894,7 +904,14 @@
     saveCrate(crate);
     renderCrate();
     renderRemixShelf();
-    if (remixRecord && remixRecord.id === entry.id) { remixRecord.name = trimmed; renderRemixHeader(); }
+    ['a', 'b'].forEach((w) => {
+      const d = remix.decks[w];
+      if (d.rec && (d.rec.id || d.rec.code) === (entry.id || entry.code)) {
+        d.rec.name = trimmed;
+        const meta = w === 'a' ? el.metaA : el.metaB;
+        if (meta) meta.textContent = deckMetaText(d.rec);
+      }
+    });
   }
 
   // Portable library: dump the whole crate to a JSON file the user can keep.
@@ -1072,11 +1089,11 @@
     reader.readAsText(file);
   }
 
-  // Load a crate record onto the Remix deck and jump there.
+  // Load a crate record onto the Remix deck (B) and jump there.
   function sendToRemix(i) {
     const entry = loadCrate()[i];
     if (!entry) return;
-    loadRemixRecord(entry);
+    loadRemixDeck('b', entry);
     location.hash = '#remix';
   }
 
@@ -1105,318 +1122,596 @@
     setStatus('Stopped.');
   }
 
-  // ---- remix lab: DJ a saved record ------------------------------------
-  // A saved record is a loopy hook. The remix deck plays it as a looping BED and
-  // layers overlays on top — vocal chops/toplines cut in for variety, plus a
-  // filter sweep, a stutter and a riser. Everything is composed as one balanced
-  // Strudel string: the record's own `stack(...)` nested as a single pattern arg
-  // of a new outer stack, so bed + overlays coexist. Runs through the shared
-  // single-source transport as kind 'remix'.
+  // ---- remix: the Authentic Deck — a two-deck DJ console -----------------
+  // The union of three winning design spikes on one chassis, one idea: the
+  // phrase is the clock, everything snaps to it. Both decks load a dubplate
+  // from the shelf; a 32-bar phrase timeline drives quantised ARM transitions;
+  // each deck splits into stems (mute/solo/SWAP) and owns a filter sweep; three
+  // hold-to-fire paddles ride the master. Because the app composed every record
+  // it can split it for free — muting BASS IS the bass-swap, no fake EQ.
+  //
+  // It routes through the shared single-source transport (play/stopAll) as kind
+  // 'remix', so the pianoroll, transport header and one-source-at-a-time rule
+  // all apply. Committed genome → .color() tags → stem groups (see dj.js
+  // LANE_COLORS: kick/hats/clap → DRUMS, bass → BASS, chords/lead/air, fill →
+  // DRUMS). Same tags render() writes are what we split on.
+  const REMIX_COLOUR_GROUP = {
+    '#f43f7d': 'DRUMS', '#2ee6d6': 'DRUMS', '#ff9a1f': 'DRUMS', '#c3ccff': 'DRUMS',
+    '#a64dff': 'BASS', '#2edb8b': 'CHORDS', '#ff4dd2': 'LEAD', '#4da6ff': 'AIR',
+  };
+  const REMIX_GROUP_COLOUR = {
+    DRUMS: '#2ee6d6', BASS: '#a64dff', CHORDS: '#2edb8b', LEAD: '#ff4dd2', AIR: '#4da6ff', OTHER: '#9d8fc7',
+  };
+  const REMIX_GROUP_ORDER = ['DRUMS', 'BASS', 'CHORDS', 'LEAD', 'AIR'];
 
-  // Vocals come from dirt-samples banks that load with the drum kit at boot
-  // (yeah, ho, numbers, speech, mouth …) — no external TTS. Overlays roll
-  // through this set; each entry is a real bank[:index] that s("…") triggers.
-  const VOCAL_SAMPLES = ['yeah:1', 'yeah:5', 'yeah:12', 'ho:0', 'ho:3', 'numbers:0', 'numbers:1', 'speech:2', 'mouth:6', 'yeah:20'];
-  // Deck A's single-press pads: a DJ-friendly label backed by a real sample.
-  const VOX_PADS = [
-    { label: 'yeah',  s: 'yeah:1'    },
-    { label: 'shout', s: 'yeah:9'    },
-    { label: 'hey',   s: 'ho:0'      },
-    { label: 'ho',    s: 'ho:3'      },
-    { label: 'uh',    s: 'mouth:6'   },
-    { label: 'one',   s: 'numbers:0' },
-    { label: 'two',   s: 'numbers:1' },
-    { label: 'go',    s: 'speech:2'  },
-  ];
+  // clock + ARM/autofade + throttle state
+  let remixRaf = 0, remixEvalTimer = 0, remixLastEval = 0, remixDroppedTimer = 0;
+  let remixLastTotalBars = 0;
+  let autofadeActive = false, autofadeStart = 0, autofadeFrom = 0, autofadeTarget = 0, autofadeDuration = 0;
 
-  // Deck B's latching FX pads (the 'etc' overlays). 'chops' still lives in the
-  // engine (composeRemix + the API) but the manual voice pads cover it now.
-  const REMIX_OVERLAYS = [
-    { key: 'topline', label: 'Vocal topline', hint: 'a chopped, echoing line', vocal: true },
-    { key: 'sweep',   label: 'Filter sweep',  hint: 'the hook breathes' },
-    { key: 'stutter', label: 'Stutter',       hint: 'glitch beat-repeat' },
-    { key: 'riser',   label: 'Riser',         hint: 'noise build for drops' },
-  ];
+  const rx2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
 
-  // Vocals ride in with the drum kit at boot (dirt-samples), so there's nothing
-  // to fetch here — just reflect whether the kit loaded. The bed still plays if
-  // it didn't; the vocal pads simply stay silent.
-  async function ensureVocals() {
-    setRemixVocalState(vocalsLoaded ? 'ready' : 'unavailable');
-    return vocalsLoaded;
+  function masterRec() { return remix.decks.a.rec || remix.decks.b.rec || null; }
+  function masterCps() {
+    const rec = masterRec(); const base = (rec && rec.cps) || 0.5;
+    return Math.round(base * (1 + remix.nudge / 100) * 1000) / 1000;
+  }
+  function remixName() {
+    const a = remix.decks.a.rec, b = remix.decks.b.rec;
+    if (a && b) return a.name + ' × ' + b.name;
+    return (a || b || {}).name || 'Remix';
+  }
+  function deckMetaText(rec) {
+    return (rec.name || 'Untitled') + ' · ' + ((rec.key || '') + ' ' + (rec.scaleType || '')).trim() + ' · ' + (rec.bpm || '?') + ' BPM';
   }
 
-  function setRemixVocalState(state) {
-    if (!el.remixVocalState) return;
-    const msg = state === 'ready' ? '🎤 vocals ready'
-      : state === 'loading' ? '🎤 loading vocals…'
-      : state === 'unavailable' ? '🎤 vocals unavailable — bed only'
-      : '🎤 vocals load on play';
-    el.remixVocalState.textContent = msg;
-    el.remixVocalState.className = 'remix-vocal ' + (state || 'idle');
+  // Equal-power crossfade × trim, scaled to ~0.95 (2dp) — chained .gain() multiply.
+  function deckGain(which) {
+    const m = remix.cross;
+    const curve = which === 'a' ? Math.cos(m * Math.PI / 2) : Math.sin(m * Math.PI / 2);
+    return Math.round(curve * 0.95 * remix.decks[which].trim * 100) / 100;
   }
-
-  // Map the transition fader (0..1) to a bed low-pass cutoff. 1 = fully open.
-  function transitionFreq() { return Math.round(200 * Math.pow(90, remixTransition)); }
-
-  // One cycle of the loaded record, in ms — how long a one-shot vocal stab lives.
-  function cycleMs() { return Math.max(300, 1000 / ((remixRecord && remixRecord.cps) || 0.5)); }
-
-  // Compose the record + deck FX + live vocal stabs into one balanced program.
-  function composeRemix() {
-    if (!remixRecord) return null;
-    const rec = remixRecord;
-    const code = rec.code || '';
+  function stripCps(code) {
     const nl = code.indexOf('\n');
-    let cpsLine = 'setcps(' + (rec.cps || 0.5) + ')';
-    let stackExpr = code;
-    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) {
-      cpsLine = code.slice(0, nl);
-      stackExpr = code.slice(nl + 1);
-    }
-    // the record's whole stack, nested as one pattern, with optional bed-level FX
-    let bed = '(' + stackExpr.trim() + ')';
-    if (remixFx.sweep) bed += '.lpf(sine.range(500,4500).slow(8))';
-    else if (remixTransition < 0.995) bed += '.lpf(' + transitionFreq() + ')'; // transition duck
-    if (remixFx.stutter) bed += '.sometimesBy(0.25, x => x.ply("2 4"))';
-    bed += '.gain(0.92)';
-
-    const layers = [bed];
-    if (remixFx.chops) {
-      const w0 = VOCAL_SAMPLES[remixWord % VOCAL_SAMPLES.length];
-      const w1 = VOCAL_SAMPLES[(remixWord + 3) % VOCAL_SAMPLES.length];
-      layers.push('s("' + w0 + ' ~ ~ ~ ' + w1 + ' ~ ~ ~").gain(0.9).cut(1).room(0.2)');
-    }
-    if (remixFx.topline) {
-      const w = VOCAL_SAMPLES[(remixWord + 5) % VOCAL_SAMPLES.length];
-      layers.push('s("' + w + '").slow(4).chop(8).gain(0.7)' +
-        '.delay(0.3).delaytime(0.16).delayfeedback(0.35).room(0.4)');
-    }
-    if (remixFx.riser) {
-      layers.push('s("white").gain(0.1).lpf(sine.range(400,9000).slow(8)).hpf(300).room(0.5)');
-    }
-    // live vocal stabs (Deck A pads) — each a one-shot layer while it's sounding
-    activeStabs.forEach((w) => layers.push('s("' + w + '").gain(0.95).room(0.16)'));
-    return cpsLine + '\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
+    return code;
+  }
+  // centre = open; negative → LP sweep down to ~200 Hz; positive → HP sweep up.
+  function applyDeckFilter(bed, filter) {
+    if (filter < 0) return bed + '.lpf(' + Math.round(200 * Math.pow(90, 1 + filter)) + ')';
+    if (filter > 0) return bed + '.hpf(' + Math.round(200 + filter * 3000) + ')';
+    return bed;
   }
 
-  function remixEvaluate() {
+  // Split a record's top-level stack(...) into its lane parts, each tagged with
+  // its .color() so lanes can be grouped into stems. Depth/quote-aware so a comma
+  // or paren inside a mini-notation string never splits a lane.
+  function splitStack(code) {
+    const nl = code.indexOf('\n');
+    let body = code;
+    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) body = code.slice(nl + 1);
+    const open = body.indexOf('stack('); if (open < 0) return null;
+    let i = open + 6, depth = 1, inStr = false, q = '', start = i;
+    const parts = [];
+    for (; i < body.length && depth > 0; i++) {
+      const ch = body[i];
+      if (inStr) { if (ch === q) inStr = false; continue; }
+      if (ch === '"' || ch === "'") { inStr = true; q = ch; continue; }
+      if (ch === '(') depth++;
+      else if (ch === ')') { depth--; if (depth === 0) { parts.push(body.slice(start, i)); break; } }
+      else if (ch === ',' && depth === 1) { parts.push(body.slice(start, i)); start = i + 1; }
+    }
+    return parts.map((p) => {
+      const s = p.trim(); if (!s) return null;
+      const mc = s.match(/\.color\("(#[0-9a-fA-F]{3,8})"\)/);
+      return { code: s, colour: mc ? mc[1].toLowerCase() : null };
+    }).filter(Boolean);
+  }
+
+  // Build a deck's stem model. Needs ≥2 recognised coloured lanes to be
+  // splittable — an arranged/remix pressing (arrange(...) or already-nested) has
+  // no top-level coloured stack, so it falls back to a single FULL mute toggle.
+  function buildStems(rec) {
+    if (!rec || !rec.code) return null;
+    const parts = splitStack(rec.code);
+    if (!parts || !parts.length) return { splittable: false, muted: false };
+    const tagged = parts.filter((p) => p.colour && REMIX_COLOUR_GROUP[p.colour]);
+    if (tagged.length < 2) return { splittable: false, muted: false };
+    const groups = {};
+    parts.forEach((p) => {
+      const grp = (p.colour && REMIX_COLOUR_GROUP[p.colour]) || 'OTHER';
+      (groups[grp] = groups[grp] || []).push(p.code);
+    });
+    const present = {};
+    REMIX_GROUP_ORDER.forEach((g) => { if (groups[g]) present[g] = groups[g]; });
+    if (groups.OTHER) present.OTHER = groups.OTHER;
+    const muted = {}, solo = {};
+    Object.keys(present).forEach((g) => { muted[g] = false; solo[g] = false; });
+    return { splittable: true, groups: present, muted: muted, solo: solo };
+  }
+
+  // The lane strings a deck should sound right now, honouring mute/solo.
+  function audibleLayers(which) {
+    const st = remix.decks[which].stems;
+    if (!st) return null;
+    if (!st.splittable) return st.muted ? null : ['__FULL__'];
+    const hasSolo = Object.keys(st.solo).some((g) => st.solo[g]);
+    const out = [];
+    Object.keys(st.groups).forEach((g) => {
+      const on = hasSolo ? st.solo[g] : !st.muted[g];
+      if (on) st.groups[g].forEach((layer) => out.push(layer));
+    });
+    return out.length ? out : null;
+  }
+
+  // Compose both decks + filters + gains + hold-to-fire paddles into ONE balanced
+  // program. Balanced by construction (the test fuzzes this across control moves).
+  function composeRemix() {
+    if (!masterRec()) return null;
+    const layers = [];
+    ['a', 'b'].forEach((which) => {
+      const d = remix.decks[which];
+      if (!d.rec || !d.rec.code) return;
+      const g = deckGain(which);
+      if (g <= 0) return;
+      const st = d.stems;
+      if (!st) return;
+      let bed;
+      if (!st.splittable) {
+        if (st.muted) return;
+        bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+      } else {
+        const audible = audibleLayers(which);
+        if (!audible || !audible.length) return;
+        if (audible[0] === '__FULL__') bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+        else if (audible.length === 1) bed = '(' + audible[0] + ')';
+        else bed = '(stack(\n    ' + audible.join(',\n    ') + '\n  ))';
+      }
+      bed = applyDeckFilter(bed, d.filter);
+      bed += '.gain(' + rx2(g) + ')';
+      layers.push(bed);
+    });
+    if (!layers.length) return null;
+
+    const p = remix.paddles;
+    if (p.stutter || p.gate || p.echo) {
+      const inner = layers.length === 1 ? layers[0] : 'stack(\n    ' + layers.join(',\n    ') + '\n  )';
+      let fx;
+      if (p.stutter) fx = inner + '.ply("4")';
+      else if (p.gate) fx = inner + '.struct("1 0 1 0 1 0 1 0")';
+      else fx = inner + '.delay(0.4).delaytime(0.1875).delayfeedback(0.6).room(0.3)';
+      return 'setcps(' + masterCps() + ')\nstack(\n  ' + fx + '\n)';
+    }
+    return 'setcps(' + masterCps() + ')\nstack(\n  ' + layers.join(',\n  ') + '\n)';
+  }
+
+  // ---- transport: through the shared single-source play/stopAll -----------
+  function remixDoEval() {
+    remixLastEval = Date.now();
+    if (!remixPlaying) return;
     const code = composeRemix();
-    if (!code) return;
-    remixPlaying = true;
-    play(withRemixRoll(code), 'remix', remixRecord ? remixRecord.name : '');
+    play(withRemixRoll(code || 'silence'), 'remix', remixName());
+  }
+  // Throttled to ~150ms so working a fader (or an autofade) can't thrash evaluate.
+  function remixRefresh() {
+    if (el.cross) el.cross.value = remix.cross; // ARM / autofade can move it
+    updateRemixPlatters();
+    updateRemixTempo();
+    if (!remixPlaying) return;
+    clearTimeout(remixEvalTimer);
+    const wait = Math.max(0, 150 - (Date.now() - remixLastEval));
+    remixEvalTimer = setTimeout(remixDoEval, wait);
+  }
+  // Paddles are momentary + user-triggered — evaluate immediately, no throttle.
+  function remixPaddleRefresh() {
+    if (!remixPlaying) return;
+    const code = composeRemix();
+    if (code) play(withRemixRoll(code), 'remix', remixName());
   }
 
-  async function onRemixStart() {
-    if (!remixRecord) { setStatus('Load a record onto Deck B first.'); return; }
-    if (remixPlaying) { stopRemix(); return; }
-    setStatus('Loading sounds…');
+  async function remixPlay() {
+    if (!masterRec()) { setStatus('Pull a sleeve onto a deck first.'); return; }
+    if (remixPlaying) return;
+    setStatus('Waking the audio engine…');
     if (!(await ensureAudio())) return;
-    await ensureVocals();
-    if (running) stopSet();         // one source at a time
+    if (running) stopSet();          // one source at a time
     if (previewing >= 0) stopPreview();
+    stopMenuAmbient();
+    remixPlaying = true;
+    remix.playStart = Date.now();
+    remixLastEval = 0;
     sizeRemixRoll();
-    remixEvaluate();
+    remixDoEval();
+    startRemixClock();
     updateRemixButtons();
-    if (el.remixPlatter) el.remixPlatter.classList.add('spin');
-    setStatus('Spinning “' + remixRecord.name + '” — finger the vox pads over the loop.');
+    updateRemixPlatters();
+    setStatus('Live. ARM a transition, or work the stems, filters and paddles.');
   }
-
   function stopRemix() {
     if (!remixPlaying) return;
     remixPlaying = false;
-    activeStabs.length = 0;
+    clearArm();
+    autofadeActive = false;
+    clearTimeout(remixEvalTimer);
+    stopRemixClock();
     stopAll();
     clearRemixRoll();
     updateRemixButtons();
-    if (el.remixPlatter) el.remixPlatter.classList.remove('spin');
+    updateRemixPlatters();
+    updateRemixReadouts();
     setStatus('Remix stopped.');
   }
 
-  // Fire a vocal one-shot from a Deck A pad: it stabs over the loop on the next
-  // cycle, then clears itself. Momentary — press again to hit it again.
-  function stab(padOrLabel) {
-    // Click handlers pass the pad object; the headless API passes a label string.
-    const pad = typeof padOrLabel === 'string'
-      ? VOX_PADS.find((p) => p.label === padOrLabel) : padOrLabel;
-    if (!pad) return;
-    if (!remixRecord) { setStatus('Load a record onto Deck B first.'); return; }
-    flashVoicePad(pad.label);
-    if (!remixPlaying) { setStatus('Hit ▶ Play bed, then fire the vox pads.'); return; }
-    activeStabs.push(pad.s);
-    remixEvaluate();
-    setTimeout(() => {
-      const i = activeStabs.indexOf(pad.s);
-      if (i >= 0) { activeStabs.splice(i, 1); if (remixPlaying) remixEvaluate(); }
-    }, cycleMs());
+  // ---- phrase clock: one cycle = one bar; 32 bars wrap the phrase ---------
+  function barPosition() {
+    const elapsed = (Date.now() - remix.playStart) / 1000;
+    const barLen = 1 / masterCps();
+    const total = elapsed / barLen;
+    const wrapped = total % REMIX_PHRASE_BARS;
+    remix.currentBar = Math.floor(wrapped);
+    remix.barFrac = wrapped - remix.currentBar;
+    return total;
+  }
+  function boundaryIn(interval) {
+    const cur = remix.currentBar + remix.barFrac;
+    return (Math.floor(cur / interval) + 1) * interval - cur;
+  }
+  function startRemixClock() {
+    stopRemixClock();
+    if (typeof requestAnimationFrame !== 'function') return;
+    const tick = () => {
+      if (!remixPlaying) return;
+      const total = barPosition();
+      tickArm(total);
+      updateRemixReadouts();
+      drawRemixTimeline();
+      remixRaf = requestAnimationFrame(tick);
+    };
+    remixRaf = requestAnimationFrame(tick);
+  }
+  function stopRemixClock() { if (remixRaf) { cancelAnimationFrame(remixRaf); remixRaf = 0; } }
+
+  // ---- ARM: a quantised transition that fires on the phrase line ----------
+  function tickArm(total) {
+    if (!remix.armed && !autofadeActive) { remixLastTotalBars = total; return; }
+    const b = remix.boundary;
+    if (autofadeActive) {
+      const t = Math.min(1, (total - autofadeStart) / autofadeDuration);
+      const next = autofadeFrom + t * (autofadeTarget - autofadeFrom);
+      const changed = Math.abs(next - remix.cross) > 0.005;
+      remix.cross = next;
+      if (changed) remixRefresh();
+      if (t >= 1) { remix.cross = autofadeTarget; autofadeActive = false; flashDropped(); remixRefresh(); }
+      remixLastTotalBars = total; return;
+    }
+    if (Math.floor(total / b) > Math.floor(remixLastTotalBars / b)) {
+      const target = remix.armed === 'a' ? 0 : 1;
+      if (remix.autofade) {
+        autofadeActive = true; autofadeStart = total; autofadeFrom = remix.cross;
+        autofadeTarget = target; autofadeDuration = b; clearArm();
+        setStatus('Auto-fading to deck ' + (target === 0 ? 'A' : 'B') + ' over ' + b + ' bars…');
+      } else {
+        remix.cross = target; clearArm(); flashDropped(); remixRefresh();
+      }
+    }
+    remixLastTotalBars = total;
+  }
+  function flashDropped() {
+    if (!el.droppedMsg) return;
+    el.droppedMsg.classList.add('show');
+    clearTimeout(remixDroppedTimer);
+    remixDroppedTimer = setTimeout(() => el.droppedMsg.classList.remove('show'), 1800);
+  }
+  function clearArm() {
+    remix.armed = null;
+    if (el.armA) el.armA.classList.remove('armed');
+    if (el.armB) el.armB.classList.remove('armed');
+  }
+  function remixArm(target) {
+    if (target == null) { clearArm(); autofadeActive = false; setStatus('ARM cleared.'); updateRemixReadouts(); return; }
+    if (autofadeActive) { autofadeActive = false; clearArm(); setStatus('Auto-fade cancelled.'); return; }
+    if (remix.armed === target) { clearArm(); setStatus('ARM cleared.'); updateRemixReadouts(); return; }
+    remix.armed = target;
+    if (remixPlaying) remixLastTotalBars = barPosition();
+    if (el.armA) el.armA.classList.toggle('armed', target === 'a');
+    if (el.armB) el.armB.classList.toggle('armed', target === 'b');
+    setStatus('Armed →' + target.toUpperCase() + ' · will ' + (remix.autofade ? 'fade' : 'drop') + ' on the next ' + remix.boundary + '-bar line.');
+    updateRemixReadouts();
   }
 
-  function flashVoicePad(word) {
-    if (!el.remixVox) return;
-    const pad = el.remixVox.querySelector('.vox-pad[data-word="' + word + '"]');
-    if (!pad) return;
-    pad.classList.add('hit');
-    setTimeout(() => pad.classList.remove('hit'), 140);
+  // ---- readouts + canvas phrase timeline ---------------------------------
+  function updateRemixReadouts() {
+    if (!remixPlaying) {
+      if (el.readBar) el.readBar.textContent = '— / ' + REMIX_PHRASE_BARS;
+      if (el.readPhrase) el.readPhrase.textContent = '—';
+      if (el.readNext) el.readNext.textContent = '— bars';
+      if (el.readArmed) el.readArmed.textContent = '—';
+      if (el.mixNow) el.mixNow.classList.remove('pulse');
+      return;
+    }
+    const phrase = Math.floor(remix.currentBar / REMIX_GROUP_BARS) + 1;
+    const inGroup = (remix.currentBar % REMIX_GROUP_BARS) + 1;
+    if (el.readBar) el.readBar.textContent = (remix.currentBar + 1) + ' / ' + REMIX_PHRASE_BARS;
+    if (el.readPhrase) el.readPhrase.textContent = 'P' + phrase + ' · bar ' + inGroup + ' of ' + REMIX_GROUP_BARS;
+    if (el.readNext) el.readNext.textContent = (Math.ceil(boundaryIn(remix.boundary) * 10) / 10).toFixed(1) + ' bars';
+    if (el.readArmed) el.readArmed.textContent = remix.armed ? '→' + remix.armed.toUpperCase() + ' @ ' + remix.boundary + 'b' : (autofadeActive ? 'fading…' : 'none');
+    if (el.mixNow) {
+      const closest = Math.min(boundaryIn(8), boundaryIn(16));
+      el.mixNow.classList.toggle('pulse', closest <= 1 && closest > 0);
+    }
+  }
+  function drawRemixTimeline() {
+    const canvas = el.remixTimeline;
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const W = canvas.offsetWidth || canvas.width, H = 64;
+    if (!W) return;
+    canvas.width = W; canvas.height = H;
+    ctx.fillStyle = '#05030e'; ctx.fillRect(0, 0, W, H);
+    const barW = W / REMIX_PHRASE_BARS;
+    for (let gp = 0; gp < REMIX_PHRASE_BARS / REMIX_GROUP_BARS; gp++) {
+      ctx.fillStyle = gp % 2 === 0 ? 'rgba(122,92,255,0.05)' : 'rgba(34,211,238,0.03)';
+      ctx.fillRect(gp * REMIX_GROUP_BARS * barW, 0, REMIX_GROUP_BARS * barW, H);
+    }
+    ctx.strokeStyle = 'rgba(122,92,255,0.20)'; ctx.lineWidth = 1;
+    for (let bar = 1; bar < REMIX_PHRASE_BARS; bar++) {
+      if (bar % REMIX_GROUP_BARS === 0) continue;
+      const x = bar * barW; ctx.beginPath(); ctx.moveTo(x, H * 0.55); ctx.lineTo(x, H); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(122,92,255,0.55)'; ctx.lineWidth = 1.5;
+    for (let bar = REMIX_GROUP_BARS; bar < REMIX_PHRASE_BARS; bar += REMIX_GROUP_BARS) {
+      const x = bar * barW; ctx.beginPath(); ctx.moveTo(x, H * 0.25); ctx.lineTo(x, H); ctx.stroke();
+    }
+    if (remixPlaying) {
+      const b = remix.boundary, pos = remix.currentBar + remix.barFrac;
+      const nextBB = (Math.floor(pos / b) + 1) * b;
+      ctx.strokeStyle = remix.armed ? (remix.armed === 'a' ? 'rgba(34,211,238,0.85)' : 'rgba(255,61,129,0.85)') : 'rgba(255,184,48,0.45)';
+      ctx.lineWidth = 2;
+      for (let bar = b; bar <= REMIX_PHRASE_BARS; bar += b) {
+        const xb = (bar % REMIX_PHRASE_BARS) * barW;
+        if (xb === 0 && bar !== REMIX_PHRASE_BARS) continue;
+        const xbd = bar === REMIX_PHRASE_BARS ? W - 1 : xb;
+        ctx.beginPath(); ctx.moveTo(xbd, 0); ctx.lineTo(xbd, H); ctx.stroke();
+      }
+      const nx = nextBB >= REMIX_PHRASE_BARS ? W - 1 : (nextBB % REMIX_PHRASE_BARS) * barW;
+      ctx.strokeStyle = remix.armed ? (remix.armed === 'a' ? '#22d3ee' : '#ff3d81') : '#ffb830';
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(nx, 0); ctx.lineTo(nx, H); ctx.stroke();
+      const playheadX = pos * barW;
+      const grad = ctx.createLinearGradient(playheadX - 18, 0, playheadX + 8, 0);
+      grad.addColorStop(0, 'rgba(34,211,238,0)'); grad.addColorStop(1, 'rgba(34,211,238,0.18)');
+      ctx.fillStyle = grad; ctx.fillRect(playheadX - 18, 0, 26, H);
+      ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, H); ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = 'rgba(157,143,199,0.65)'; ctx.font = '9px "Space Grotesk", monospace'; ctx.textAlign = 'center';
+    for (let lbar = 0; lbar < REMIX_PHRASE_BARS; lbar += REMIX_GROUP_BARS) ctx.fillText(String(lbar + 1), lbar * barW + barW / 2, 12);
   }
 
-  // Drag the transition fader → filter the bed for a drop. Throttled to ~120ms
-  // so a fast drag doesn't re-evaluate the audio on every input event.
-  function onTransition() {
-    if (!el.remixTransition) return;
-    remixTransition = (+el.remixTransition.value || 0) / 100;
-    if (remixFx.sweep) return;          // sweep owns the filter while it's on
-    if (transitionTimer) return;
-    transitionTimer = setTimeout(() => {
-      transitionTimer = 0;
-      if (remixPlaying) remixEvaluate();
-    }, 120);
-  }
-
-  function toggleRemixFx(key) {
-    if (!(key in remixFx)) return;
-    remixFx[key] = !remixFx[key];
-    // rotate the vocal word bank each time a vocal overlay comes on, for variety
-    if (remixFx[key] && (key === 'chops' || key === 'topline')) remixWord = (remixWord + 1) % VOCAL_SAMPLES.length;
-    updateRemixButtons();
-    if (remixPlaying) remixEvaluate(); // hot-swap the overlay in without a restart
-  }
-
-  function buildRemixRack() {
-    if (!el.remixRack) return;
-    el.remixRack.innerHTML = '';
-    REMIX_OVERLAYS.forEach((ov) => {
-      const b = document.createElement('button');
-      b.className = 'remix-pad' + (ov.vocal ? ' vocal' : '');
-      b.dataset.key = ov.key;
-      b.innerHTML = '<strong>' + ov.label + '</strong><small>' + ov.hint + '</small>';
-      b.addEventListener('click', () => toggleRemixFx(ov.key));
-      el.remixRack.appendChild(b);
-    });
-    updateRemixButtons();
-  }
-
-  // Deck A: eight single-press vocal pads (the square set).
-  function buildVoiceDeck() {
-    if (!el.remixVox) return;
-    el.remixVox.innerHTML = '';
-    VOX_PADS.forEach((pad) => {
-      const b = document.createElement('button');
-      b.className = 'vox-pad';
-      b.dataset.word = pad.label;
-      b.textContent = pad.label;
-      b.addEventListener('click', () => stab(pad));
-      el.remixVox.appendChild(b);
-    });
-  }
-
-  function updateRemixButtons() {
-    if (el.remixRack) {
-      el.remixRack.querySelectorAll('.remix-pad').forEach((b) => {
-        b.classList.toggle('on', !!remixFx[b.dataset.key]);
+  // ---- stem strip UI ------------------------------------------------------
+  function renderStemStrip(which) {
+    const box = which === 'a' ? el.stemStripA : el.stemStripB;
+    if (!box) return;
+    const st = remix.decks[which].stems;
+    if (!st) { box.innerHTML = '<div class="rx-stem-head">Stems</div><div class="rx-stem-note">— pull a sleeve —</div>'; return; }
+    let html = '<div class="rx-stem-head">Stems</div>';
+    if (!st.splittable) {
+      html += '<div class="rx-stem-chip"><span class="rx-stem-label" style="color:var(--rx-muted)">FULL</span>' +
+        '<button class="rx-mute' + (st.muted ? ' on' : '') + '" data-deck="' + which + '" data-action="mutefull">MUTE</button></div>' +
+        '<div class="rx-stem-note">arranged / remix — not splittable</div>';
+    } else {
+      Object.keys(st.groups).forEach((grp) => {
+        const col = REMIX_GROUP_COLOUR[grp] || '#9d8fc7';
+        html += '<div class="rx-stem-chip">' +
+          '<span class="rx-stem-label" style="color:' + col + '">' + grp + '</span>' +
+          '<button class="rx-mute' + (st.muted[grp] ? ' on' : '') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="mute">MUTE</button>' +
+          '<button class="rx-solo' + (st.solo[grp] ? ' on' : '') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="solo">SOLO</button></div>';
       });
     }
-    if (el.remixStart) {
-      el.remixStart.textContent = remixPlaying ? '⏹ Stop' : '▶ Play bed';
-      el.remixStart.disabled = !remixRecord;
-    }
-    if (el.remixSave) el.remixSave.disabled = !remixRecord;
+    box.innerHTML = html;
+    box.querySelectorAll('button[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const d = btn.dataset.deck, g = btn.dataset.group, action = btn.dataset.action, st2 = remix.decks[d].stems;
+        if (!st2) return;
+        if (action === 'mutefull') st2.muted = !st2.muted;
+        else if (action === 'mute') st2.muted[g] = !st2.muted[g];
+        else if (action === 'solo') st2.solo[g] = !st2.solo[g];
+        renderStemStrip(d);
+        remixRefresh();
+      });
+    });
   }
 
-  // Deck B's record shelf: a strip of sleeves — click one to load its disc.
+  // ---- load a dubplate onto a deck ---------------------------------------
+  function loadRemixDeck(which, entry) {
+    if (which !== 'a' && which !== 'b') { entry = which; which = 'b'; } // tolerate a 1-arg call
+    if (!entry) return;
+    remix.decks[which].rec = entry;
+    remix.decks[which].stems = buildStems(entry);
+    const platter = which === 'a' ? el.platterA : el.platterB;
+    if (platter) platter.innerHTML = '<div class="rx-disc">' + discFor(entry) + '</div>';
+    const meta = which === 'a' ? el.metaA : el.metaB;
+    if (meta) meta.textContent = deckMetaText(entry);
+    renderStemStrip(which);
+    renderRemixShelf();
+    updateRemixButtons();
+    if (remixPlaying) remixRefresh(); else { updateRemixPlatters(); updateRemixTempo(); }
+    setStatus('“' + (entry.name || 'Untitled') + '” on deck ' + which.toUpperCase() + '.');
+  }
+
+  function updateRemixPlatters() {
+    ['a', 'b'].forEach((which) => {
+      const platter = which === 'a' ? el.platterA : el.platterB;
+      if (platter) platter.classList.toggle('spin', remixPlaying && !!remix.decks[which].rec && deckGain(which) > 0);
+    });
+  }
+  function updateRemixTempo() {
+    if (!el.tempo) return;
+    el.tempo.textContent = masterRec() ? masterCps() + ' cps · ' + Math.round(masterCps() * 240) + ' BPM' : '— cps';
+  }
+
+  // The shelf: a strip of sleeves, each with →A / →B load buttons.
   function renderRemixShelf() {
     if (!el.remixShelf) return;
     const crate = loadCrate();
-    const curId = remixRecord ? (remixRecord.id || remixRecord.code) : '';
     el.remixShelf.innerHTML = '';
     if (!crate.length) {
       const empty = document.createElement('div');
       empty.className = 'remix-shelf-empty';
-      empty.textContent = 'No dubplates yet — cut some first.';
+      empty.textContent = 'No dubplates yet — cut some in the Live set first.';
       el.remixShelf.appendChild(empty);
       return;
     }
+    const a = remix.decks.a.rec, b = remix.decks.b.rec;
+    const idOf = (e) => (e ? (e.id || e.code) : '');
     crate.forEach((entry) => {
-      const id = entry.id || entry.code;
-      const item = document.createElement('button');
-      item.className = 'shelf-item' + (id === curId ? ' sel' : '');
-      item.title = (entry.name || 'Untitled') + ' · ' + entry.bpm + ' BPM';
+      const id = idOf(entry);
+      const sleeve = document.createElement('div');
+      sleeve.className = 'rx-sleeve' + (idOf(a) === id ? ' on-a' : '') + (idOf(b) === id ? ' on-b' : '');
       const art = document.createElement('div');
-      art.className = 'shelf-art';
-      art.innerHTML = coverFor(entry);
+      art.className = 'shelf-art'; art.innerHTML = discFor(entry); // vinyl disc, matches the decks
       const nm = document.createElement('div');
-      nm.className = 'shelf-name';
-      nm.textContent = entry.name || 'Untitled';
-      item.appendChild(art);
-      item.appendChild(nm);
-      item.addEventListener('click', () => loadRemixRecord(entry));
-      el.remixShelf.appendChild(item);
+      nm.className = 'shelf-name'; nm.textContent = entry.name || 'Untitled';
+      const load = document.createElement('div');
+      load.className = 'rx-sleeve-load';
+      ['a', 'b'].forEach((w) => {
+        const btn = document.createElement('button');
+        btn.dataset.to = w; btn.textContent = '→' + w.toUpperCase();
+        btn.title = 'Load “' + (entry.name || 'Untitled') + '” onto deck ' + w.toUpperCase();
+        btn.addEventListener('click', () => loadRemixDeck(w, entry));
+        load.appendChild(btn);
+      });
+      sleeve.appendChild(art); sleeve.appendChild(nm); sleeve.appendChild(load);
+      el.remixShelf.appendChild(sleeve);
     });
   }
 
-  function loadRemixRecord(entry) {
-    remixRecord = entry;
-    if (remixPlaying) remixEvaluate(); // swap the bed live if already playing
-    renderRemixHeader();
-    renderRemixShelf();
-    updateRemixButtons();
-    if (el.remixEmpty) el.remixEmpty.hidden = true;
-    if (el.remixStage) el.remixStage.hidden = false;
+  // ---- SWAP macros: mute complementary stem sets across the two decks ------
+  function remixSwap(aMute, bMute) {
+    const apply = (which, mute) => {
+      const st = remix.decks[which].stems;
+      if (!st || !st.splittable) return;
+      Object.keys(st.muted).forEach((g) => { st.muted[g] = false; st.solo[g] = false; });
+      mute.forEach((g) => { if (st.muted[g] !== undefined) st.muted[g] = true; });
+      renderStemStrip(which);
+    };
+    apply('a', aMute); apply('b', bMute);
+    remixRefresh();
   }
 
-  function renderRemixHeader() {
-    if (!remixRecord) return;
-    if (el.remixName) el.remixName.textContent = remixRecord.name || 'Untitled';
-    if (el.remixMeta) el.remixMeta.textContent =
-      (remixRecord.key || '') + ' ' + (remixRecord.scaleType || '') + ' · ' + remixRecord.bpm + ' BPM' +
-      (remixRecord.genreLabel ? ' · ' + remixRecord.genreLabel : '');
-    if (el.remixArt) el.remixArt.innerHTML = discFor(remixRecord); // the disc on the platter
-  }
-
-  // Save the current remix (bed + active overlays) as a fresh record.
-  function onRemixSave() {
-    if (!remixRecord) return;
-    const code = composeRemix();
-    if (!code) return;
-    const base = remixRecord;
-    const active = Object.keys(remixFx).filter((k) => remixFx[k]);
+  // ---- press the current blend into the crate as a fresh dubplate ---------
+  function remixShortName(name) { const n = String(name || 'Untitled'); return n.length > 16 ? n.slice(0, 15) + '…' : n; }
+  function remixPress() {
+    const rec = masterRec(), code = composeRemix();
+    if (!rec || !code) { setStatus('Nothing to cut — pull a sleeve onto a deck first.'); return; }
+    const a = remix.decks.a.rec, b = remix.decks.b.rec;
+    const name = (a && b) ? remixShortName(a.name) + ' × ' + remixShortName(b.name) : remixShortName(rec.name) + ' (remix)';
+    const genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
+    let lane = 0;
+    if (genome && genome.active) { for (let i = 0; i < genome.active.length; i++) if (genome.active[i]) lane = i; }
+    const cps = masterCps();
     const crate = loadCrate();
+    if (crate.length && crate[0].code === code) { setStatus('Already cut — the newest dubplate is this exact blend.'); return; }
     const entry = {
       id: 'rmx-' + Date.now().toString(36),
-      name: base.name + ' (remix)',
-      key: base.key, scaleType: base.scaleType, bpm: base.bpm, cps: base.cps,
-      genre: base.genre, genreLabel: base.genreLabel,
-      code: code,
-      genome: base.genome ? JSON.parse(JSON.stringify(base.genome)) : null, // keep the disc's rings
-      art: base.art ? { seed: base.art.seed, layer: base.art.layer, variant: (base.art.variant || 0) + 1 } : null,
-      approval: base.approval,
-      source: 'remix',
-      savedAt: Date.now(),
-      remixOf: base.id || null,
-      overlays: active,
+      name: name, key: rec.key, scaleType: rec.scaleType,
+      bpm: Math.round(cps * 240), cps: cps,
+      genre: rec.genre || null, genreLabel: rec.genreLabel || null,
+      code: code, genome: genome,
+      art: rec.art ? { seed: rec.art.seed, layer: rec.art.layer, variant: (rec.art.variant || 0) + 1 } : { seed: (Date.now() >>> 0), layer: lane, variant: 0 },
+      approval: rec.approval != null ? rec.approval : null,
+      source: 'remix', savedAt: Date.now(), remixOf: (a && a.id) || null,
     };
     crate.unshift(entry);
     if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
     saveCrate(crate);
     renderCrate();
     renderRemixShelf();
-    logEvent('◉ cut the remix “' + entry.name + '” as a dubplate');
-    setStatus('Cut the remix as a dubplate.');
+    logEvent('◉ cut the remix “' + name + '” as a dubplate');
+    setStatus('Cut “' + name + '” into the crate.');
+  }
+
+  function updateRemixButtons() {
+    const has = !!masterRec();
+    if (el.remixStart) { el.remixStart.textContent = remixPlaying ? '⏹ Stop' : '▶ Play'; el.remixStart.disabled = !has; }
+    if (el.remixSave) el.remixSave.disabled = !has;
+  }
+
+  // Hold-to-fire: paddle FX chain onto the master while the button is held.
+  function bindPaddle(btnId, key) {
+    const btn = el[btnId]; if (!btn) return;
+    const activate = (e) => { if (e && e.preventDefault) e.preventDefault(); if (remix.paddles[key]) return; remix.paddles[key] = true; btn.classList.add('held'); remixPaddleRefresh(); };
+    const release = () => { if (!remix.paddles[key]) return; remix.paddles[key] = false; btn.classList.remove('held'); remixPaddleRefresh(); };
+    btn.addEventListener('mousedown', activate);
+    btn.addEventListener('touchstart', activate, { passive: false });
+    btn.addEventListener('mouseup', release);
+    btn.addEventListener('mouseleave', release);
+    btn.addEventListener('touchend', release);
+    btn.addEventListener('touchcancel', release);
+  }
+
+  // Wire every control once at boot.
+  function initRemix() {
+    if (el.remixStart) el.remixStart.addEventListener('click', () => { if (remixPlaying) stopRemix(); else remixPlay(); });
+    if (el.remixSave) el.remixSave.addEventListener('click', remixPress);
+    if (el.cross) el.cross.addEventListener('input', (e) => {
+      if (autofadeActive || remix.armed) { autofadeActive = false; clearArm(); setStatus('Manual override — ARM cleared.'); }
+      remix.cross = parseFloat(e.target.value); remixRefresh();
+    });
+    if (el.nudge) el.nudge.addEventListener('input', (e) => {
+      remix.nudge = parseFloat(e.target.value);
+      if (el.nudgeVal) el.nudgeVal.textContent = (remix.nudge >= 0 ? '+' : '') + remix.nudge.toFixed(1) + '%';
+      remixRefresh();
+    });
+    [['trimA', 'a'], ['trimB', 'b']].forEach((pair) => {
+      const inp = el[pair[0]]; if (!inp) return;
+      inp.addEventListener('input', (e) => { remix.decks[pair[1]].trim = parseFloat(e.target.value); if (el[pair[0] + 'Val']) el[pair[0] + 'Val'].textContent = remix.decks[pair[1]].trim.toFixed(2); remixRefresh(); });
+    });
+    [['filterA', 'a'], ['filterB', 'b']].forEach((pair) => {
+      const inp = el[pair[0]]; if (!inp) return;
+      inp.addEventListener('input', (e) => { remix.decks[pair[1]].filter = parseFloat(e.target.value); if (el[pair[0] + 'Val']) el[pair[0] + 'Val'].textContent = remix.decks[pair[1]].filter.toFixed(2); remixRefresh(); });
+    });
+    ['a', 'b'].forEach((t) => { const btn = el['arm' + t.toUpperCase()]; if (btn) btn.addEventListener('click', () => remixArm(t)); });
+    if (el.boundarySelect) el.boundarySelect.addEventListener('change', (e) => { remix.boundary = parseInt(e.target.value, 10) || 16; if (remix.armed) setStatus('Boundary → ' + remix.boundary + ' bars · ARM still active.'); updateRemixReadouts(); });
+    if (el.autofadeCheck) el.autofadeCheck.addEventListener('change', (e) => { remix.autofade = e.target.checked; if (autofadeActive) { autofadeActive = false; setStatus('Auto-fade mode changed — current fade cancelled.'); } });
+    if (el.swapAdrumsBmelody) el.swapAdrumsBmelody.addEventListener('click', () => { remixSwap(['CHORDS', 'LEAD', 'AIR'], ['DRUMS', 'BASS']); setStatus('Swap: A drums × B melody.'); });
+    if (el.swapAmelodyBdrums) el.swapAmelodyBdrums.addEventListener('click', () => { remixSwap(['DRUMS', 'BASS'], ['CHORDS', 'LEAD', 'AIR']); setStatus('Swap: A melody × B drums.'); });
+    bindPaddle('padStutter', 'stutter'); bindPaddle('padGate', 'gate'); bindPaddle('padEcho', 'echo');
+    updateRemixButtons();
+  }
+
+  // ---- headless snapshots (agent-native) ---------------------------------
+  function remixDeckSnapshot(which) {
+    const d = remix.decks[which];
+    if (!d.rec) return null;
+    let stems = null;
+    if (d.stems) {
+      stems = d.stems.splittable
+        ? { splittable: true, groups: Object.keys(d.stems.groups), muted: JSON.parse(JSON.stringify(d.stems.muted)), solo: JSON.parse(JSON.stringify(d.stems.solo)) }
+        : { splittable: false, muted: !!d.stems.muted };
+    }
+    return { id: d.rec.id || null, name: d.rec.name || null, gain: deckGain(which), trim: d.trim, filter: d.filter, stems: stems };
+  }
+  function remixState() {
+    return {
+      playing: remixPlaying, cross: remix.cross, nudge: remix.nudge,
+      masterCps: masterRec() ? masterCps() : null,
+      armed: remix.armed, boundary: remix.boundary, autofade: remix.autofade, autofadeActive: autofadeActive,
+      currentBar: remix.currentBar, barFrac: remix.barFrac,
+      paddles: Object.assign({}, remix.paddles),
+      deckA: remixDeckSnapshot('a'), deckB: remixDeckSnapshot('b'),
+    };
   }
 
   // Called when the #remix view becomes visible.
   function enterRemix() {
     sizeRemixRoll();
     renderRemixShelf();
-    if (remixRecord) {
-      renderRemixHeader();
-      if (el.remixEmpty) el.remixEmpty.hidden = true;
-      if (el.remixStage) el.remixStage.hidden = false;
-    } else {
-      if (el.remixEmpty) el.remixEmpty.hidden = false;
-      if (el.remixStage) el.remixStage.hidden = true;
-    }
-    setRemixVocalState(vocalsLoaded ? 'ready' : (started ? 'unavailable' : 'idle'));
     updateRemixButtons();
+    updateRemixTempo();
+    updateRemixReadouts();
+    updateRemixPlatters();
+    drawRemixTimeline();
   }
 
   // ---- tuning that biases the DJ's next suggestion ----------------------
@@ -1840,15 +2135,26 @@
   SDJ.exportMp3 = exportTrackMp3; // render a crate record to MP3 (agent-native)
   SDJ.menuAmbient = { start: maybeStartMenuAmbient, stop: stopMenuAmbient, playing: function () { return menuAmbient.on; } };
 
-  // remix deck, exposed so every action is available headlessly (agent-native)
+  // remix deck, exposed so every action is available headlessly (agent-native).
+  // Any move a DJ can make with the mouse, an agent can make through this.
   SDJ.remix = {
-    load: loadRemixRecord,
-    toggle: toggleRemixFx,
-    stab: stab,
-    play: onRemixStart,
+    load: loadRemixDeck,        // (which, entry) — 'a' | 'b'
+    play: remixPlay,
     stop: stopRemix,
+    cross: function (v) { remix.cross = clamp(+v || 0, 0, 1); if (el.cross) el.cross.value = remix.cross; remixRefresh(); },
+    nudge: function (v) { remix.nudge = clamp(+v || 0, -8, 8); if (el.nudge) el.nudge.value = remix.nudge; if (el.nudgeVal) el.nudgeVal.textContent = (remix.nudge >= 0 ? '+' : '') + remix.nudge.toFixed(1) + '%'; remixRefresh(); },
+    trim: function (which, v) { if (remix.decks[which]) { remix.decks[which].trim = clamp(+v || 0, 0, 1); if (el[which === 'a' ? 'trimAVal' : 'trimBVal']) el[which === 'a' ? 'trimAVal' : 'trimBVal'].textContent = remix.decks[which].trim.toFixed(2); remixRefresh(); } },
+    filter: function (which, v) { if (remix.decks[which]) { remix.decks[which].filter = clamp(+v || 0, -1, 1); if (el[which === 'a' ? 'filterAVal' : 'filterBVal']) el[which === 'a' ? 'filterAVal' : 'filterBVal'].textContent = remix.decks[which].filter.toFixed(2); remixRefresh(); } },
+    arm: remixArm,              // ('a' | 'b' | null)
+    boundary: function (b) { remix.boundary = parseInt(b, 10) || 16; if (el.boundarySelect) el.boundarySelect.value = String(remix.boundary); updateRemixReadouts(); },
+    autofade: function (on) { remix.autofade = !!on; if (el.autofadeCheck) el.autofadeCheck.checked = remix.autofade; },
+    mute: function (which, group) { const st = remix.decks[which] && remix.decks[which].stems; if (!st) return; if (!st.splittable) st.muted = !st.muted; else if (st.muted[group] !== undefined) st.muted[group] = !st.muted[group]; renderStemStrip(which); remixRefresh(); },
+    solo: function (which, group) { const st = remix.decks[which] && remix.decks[which].stems; if (!st || !st.splittable || st.solo[group] === undefined) return; st.solo[group] = !st.solo[group]; renderStemStrip(which); remixRefresh(); },
+    swap: remixSwap,            // (aMuteGroups[], bMuteGroups[])
+    paddle: function (key, on) { if (!(key in remix.paddles)) return; remix.paddles[key] = !!on; const btn = el['pad' + key.charAt(0).toUpperCase() + key.slice(1)]; if (btn) btn.classList.toggle('held', !!on); remixPaddleRefresh(); },
+    press: remixPress,
     compose: composeRemix,
-    state: function () { return { record: remixRecord, playing: remixPlaying, fx: Object.assign({}, remixFx), stabs: activeStabs.slice(), transition: remixTransition, vocalsLoaded: vocalsLoaded }; },
+    state: remixState,
   };
 
   if (document.readyState === 'loading') {

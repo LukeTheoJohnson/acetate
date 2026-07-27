@@ -152,18 +152,54 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.SDJ.engine.genrePref === null
     && doc.querySelector('#liveGenrePills .pill.on').dataset.genre === '');
 
-  // ---- remix lab: a saved record as a bed + vocal/overlay layers ----
-  // The bed (the record's own stack) nests inside a new outer stack; every
-  // overlay appends a layer. Compose must stay balanced across all overlays.
-  const remixRec = JSON.parse(window.localStorage.getItem('sdj.crate'))[1]; // the old-shape seed entry
-  window.SDJ.remix.load(remixRec);
-  ['chops', 'topline', 'sweep', 'stutter', 'riser'].forEach((k) => window.SDJ.remix.toggle(k));
+  // ---- remix: the Authentic Deck — two decks, stems, filter, paddle, ARM ----
+  // Build a multi-lane record off a throwaway engine so the shared song is
+  // untouched; a coloured stack() is what splits into stems. Non-audio checks
+  // only here — starting the bed would stop the live set, so playback runs last.
+  const rxEng = new window.SDJ.DJEngine();
+  rxEng.masterSeed = 0x5EED; rxEng.newSong();
+  for (let i = 0; i < 24 && rxEng.song.genome.active.filter(Boolean).length < 5; i++) {
+    if (!rxEng.proposeChange()) break;
+    rxEng.acceptChange();
+  }
+  const rxRec = {
+    id: 'rx-multi', name: 'Stem Test', key: rxEng.song.key, scaleType: rxEng.song.scaleType,
+    bpm: rxEng.song.bpm, cps: rxEng.song.cps, code: rxEng.render(),
+    genome: JSON.parse(JSON.stringify(rxEng.song.genome)), art: { seed: 1, layer: 0, variant: 0 },
+  };
+  window.SDJ.remix.load('a', rxRec);
+  window.SDJ.remix.load('b', rxRec);
+  window.SDJ.remix.cross(0.5);          // both decks audible (equal power)
   const remixCode = window.SDJ.remix.compose();
-  check('remix composes balanced Strudel with all overlays',
+  check('remix composes one balanced program from both decks',
     !!remixCode && balanced(remixCode) && remixCode.indexOf('stack(') >= 0, remixCode);
-  check('remix nests the record as a bed', remixCode.indexOf(remixRec.code.split('\n')[1]) >= 0);
+  check('a coloured record splits into stems (DRUMS present)',
+    window.SDJ.remix.state().deckA.stems.splittable === true &&
+    window.SDJ.remix.state().deckA.stems.groups.indexOf('DRUMS') >= 0);
   check('the remix platter wears the record as a disc',
-    doc.getElementById('remixArt').innerHTML.includes('<svg'));
+    doc.getElementById('platterA').innerHTML.includes('<svg'));
+  // full A, then mute the DRUMS stem — the kick colour tag drops from the program
+  window.SDJ.remix.cross(0);
+  const preMute = window.SDJ.remix.compose();
+  window.SDJ.remix.mute('a', 'DRUMS');
+  const postMute = window.SDJ.remix.compose();
+  check('muting a stem group drops its lanes (exact, no fake EQ)',
+    preMute.indexOf('#f43f7d') >= 0 && postMute.indexOf('#f43f7d') < 0 && balanced(postMute), postMute);
+  window.SDJ.remix.mute('a', 'DRUMS'); // restore
+  // per-deck filter sweep: full left = low-pass down to ~200 Hz
+  window.SDJ.remix.filter('a', -1);
+  check('a deck filter sweep chains a low-pass', window.SDJ.remix.compose().indexOf('.lpf(200)') >= 0);
+  window.SDJ.remix.filter('a', 0);
+  // hold-to-fire paddle rides the master
+  window.SDJ.remix.paddle('stutter', true);
+  const paddled = window.SDJ.remix.compose();
+  check('a hold-to-fire paddle chains onto the master and stays balanced',
+    paddled.indexOf('.ply("4")') >= 0 && balanced(paddled), paddled);
+  window.SDJ.remix.paddle('stutter', false);
+  // ARM a quantised transition
+  window.SDJ.remix.arm('b');
+  check('arming a transition sets the armed deck', window.SDJ.remix.state().armed === 'b');
+  window.SDJ.remix.arm(null);
 
   // ---- turn-based live flow: approve commits + re-pitches, skip re-pitches ----
   const partsBefore = window.SDJ.engine.state().activeCount;
@@ -395,27 +431,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     hushCalls > hushBefore && doc.getElementById('transport').hidden);
   check('global stop evaluates silence to override in-flight audio', silenceEvals.length > 0);
 
-  // ---- remix console: a 2-deck DJ setup — vox pads stab one-shots over the bed ----
-  // The vox deck is a square of single-press pads; the shelf is the record picker.
-  // Firing a pad is a no-op until the bed plays; once it does, the stab nests as a
-  // one-shot vocal layer and the program stays balanced. Runs at the very end so
-  // starting the bed doesn't disturb the live-set assertions above.
-  const rc = JSON.parse(window.localStorage.getItem('sdj.crate'))[0];
-  window.SDJ.remix.load(rc);
-  check('vox deck renders 8 one-shot pads', doc.querySelectorAll('#remixVox .vox-pad').length === 8);
-  check('record shelf renders sleeve tiles', doc.querySelectorAll('#remixShelf .shelf-item').length >= 1);
-  window.SDJ.remix.stab('yeah');
-  check('a vox pad is a no-op until the bed plays', window.SDJ.remix.state().stabs.length === 0);
+  // ---- remix console: play / stop / press run last so audio doesn't disturb ----
+  // the live-set assertions above. Deck A still holds the record loaded earlier.
+  check('record shelf renders sleeves with load buttons',
+    doc.querySelectorAll('#remixShelf .rx-sleeve').length >= 1 &&
+    doc.querySelectorAll('#remixShelf .rx-sleeve [data-to="a"]').length >= 1);
+  const remixBefore = crateLen();
   await window.SDJ.remix.play(); // audio already unlocked earlier — starts the bed
   await sleep(20);
-  window.SDJ.remix.stab('yeah');
-  const stabCode = window.SDJ.remix.compose();
-  const firedStabs = window.SDJ.remix.state().stabs;
-  check('a fired vox pad adds a balanced one-shot vocal layer',
-    firedStabs.length === 1 && balanced(stabCode) && stabCode.indexOf('s("' + firedStabs[0] + '")') >= 0,
-    stabCode);
+  check('starting the remix goes live', window.SDJ.remix.state().playing === true);
+  window.SDJ.remix.press();
+  check('cutting the blend banks a remix dubplate',
+    crateLen() === remixBefore + 1 &&
+    JSON.parse(window.localStorage.getItem('sdj.crate'))[0].source === 'remix');
   window.SDJ.remix.stop();
-  check('stopping the remix clears the stabs', window.SDJ.remix.state().stabs.length === 0);
+  check('stopping the remix goes idle', window.SDJ.remix.state().playing === false);
 
   // ---- menu ambience: a random crate record ducked low under the menu ----
   // Route defaults to #menu in jsdom and audio is unlocked by now, so starting
