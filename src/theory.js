@@ -11,19 +11,22 @@
   // The full mode palette the engine can draw on — dark through bright. Genres
   // pull a genre-appropriate SUBSET of these (see GENRE_SCALES / GENRES[].scales),
   // so the mood widens across the set while each genre keeps its own character.
-  // Every name is a valid Strudel scale.
+  // Every name here must be a valid tonal scale name — Strudel resolves scales
+  // through tonal, which uses SPACE-separated names ("minor pentatonic"), NOT
+  // camelCase. A camelCase name resolves to nothing and the whole n(...) layer
+  // renders SILENT (zero events) while still showing in the code — no error.
   const SCALES = [
     'minor',              // natural minor — the default dark canvas
     'dorian',             // minor with raised 6th — smooth R&B / neo-soul
     'phrygian',           // flat 2nd — sinister, street
-    'harmonicMinor',      // raised 7th — dramatic, cinematic
-    'melodicMinor',       // raised 6th & 7th — jazzy minor lift
-    'minorPentatonic',    // five-note — clean hooks, sample-friendly
+    'harmonic minor',     // raised 7th — dramatic, cinematic
+    'melodic minor',      // raised 6th & 7th — jazzy minor lift
+    'minor pentatonic',   // five-note — clean hooks, sample-friendly
     'blues',              // minor pentatonic + flat 5 — grit and soul
     'phrygian dominant',  // flat 2nd + major 3rd — dark flamenco trap
     'mixolydian',         // major with flat 7 — gospel warmth
     'major',              // bright, open — soul / pop-leaning hooks
-    'majorPentatonic',    // bright five-note — clean, singable
+    'major pentatonic',   // bright five-note — clean, singable
     'lydian',             // raised 4th — dreamy, floating
   ];
 
@@ -32,11 +35,11 @@
   // while still giving every track a genuinely different colour within that lane.
   // Order is loosely most- to least-characteristic; the pick is uniform.
   const GENRE_SCALES = {
-    trap:    ['minor', 'phrygian', 'phrygian dominant', 'harmonicMinor', 'minorPentatonic'],
-    drill:   ['phrygian', 'phrygian dominant', 'harmonicMinor', 'minor'],
-    boomBap: ['dorian', 'minorPentatonic', 'blues', 'mixolydian', 'minor'],
-    loFi:    ['dorian', 'minorPentatonic', 'mixolydian', 'major', 'majorPentatonic', 'minor'],
-    rb:      ['dorian', 'mixolydian', 'major', 'minorPentatonic', 'melodicMinor'],
+    trap:    ['minor', 'phrygian', 'phrygian dominant', 'harmonic minor', 'minor pentatonic'],
+    drill:   ['phrygian', 'phrygian dominant', 'harmonic minor', 'minor'],
+    boomBap: ['dorian', 'minor pentatonic', 'blues', 'mixolydian', 'minor'],
+    loFi:    ['dorian', 'minor pentatonic', 'mixolydian', 'major', 'major pentatonic', 'minor'],
+    rb:      ['dorian', 'mixolydian', 'major', 'minor pentatonic', 'melodic minor'],
   };
 
   // Hip-hop chord progressions — expressed as scale-degree roots. Read as minor
