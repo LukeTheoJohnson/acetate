@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acetate · Live · Modular Spike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Case / chassis */
+  --case-bg:    #0a0a0a;
+  --case-rail:  #1a1a1a;
+  --rail-screw: #252525;
+
+  /* Module panels */
+  --panel:      #111113;
+  --panel-hi:   #161618;
+  --panel-edge: #2a2a2c;
+  --engraved:   #e8e8e0;
+  --engraved-dim: #6a6a68;
+  --engraved-faint: #383836;
+
+  /* Jack / hardware */
+  --jack:       #1e1e20;
+  --jack-rim:   #3a3a3c;
+  --jack-hi:    #555558;
+  --knob:       #222224;
+  --knob-rim:   #444446;
+
+  /* Signal cable colours */
+  --cable-clock: #f5d000;   /* yellow  — clock/tempo */
+  --cable-audio: #00d4ff;   /* cyan    — audio out   */
+  --cable-cv:    #ff7b2f;   /* orange  — CV/pitch    */
+  --cable-gate:  #3cff6e;   /* green   — gate/trig   */
+  --cable-mix:   #c87fff;   /* purple  — mix/bus     */
+
+  /* LED colours */
+  --led-green:  #3cff6e;
+  --led-amber:  #ffaa00;
+  --led-red:    #ff3333;
+  --led-blue:   #00aaff;
+  --led-off:    #1a1a1a;
+
+  /* Scope */
+  --scope-bg:   #030d06;
+  --scope-grid: #0d2812;
+  --scope-trace:#33ff66;
+  --scope-glow: rgba(51,255,102,.25);
+
+  /* Type */
+  --font-panel: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+  --font-mono:  'Share Tech Mono', 'Courier New', monospace;
+
+  --caption-h: 22px;
+  --rail-h:    18px;
+  --module-w-sm:  90px;
+  --module-w-md:  130px;
+  --module-w-lg:  170px;
+  --module-w-xl:  200px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--case-bg);
+  color: var(--engraved);
+  font-family: var(--font-panel);
+  font-size: 11px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Caption strip ───────────────────────────────────────────────────────── */
+.caption {
+  height: var(--caption-h);
+  background: #050505;
+  border-bottom: 1px solid #000;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 14px;
+}
+.cap-name {
+  font-family: var(--font-panel);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--cable-cv);
+}
+.cap-desc {
+  font-family: var(--font-panel);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--engraved-dim);
+}
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+.app-shell {
+  height: calc(100vh - var(--caption-h));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Case rails ──────────────────────────────────────────────────────────── */
+.rail {
+  height: var(--rail-h);
+  background: var(--case-rail);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 10px;
+  flex-shrink: 0;
+  border-bottom: 2px solid #000;
+  position: relative;
+}
+.rail-bottom { border-bottom: none; border-top: 2px solid #000; }
+
+/* Screw holes on rails */
+.rail::before, .rail::after {
+  content: '';
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #3a3a3a, #0d0d0d);
+  border: 1px solid #000;
+  flex-shrink: 0;
+}
+.rail-title {
+  font-family: var(--font-panel);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--engraved-dim);
+  flex: 1;
+  text-align: center;
+}
+.rail-meta {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--cable-clock);
+  letter-spacing: .1em;
+  text-shadow: 0 0 6px var(--cable-clock);
+}
+.rail-status {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--led-green);
+  text-shadow: 0 0 5px var(--led-green);
+  letter-spacing: .06em;
+  animation: flicker 3s ease-in-out infinite;
+}
+@keyframes flicker { 0%,98%,100%{opacity:1} 99%{opacity:.6} }
+
+/* ── Module case body ────────────────────────────────────────────────────── */
+.case-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  gap: 1px;
+  background: #000;
+  padding: 0 2px;
+}
+
+/* Row wrappers */
+.case-row {
+  display: flex;
+  gap: 1px;
+  flex: 1;
+  overflow: hidden;
+}
+.case-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: #000;
+  overflow: hidden;
+}
+
+/* ── Module panel ────────────────────────────────────────────────────────── */
+.module {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Module title strip — engraved look */
+.mod-title {
+  padding: 4px 6px 3px;
+  border-bottom: 1px solid var(--panel-edge);
+  background: var(--panel-hi);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.mod-name {
+  font-family: var(--font-panel);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--engraved);
+}
+.mod-sub {
+  font-family: var(--font-panel);
+  font-size: 7px;
+  font-weight: 400;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--engraved-dim);
+}
+.mod-led {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.mod-led-green { background: var(--led-green); box-shadow: 0 0 4px var(--led-green); animation: flicker 2s ease-in-out infinite; }
+.mod-led-amber { background: var(--led-amber); box-shadow: 0 0 4px var(--led-amber); }
+.mod-led-blue  { background: var(--led-blue);  box-shadow: 0 0 4px var(--led-blue);  }
+.mod-led-off   { background: var(--led-off); }
+
+/* Module body */
+.mod-body {
+  flex: 1;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+
+/* ── Engraved section label ──────────────────────────────────────────────── */
+.eng-label {
+  font-family: var(--font-panel);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--engraved-dim);
+  border-bottom: 1px solid var(--engraved-faint);
+  padding-bottom: 1px;
+  margin-bottom: 2px;
+}
+
+/* ── Jack socket ─────────────────────────────────────────────────────────── */
+.jack-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.jack-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.jack {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--jack-hi), var(--jack));
+  border: 1.5px solid var(--jack-rim);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.05);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+/* Centre hole */
+.jack::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: #000;
+  border: 1px solid #1a1a1a;
+}
+.jack-label {
+  font-family: var(--font-panel);
+  font-size: 6px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--engraved-dim);
+  text-align: center;
+  white-space: nowrap;
+}
+/* Jack states — coloured rim when patched */
+.jack.patched-clock { border-color: var(--cable-clock); box-shadow: 0 0 4px var(--cable-clock), inset 0 1px 2px rgba(0,0,0,.8); }
+.jack.patched-audio { border-color: var(--cable-audio); box-shadow: 0 0 4px var(--cable-audio), inset 0 1px 2px rgba(0,0,0,.8); }
+.jack.patched-cv    { border-color: var(--cable-cv);    box-shadow: 0 0 4px var(--cable-cv),    inset 0 1px 2px rgba(0,0,0,.8); }
+.jack.patched-gate  { border-color: var(--cable-gate);  box-shadow: 0 0 4px var(--cable-gate),  inset 0 1px 2px rgba(0,0,0,.8); }
+.jack.patched-mix   { border-color: var(--cable-mix);   box-shadow: 0 0 4px var(--cable-mix),   inset 0 1px 2px rgba(0,0,0,.8); }
+
+/* ── Rotary knob ─────────────────────────────────────────────────────────── */
+.knob-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.knob-label {
+  font-family: var(--font-panel);
+  font-size: 6px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--engraved-dim);
+  text-align: center;
+  white-space: nowrap;
+}
+.knob-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* ── LCD display ─────────────────────────────────────────────────────────── */
+.lcd-panel {
+  background: #050c08;
+  border: 1px solid #0a1a0d;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--scope-trace);
+  text-shadow: 0 0 5px var(--scope-trace);
+  letter-spacing: .08em;
+  text-align: center;
+  line-height: 1.4;
+}
+.lcd-panel .lcd-sub {
+  font-size: 8px;
+  color: #2a8844;
+  text-shadow: none;
+  display: block;
+  letter-spacing: .06em;
+}
+
+/* ── Buttons (module style) ──────────────────────────────────────────────── */
+.mod-btn {
+  font-family: var(--font-panel);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  background: var(--knob);
+  border: 1px solid var(--knob-rim);
+  color: var(--engraved-dim);
+  cursor: pointer;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.05), inset -1px -1px 0 rgba(0,0,0,.5), 0 1px 3px rgba(0,0,0,.5);
+}
+.mod-btn:hover { color: var(--engraved); border-color: var(--engraved-dim); }
+.mod-btn:active { box-shadow: inset 1px 1px 0 rgba(0,0,0,.5), inset -1px -1px 0 rgba(255,255,255,.04); }
+.mod-btn-primary { border-color: var(--cable-gate); color: var(--cable-gate); background: #051a0a; text-shadow: 0 0 5px var(--cable-gate); }
+.mod-btn-primary:hover { background: #092a12; }
+.mod-btn-approve { border-color: var(--led-green); color: var(--led-green); background: #031208; text-shadow: 0 0 4px var(--led-green); }
+.mod-btn-skip    { border-color: var(--led-red);   color: var(--led-red);   background: #120303; text-shadow: 0 0 4px var(--led-red); }
+
+/* ── Chip / part tag ─────────────────────────────────────────────────────── */
+.chip {
+  font-family: var(--font-panel);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border: 1px solid var(--panel-edge);
+  color: var(--engraved-dim);
+  background: var(--knob);
+}
+.chip.active { border-color: var(--cable-gate); color: var(--cable-gate); background: #051a0a; }
+.chip.pending { border-color: var(--cable-cv); color: var(--cable-cv); background: #1a0c04; border-style: dashed; }
+
+/* ── Scope display ───────────────────────────────────────────────────────── */
+.scope-display {
+  background: var(--scope-bg);
+  border: 1px solid #0a1a0d;
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+}
+.scope-display svg { width: 100%; height: 100%; }
+
+/* ── Mini fader ──────────────────────────────────────────────────────────── */
+.mini-fader {
+  height: 3px;
+  background: var(--knob);
+  border: 1px solid var(--panel-edge);
+  position: relative;
+  cursor: ew-resize;
+}
+.mini-fader-fill {
+  height: 100%;
+  background: var(--cable-audio);
+}
+.mini-fader-thumb {
+  position: absolute;
+  top: 50%;
+  width: 6px; height: 9px;
+  background: var(--knob-rim);
+  border: 1px solid var(--engraved-dim);
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+
+/* ── LOG entries ─────────────────────────────────────────────────────────── */
+.log-scroll { flex: 1; overflow-y: auto; }
+.log-scroll::-webkit-scrollbar { width: 3px; }
+.log-scroll::-webkit-scrollbar-thumb { background: var(--panel-edge); }
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-bottom: 1px solid var(--engraved-faint);
+  font-family: var(--font-panel);
+  font-size: 8px;
+  color: var(--engraved-dim);
+}
+.log-entry:last-child { border-bottom: none; }
+.log-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.log-dot-keep { background: var(--led-green); box-shadow: 0 0 3px var(--led-green); }
+.log-dot-skip { background: var(--led-red);   box-shadow: 0 0 3px var(--led-red); }
+.log-dot-live { background: var(--cable-cv);  box-shadow: 0 0 4px var(--cable-cv); animation: flicker 1.5s ease-in-out infinite; }
+.log-dot-info { background: var(--engraved-faint); }
+.log-text { flex: 1; letter-spacing: .02em; }
+.log-badge {
+  font-size: 7px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--engraved-faint);
+}
+.log-badge-keep { color: var(--led-green); }
+.log-badge-skip { color: var(--led-red); }
+
+/* ── Code terminal ───────────────────────────────────────────────────────── */
+.code-body {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.65;
+  color: var(--scope-trace);
+  text-shadow: 0 0 3px rgba(51,255,102,.4);
+  background: var(--scope-bg);
+}
+.code-body::-webkit-scrollbar { width: 3px; }
+.code-body::-webkit-scrollbar-thumb { background: var(--panel-edge); }
+.tok-kw   { color: #88ffaa; font-weight: bold; }
+.tok-fn   { color: #44cc88; }
+.tok-str  { color: #aaffcc; }
+.tok-num  { color: var(--cable-clock); text-shadow: 0 0 4px var(--cable-clock); }
+.tok-punc { color: #1a6634; }
+.tok-cm   { color: #0d3318; font-style: italic; }
+.term-cursor {
+  display: inline-block;
+  width: 6px; height: 10px;
+  background: var(--scope-trace);
+  box-shadow: 0 0 5px var(--scope-trace);
+  vertical-align: bottom;
+  animation: cur-blink .85s step-end infinite;
+}
+@keyframes cur-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Patch cable SVG overlay ─────────────────────────────────────────────── */
+#cable-layer {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ── Genre toggle ────────────────────────────────────────────────────────── */
+.genre-pill {
+  font-family: var(--font-panel);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border: 1px solid var(--panel-edge);
+  background: var(--knob);
+  color: var(--engraved-dim);
+  cursor: pointer;
+  margin: 1px;
+}
+.genre-pill.sel {
+  border-color: var(--cable-gate);
+  color: var(--cable-gate);
+  background: #051a0a;
+}
+
+/* ── Divider line ────────────────────────────────────────────────────────── */
+.mod-divider {
+  height: 1px;
+  background: var(--engraved-faint);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- Patch cable SVG overlay — drawn over everything -->
+<svg id="cable-layer" viewBox="0 0 1600 900" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Clock cable: DECK A CLK out → MIX CLK in (yellow) -->
+  <path d="M 228 195 C 228 280 268 270 268 195" stroke="#f5d000" stroke-width="3.5" fill="none" stroke-opacity=".85" stroke-linecap="round"/>
+  <!-- Audio cable: DECK A OUT → MIX A-IN (cyan) -->
+  <path d="M 215 320 C 215 420 255 420 255 320" stroke="#00d4ff" stroke-width="3.5" fill="none" stroke-opacity=".82" stroke-linecap="round"/>
+  <!-- CV cable: DECK B CV → MIX B-IN (orange) -->
+  <path d="M 470 320 C 470 440 390 440 390 320" stroke="#ff7b2f" stroke-width="3.5" fill="none" stroke-opacity=".82" stroke-linecap="round"/>
+  <!-- Gate cable: CONFIG GATE → DECK A TRIG (green) -->
+  <path d="M 600 260 C 600 180 280 180 280 260" stroke="#3cff6e" stroke-width="3" fill="none" stroke-opacity=".75" stroke-linecap="round"/>
+  <!-- Mix out → SCOPE IN (purple) -->
+  <path d="M 360 380 C 360 500 690 500 690 420" stroke="#c87fff" stroke-width="3.5" fill="none" stroke-opacity=".8" stroke-linecap="round"/>
+  <!-- SCOPE OUT → CODE IN (cyan, looser droop) -->
+  <path d="M 820 390 C 820 520 960 520 960 400" stroke="#00d4ff" stroke-width="3" fill="none" stroke-opacity=".65" stroke-linecap="round"/>
+  <!-- CV cable: CONFIG DENSITY → MIX LEVEL (orange, big droop) -->
+  <path d="M 640 350 C 640 480 330 460 330 360" stroke="#ff7b2f" stroke-width="3" fill="none" stroke-opacity=".6" stroke-linecap="round"/>
+  <!-- Gate: DECK B GATE out → LOG TRIG (green, cross) -->
+  <path d="M 465 260 C 465 550 740 550 740 440" stroke="#3cff6e" stroke-width="2.5" fill="none" stroke-opacity=".6" stroke-linecap="round"/>
+  <!-- Clock: top-level global clock (yellow, wide arc) -->
+  <path d="M 110 130 C 110 90 500 90 500 130" stroke="#f5d000" stroke-width="2.5" fill="none" stroke-opacity=".4" stroke-linecap="round" stroke-dasharray="8 4"/>
+</svg>
+
+<!-- Caption -->
+<div class="caption">
+  <span class="cap-name">MODULAR</span>
+  <span class="cap-desc">Eurorack / Max MSP / VCV Rack</span>
+</div>
+
+<div class="app-shell">
+
+  <!-- Top rail -->
+  <div class="rail">
+    <span class="rail-title">ACETATE · EURORACK PERFORMANCE SYSTEM · REV 3</span>
+    <span class="rail-meta">140 BPM · F MIN · DRILL</span>
+    <span class="rail-status">● LIVE</span>
+  </div>
+
+  <!-- Module rows -->
+  <div class="case-rows">
+
+    <!-- ── ROW 1 ── DECK A | MIX | DECK B | CONFIG ─────────────────────── -->
+    <div class="case-row">
+
+      <!-- DECK A module -->
+      <div class="module" style="width:var(--module-w-lg); flex-shrink:0;">
+        <div class="mod-title">
+          <span class="mod-name">DECK A</span>
+          <span class="mod-sub">committed</span>
+          <span class="mod-led mod-led-green" id="deck-a-led"></span>
+        </div>
+        <div class="mod-body">
+          <!-- LCD readout -->
+          <div class="lcd-panel">
+            NEON MELT
+            <span class="lcd-sub">5 PARTS · STAGE 5/8</span>
+          </div>
+
+          <!-- Status ticker -->
+          <div style="font-family:var(--font-panel); font-size:8px; font-weight:400; letter-spacing:.05em; color:var(--cable-gate); text-shadow:0 0 4px var(--cable-gate); overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+            ▶ CUTTING A LEAD LINE…
+          </div>
+
+          <!-- Part chips -->
+          <div class="eng-label">PARTS</div>
+          <div style="display:flex; flex-wrap:wrap; gap:2px;">
+            <span class="chip active">KICK</span>
+            <span class="chip active">HATS</span>
+            <span class="chip active">808</span>
+            <span class="chip active">CLAP</span>
+            <span class="chip active">CHORDS</span>
+            <span class="chip pending">+LEAD</span>
+          </div>
+
+          <!-- Jack outputs -->
+          <div class="eng-label" style="margin-top:4px;">OUTPUTS</div>
+          <div class="jack-row">
+            <div class="jack-group">
+              <div class="jack patched-audio" id="da-out"></div>
+              <span class="jack-label">OUT</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-clock" id="da-clk"></div>
+              <span class="jack-label">CLK</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-gate" id="da-trig"></div>
+              <span class="jack-label">TRIG</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-cv" id="da-cv"></div>
+              <span class="jack-label">CV</span>
+            </div>
+          </div>
+
+          <!-- Knobs: gain + pitch -->
+          <div class="eng-label" style="margin-top:4px;">LEVEL / PITCH</div>
+          <div class="knob-row">
+            <div class="knob-group">
+              <svg width="22" height="22" viewBox="0 0 22 22">
+                <circle cx="11" cy="11" r="9" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="11" cy="11" r="6" fill="#1a1a1c"/>
+                <!-- Tick at ~75% (gain) -->
+                <line x1="11" y1="11" x2="11" y2="4.5" stroke="var(--engraved)" stroke-width="1.5" stroke-linecap="round" transform="rotate(30 11 11)"/>
+              </svg>
+              <span class="knob-label">GAIN</span>
+            </div>
+            <div class="knob-group">
+              <svg width="22" height="22" viewBox="0 0 22 22">
+                <circle cx="11" cy="11" r="9" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="11" cy="11" r="6" fill="#1a1a1c"/>
+                <!-- Tick at centre (0%) -->
+                <line x1="11" y1="11" x2="11" y2="4.5" stroke="var(--cable-clock)" stroke-width="1.5" stroke-linecap="round" transform="rotate(0 11 11)"/>
+              </svg>
+              <span class="knob-label">PITCH</span>
+            </div>
+            <div class="knob-group">
+              <svg width="22" height="22" viewBox="0 0 22 22">
+                <circle cx="11" cy="11" r="9" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="11" cy="11" r="6" fill="#1a1a1c"/>
+                <line x1="11" y1="11" x2="11" y2="4.5" stroke="var(--cable-audio)" stroke-width="1.5" stroke-linecap="round" transform="rotate(-40 11 11)"/>
+              </svg>
+              <span class="knob-label">FILT</span>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div style="display:flex; gap:4px; margin-top:auto; padding-top:4px;">
+            <button class="mod-btn mod-btn-primary">▶ START</button>
+            <button class="mod-btn">CUT</button>
+            <button class="mod-btn">NEW</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MIX module -->
+      <div class="module" style="width:var(--module-w-sm); flex-shrink:0;">
+        <div class="mod-title">
+          <span class="mod-name">MIX</span>
+          <span class="mod-led mod-led-amber"></span>
+        </div>
+        <div class="mod-body">
+          <div class="eng-label">A INPUT</div>
+          <div class="jack-row" style="margin-bottom:3px;">
+            <div class="jack-group">
+              <div class="jack patched-audio" id="mix-ain"></div>
+              <span class="jack-label">A-IN</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-clock" id="mix-clk"></div>
+              <span class="jack-label">CLK</span>
+            </div>
+          </div>
+
+          <!-- Crossfader knob (big) -->
+          <div class="eng-label">BLEND A↔B</div>
+          <div style="display:flex; justify-content:center; margin:4px 0;">
+            <div class="knob-group">
+              <svg width="36" height="36" viewBox="0 0 36 36" id="mix-knob">
+                <!-- Arc track -->
+                <path d="M 8 28 A 14 14 0 1 1 28 28" stroke="var(--knob-rim)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <!-- Active arc (40% = leaning A) -->
+                <path d="M 8 28 A 14 14 0 0 1 18 4" stroke="var(--cable-audio)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".7"/>
+                <circle cx="18" cy="18" r="13" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="18" cy="18" r="8" fill="#1a1a1c"/>
+                <!-- Tick (-40° from top = toward A) -->
+                <line x1="18" y1="18" x2="18" y2="8" stroke="var(--engraved)" stroke-width="2" stroke-linecap="round" transform="rotate(-40 18 18)"/>
+              </svg>
+              <span class="knob-label" style="font-size:7px;">X-FADE</span>
+            </div>
+          </div>
+
+          <div class="eng-label">B INPUT</div>
+          <div class="jack-row" style="margin-bottom:3px;">
+            <div class="jack-group">
+              <div class="jack patched-cv" id="mix-bin"></div>
+              <span class="jack-label">B-IN</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack"></div>
+              <span class="jack-label">CV</span>
+            </div>
+          </div>
+
+          <div class="eng-label">OUTPUT</div>
+          <div class="jack-row">
+            <div class="jack-group">
+              <div class="jack patched-mix" id="mix-out"></div>
+              <span class="jack-label">OUT</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-mix"></div>
+              <span class="jack-label">AUX</span>
+            </div>
+          </div>
+
+          <!-- Level knobs A/B -->
+          <div class="eng-label" style="margin-top:6px;">LEVELS</div>
+          <div class="knob-row" style="justify-content:center;">
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="#00d4ff55" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--cable-audio)" stroke-width="1.5" stroke-linecap="round" transform="rotate(20 10 10)"/>
+              </svg>
+              <span class="knob-label">A</span>
+            </div>
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="#ff7b2f55" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--cable-cv)" stroke-width="1.5" stroke-linecap="round" transform="rotate(-20 10 10)"/>
+              </svg>
+              <span class="knob-label">B</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DECK B module -->
+      <div class="module" style="width:var(--module-w-md); flex-shrink:0;">
+        <div class="mod-title">
+          <span class="mod-name">DECK B</span>
+          <span class="mod-sub">acetate · proposed</span>
+          <span class="mod-led mod-led-blue"></span>
+        </div>
+        <div class="mod-body">
+          <!-- Pitch proposal -->
+          <div style="border:1px solid var(--cable-cv); background:#160a03; padding:5px 6px;">
+            <div style="font-family:var(--font-panel); font-size:9px; font-weight:700; letter-spacing:.05em; color:var(--cable-cv); text-shadow:0 0 5px var(--cable-cv); margin-bottom:2px;">ADD A LEAD LINE</div>
+            <div style="font-family:var(--font-panel); font-size:8px; font-weight:400; letter-spacing:.04em; color:var(--engraved-dim);">dotted · call-and-response</div>
+            <div style="display:flex; gap:4px; margin-top:5px;">
+              <button class="mod-btn mod-btn-skip" id="btn-skip">✕ SKIP</button>
+              <button class="mod-btn mod-btn-approve" id="btn-approve">✓ APPROVE</button>
+            </div>
+          </div>
+
+          <!-- Mini oscilloscope for proposed signal -->
+          <div class="eng-label" style="margin-top:4px;">SIGNAL PREVIEW</div>
+          <div class="scope-display" style="height:40px;">
+            <svg viewBox="0 0 120 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="120" height="40" fill="#030d06"/>
+              <g stroke="#0d2812" stroke-width=".5">
+                <line x1="30" y1="0" x2="30" y2="40"/><line x1="60" y1="0" x2="60" y2="40"/><line x1="90" y1="0" x2="90" y2="40"/>
+                <line x1="0" y1="20" x2="120" y2="20"/>
+              </g>
+              <!-- Dotted lead line trace in orange (proposed) -->
+              <polyline points="0,20 8,14 12,14 15,20 20,20 28,10 34,10 37,20 42,20 50,15 54,15 57,20 62,20 70,8 76,8 79,20 84,20 92,13 96,13 99,20 104,20 112,16 116,16 120,20"
+                stroke="#ff7b2f" stroke-width="1.5" fill="none" opacity=".8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 2"/>
+            </svg>
+          </div>
+
+          <!-- Jacks -->
+          <div class="eng-label" style="margin-top:4px;">OUTPUTS</div>
+          <div class="jack-row">
+            <div class="jack-group">
+              <div class="jack patched-cv" id="db-out"></div>
+              <span class="jack-label">OUT</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-gate" id="db-gate"></div>
+              <span class="jack-label">GATE</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack"></div>
+              <span class="jack-label">CV</span>
+            </div>
+          </div>
+
+          <!-- Knobs -->
+          <div class="eng-label" style="margin-top:4px;">CONTROLS</div>
+          <div class="knob-row">
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--engraved)" stroke-width="1.5" stroke-linecap="round" transform="rotate(25 10 10)"/>
+              </svg>
+              <span class="knob-label">VOL</span>
+            </div>
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--cable-cv)" stroke-width="1.5" stroke-linecap="round" transform="rotate(-30 10 10)"/>
+              </svg>
+              <span class="knob-label">PITCH</span>
+            </div>
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--cable-audio)" stroke-width="1.5" stroke-linecap="round" transform="rotate(0 10 10)"/>
+              </svg>
+              <span class="knob-label">ROOM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONFIG module -->
+      <div class="module" style="flex:1; min-width:140px;">
+        <div class="mod-title">
+          <span class="mod-name">CONFIG</span>
+          <span class="mod-sub">genre · density · parts</span>
+          <span class="mod-led mod-led-green"></span>
+        </div>
+        <div class="mod-body" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; align-content:start;">
+
+          <!-- Genre -->
+          <div style="grid-column:1/3;">
+            <div class="eng-label">GENRE</div>
+            <div style="display:flex; flex-wrap:wrap; gap:2px; margin-top:2px;">
+              <button class="genre-pill">LO-FI</button>
+              <button class="genre-pill sel">DRILL</button>
+              <button class="genre-pill">TRAP</button>
+              <button class="genre-pill">HOUSE</button>
+              <button class="genre-pill">DNB</button>
+              <button class="genre-pill">GARAGE</button>
+              <button class="genre-pill">TECHNO</button>
+            </div>
+          </div>
+
+          <!-- Density -->
+          <div style="grid-column:1/3;">
+            <div class="eng-label">DENSITY</div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+              <div class="knob-group">
+                <svg width="28" height="28" viewBox="0 0 28 28">
+                  <path d="M 5 23 A 11 11 0 1 1 23 23" stroke="var(--knob-rim)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                  <path d="M 5 23 A 11 11 0 0 1 14 3" stroke="var(--cable-cv)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".7"/>
+                  <circle cx="14" cy="14" r="10" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                  <circle cx="14" cy="14" r="6" fill="#1a1a1c"/>
+                  <line x1="14" y1="14" x2="14" y2="7" stroke="var(--cable-cv)" stroke-width="1.5" stroke-linecap="round" transform="rotate(-10 14 14)"/>
+                </svg>
+              </div>
+              <div style="flex:1;">
+                <div style="font-family:var(--font-panel); font-size:7px; letter-spacing:.1em; text-transform:uppercase; color:var(--engraved-dim); display:flex; justify-content:space-between; margin-bottom:3px;"><span>STRIP</span><span>HOLD</span><span>PILE</span></div>
+                <div class="mini-fader" id="density-track" style="height:5px;">
+                  <div class="mini-fader-fill" id="density-fill" style="width:50%; background:var(--cable-cv);"></div>
+                  <div class="mini-fader-thumb" id="density-thumb" style="left:50%; background:var(--cable-cv);"></div>
+                </div>
+              </div>
+            </div>
+            <div class="eng-label" style="margin-top:2px;">GATE OUT</div>
+            <div class="jack-row">
+              <div class="jack-group">
+                <div class="jack patched-gate" id="cfg-gate"></div>
+                <span class="jack-label">GATE</span>
+              </div>
+              <div class="jack-group">
+                <div class="jack patched-cv" id="cfg-cv"></div>
+                <span class="jack-label">CV</span>
+              </div>
+              <div class="jack-group">
+                <div class="jack patched-clock" id="cfg-clk"></div>
+                <span class="jack-label">CLK</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Part knobs (mini) -->
+          <div style="grid-column:1/3;">
+            <div class="eng-label">PARTS — LEVEL</div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:3px; align-items:flex-start;">
+              <!-- kick -->
+              <div class="knob-group">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <circle cx="9" cy="9" r="7" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1"/>
+                  <circle cx="9" cy="9" r="4" fill="#1a1a1c"/>
+                  <line x1="9" y1="9" x2="9" y2="4" stroke="var(--led-green)" stroke-width="1.2" stroke-linecap="round" transform="rotate(30 9 9)"/>
+                </svg>
+                <span class="knob-label">KICK</span>
+              </div>
+              <div class="knob-group">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <circle cx="9" cy="9" r="7" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1"/>
+                  <circle cx="9" cy="9" r="4" fill="#1a1a1c"/>
+                  <line x1="9" y1="9" x2="9" y2="4" stroke="var(--led-green)" stroke-width="1.2" stroke-linecap="round" transform="rotate(10 9 9)"/>
+                </svg>
+                <span class="knob-label">HATS</span>
+              </div>
+              <div class="knob-group">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <circle cx="9" cy="9" r="7" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1"/>
+                  <circle cx="9" cy="9" r="4" fill="#1a1a1c"/>
+                  <line x1="9" y1="9" x2="9" y2="4" stroke="var(--cable-cv)" stroke-width="1.2" stroke-linecap="round" transform="rotate(25 9 9)"/>
+                </svg>
+                <span class="knob-label">808</span>
+              </div>
+              <div class="knob-group">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <circle cx="9" cy="9" r="7" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1"/>
+                  <circle cx="9" cy="9" r="4" fill="#1a1a1c"/>
+                  <line x1="9" y1="9" x2="9" y2="4" stroke="var(--led-green)" stroke-width="1.2" stroke-linecap="round" transform="rotate(15 9 9)"/>
+                </svg>
+                <span class="knob-label">CLAP</span>
+              </div>
+              <div class="knob-group">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <circle cx="9" cy="9" r="7" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1"/>
+                  <circle cx="9" cy="9" r="4" fill="#1a1a1c"/>
+                  <line x1="9" y1="9" x2="9" y2="4" stroke="var(--cable-audio)" stroke-width="1.2" stroke-linecap="round" transform="rotate(5 9 9)"/>
+                </svg>
+                <span class="knob-label">CHDS</span>
+              </div>
+              <div class="knob-group" style="opacity:.4;">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <circle cx="9" cy="9" r="7" fill="var(--knob)" stroke="var(--cable-cv)" stroke-width="1"/>
+                  <circle cx="9" cy="9" r="4" fill="#1a1a1c"/>
+                  <line x1="9" y1="9" x2="9" y2="4" stroke="var(--cable-cv)" stroke-width="1.2" stroke-linecap="round" transform="rotate(-90 9 9)"/>
+                </svg>
+                <span class="knob-label" style="color:var(--cable-cv);">LEAD</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /config grid -->
+      </div>
+
+    </div><!-- /row 1 -->
+
+    <!-- ── ROW 2 ── SCOPE | LOG | CODE ────────────────────────────────── -->
+    <div class="case-row">
+
+      <!-- SCOPE module -->
+      <div class="module" style="width:var(--module-w-xl); flex-shrink:0;">
+        <div class="mod-title">
+          <span class="mod-name">SCOPE</span>
+          <span class="mod-sub">oscilloscope · waveform</span>
+          <span class="mod-led mod-led-green"></span>
+        </div>
+        <div class="mod-body">
+          <div class="eng-label">DISPLAY — 4 BARS</div>
+          <!-- Main scope -->
+          <div class="scope-display" style="flex:1;">
+            <svg viewBox="0 0 200 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="200" height="100" fill="#030d06"/>
+              <!-- Grid -->
+              <g stroke="#0d2812" stroke-width=".8">
+                <line x1="50"  y1="0" x2="50"  y2="100"/>
+                <line x1="100" y1="0" x2="100" y2="100"/>
+                <line x1="150" y1="0" x2="150" y2="100"/>
+                <line x1="0"   y1="25" x2="200" y2="25"/>
+                <line x1="0"   y1="50" x2="200" y2="50"/>
+                <line x1="0"   y1="75" x2="200" y2="75"/>
+              </g>
+              <!-- Kick trace (large transients) -->
+              <polyline points="0,50 3,50 4,10 8,10 9,50 50,50 52,10 56,10 57,50 100,50 102,10 106,10 107,50 150,50 152,10 156,10 157,50 200,50"
+                stroke="var(--led-red)" stroke-width="1.2" fill="none" opacity=".6" stroke-linecap="round"/>
+              <!-- 808 sub (smooth low wave) -->
+              <path d="M0 60 Q12 80 25 60 Q37 40 50 60 Q62 80 75 60 Q87 40 100 60 Q112 80 125 60 Q137 40 150 60 Q162 80 175 60 Q187 40 200 60"
+                stroke="var(--cable-cv)" stroke-width="1.5" fill="none" opacity=".7" stroke-linecap="round"/>
+              <!-- Chord mid-range -->
+              <path d="M0 45 Q6 35 12 45 Q18 55 25 45 Q31 35 37 45 Q43 55 50 45 Q56 35 62 45 Q68 55 75 45 Q81 35 87 45 Q93 55 100 45 Q106 35 112 45 Q118 55 125 45 Q131 35 137 45 Q143 55 150 45 Q156 35 162 45 Q168 55 175 45 Q181 35 187 45 Q193 55 200 45"
+                stroke="var(--cable-audio)" stroke-width="1" fill="none" opacity=".55" stroke-linecap="round"/>
+              <!-- Hi-hats (fast small pulses) -->
+              <polyline points="0,50 0,46 2,46 2,50 12,50 12,46 14,46 14,50 25,50 25,46 27,46 27,50 37,50 37,46 39,46 39,50 50,50 50,46 52,46 52,50 62,50 62,46 64,46 64,50 75,50 75,46 77,46 77,50 87,50 87,46 89,46 89,50 100,50 100,46 102,46 102,50 112,50 112,46 114,46 114,50 125,50 125,46 127,46 127,50 137,50 137,46 139,46 139,50 150,50 150,46 152,46 152,50 162,50 162,46 164,46 164,50 175,50 175,46 177,46 177,50 187,50 187,46 189,46 189,50"
+                stroke="var(--cable-clock)" stroke-width="1" fill="none" opacity=".5"/>
+              <!-- Playhead -->
+              <line x1="100" y1="0" x2="100" y2="100" stroke="#fff" stroke-width="1" opacity=".5"/>
+              <!-- Glow overlay -->
+              <rect width="200" height="100" fill="url(#scope-glow-grad)" opacity=".3"/>
+              <defs>
+                <radialGradient id="scope-glow-grad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="var(--scope-trace)" stop-opacity=".08"/>
+                  <stop offset="100%" stop-color="transparent"/>
+                </radialGradient>
+              </defs>
+            </svg>
+          </div>
+
+          <!-- Jack inputs -->
+          <div class="eng-label" style="margin-top:4px;">INPUTS</div>
+          <div class="jack-row">
+            <div class="jack-group">
+              <div class="jack patched-mix" id="scope-in"></div>
+              <span class="jack-label">IN</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-clock"></div>
+              <span class="jack-label">SYNC</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack"></div>
+              <span class="jack-label">TRIG</span>
+            </div>
+          </div>
+
+          <!-- Knobs -->
+          <div class="knob-row" style="margin-top:4px;">
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--engraved)" stroke-width="1.5" stroke-linecap="round" transform="rotate(20 10 10)"/>
+              </svg>
+              <span class="knob-label">TIME</span>
+            </div>
+            <div class="knob-group">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="var(--knob)" stroke="var(--knob-rim)" stroke-width="1.5"/>
+                <circle cx="10" cy="10" r="5" fill="#1a1a1c"/>
+                <line x1="10" y1="10" x2="10" y2="4" stroke="var(--engraved)" stroke-width="1.5" stroke-linecap="round" transform="rotate(-15 10 10)"/>
+              </svg>
+              <span class="knob-label">ZOOM</span>
+            </div>
+            <div class="jack-group" style="margin-left:auto;">
+              <div class="jack patched-audio" id="scope-out"></div>
+              <span class="jack-label">OUT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOG module -->
+      <div class="module" style="width:var(--module-w-lg); flex-shrink:0;">
+        <div class="mod-title">
+          <span class="mod-name">LOG</span>
+          <span class="mod-sub">history · moves</span>
+          <span class="mod-led mod-led-amber"></span>
+        </div>
+        <div class="mod-body" style="padding:4px;">
+
+          <div class="eng-label" style="padding:0 2px;">SET HISTORY</div>
+          <div class="log-scroll" style="flex:0 0 auto; max-height:42%;">
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">kick · 4-on-floor</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">hats · 16th swing</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-skip"></div>
+              <span class="log-text">open hat · offbeat</span>
+              <span class="log-badge log-badge-skip">SKIP</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">808 slide · F min</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">clap · bars 2 &amp; 4</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">chords · minor stab</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-skip"></div>
+              <span class="log-text">reverb · plate 0.4</span>
+              <span class="log-badge log-badge-skip">SKIP</span>
+            </div>
+          </div>
+
+          <div class="mod-divider"></div>
+          <div class="eng-label" style="padding:0 2px;">DJ MOVES</div>
+          <div class="log-scroll">
+            <div class="log-entry" style="background:#1a0c03;">
+              <div class="log-dot log-dot-live"></div>
+              <span class="log-text" style="color:var(--cable-cv);">pitching lead line</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-info"></div>
+              <span class="log-text">opened chords on B</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">approved: chord stab</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-skip"></div>
+              <span class="log-text">skipped: reverb FX</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-dot log-dot-keep"></div>
+              <span class="log-text">approved: 808 slide</span>
+            </div>
+          </div>
+
+          <!-- Log jacks -->
+          <div class="eng-label" style="padding:0 2px; margin-top:4px;">OUTPUTS</div>
+          <div class="jack-row" style="padding:0 2px;">
+            <div class="jack-group">
+              <div class="jack patched-gate" id="log-gate"></div>
+              <span class="jack-label">GATE</span>
+            </div>
+            <div class="jack-group">
+              <div class="jack patched-audio"></div>
+              <span class="jack-label">OUT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CODE module -->
+      <div class="module" style="flex:1; min-width:180px;">
+        <div class="mod-title">
+          <span class="mod-name">CODE</span>
+          <span class="mod-sub">strudel · live eval</span>
+          <span class="mod-led mod-led-green"></span>
+        </div>
+        <div class="mod-body" style="padding:0; gap:0;">
+          <!-- Status bar -->
+          <div style="padding:3px 6px; border-bottom:1px solid var(--panel-edge); background:var(--scope-bg); display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <span style="font-family:var(--font-panel); font-size:7px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--engraved-faint);">EVAL</span>
+            <span style="font-family:var(--font-mono); font-size:8px; color:var(--scope-trace); text-shadow:0 0 4px var(--scope-trace); letter-spacing:.05em;">● RUNNING</span>
+            <span style="margin-left:auto; font-family:var(--font-panel); font-size:7px; color:var(--engraved-faint); letter-spacing:.1em; text-transform:uppercase;">140 BPM</span>
+          </div>
+          <div class="code-body">
+<span class="tok-cm">// neon melt · drill · f min · 140bpm</span><br>
+<span class="tok-cm">// stage 5/8 · 5 parts committed</span><br>
+<br>
+<span class="tok-kw">stack</span><span class="tok-punc">(</span><br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"bd*4"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">bank</span><span class="tok-punc">(</span><span class="tok-str">"RolandTR808"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">0.9</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"~ hh ~ hh"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">.6</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f2 f2 ab2 c3&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"sawtooth"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">lpf</span><span class="tok-punc">(</span><span class="tok-num">700</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">penv</span><span class="tok-punc">(</span><span class="tok-num">4</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f4 ab4 c5 eb5&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"square"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">room</span><span class="tok-punc">(</span><span class="tok-num">.3</span><span class="tok-punc">)</span><br>
+<span class="tok-punc">)</span><span class="tok-punc">.</span><span class="tok-fn">slow</span><span class="tok-punc">(</span><span class="tok-num">2</span><span class="tok-punc">)</span><span class="term-cursor"></span>
+          </div>
+          <!-- Code module jacks -->
+          <div style="padding:4px 6px; border-top:1px solid var(--panel-edge); background:var(--panel-hi); display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <div class="jack-group" style="flex-direction:row; align-items:center; gap:4px;">
+              <div class="jack patched-audio" id="code-in" style="width:11px; height:11px;"></div>
+              <span class="jack-label">IN</span>
+            </div>
+            <div class="jack-group" style="flex-direction:row; align-items:center; gap:4px;">
+              <div class="jack patched-gate" id="code-out" style="width:11px; height:11px;"></div>
+              <span class="jack-label">EVAL</span>
+            </div>
+            <div class="jack-group" style="flex-direction:row; align-items:center; gap:4px;">
+              <div class="jack patched-clock" style="width:11px; height:11px;"></div>
+              <span class="jack-label">CLK</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /row 2 -->
+
+  </div><!-- /case-rows -->
+
+  <!-- Bottom rail -->
+  <div class="rail rail-bottom">
+    <span class="rail-title">ACETATE · PERFORMANCE SYSTEM · © 2026 · OPEN SOURCE</span>
+  </div>
+
+</div><!-- /app-shell -->
+
+<script>
+(function () {
+  'use strict';
+
+  // Density fader drag
+  const dTrack = document.getElementById('density-track');
+  const dFill  = document.getElementById('density-fill');
+  const dThumb = document.getElementById('density-thumb');
+  let dActive = false;
+  if (dTrack) {
+    dTrack.addEventListener('mousedown', function (e) { dActive = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dActive) return;
+      const rect = dTrack.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      dFill.style.width  = (pct * 100) + '%';
+      dThumb.style.left  = (pct * 100) + '%';
+    });
+    document.addEventListener('mouseup', function () { dActive = false; });
+  }
+
+  // Approve / skip
+  const approve = document.getElementById('btn-approve');
+  const skip    = document.getElementById('btn-skip');
+  if (approve) {
+    approve.addEventListener('click', function () {
+      this.textContent = '✓ APPROVED';
+      setTimeout(function () { approve.textContent = '✓ APPROVE'; }, 900);
+    });
+  }
+  if (skip) {
+    skip.addEventListener('click', function () {
+      this.textContent = '✕ SKIPPED';
+      setTimeout(function () { skip.textContent = '✕ SKIP'; }, 700);
+    });
+  }
+
+  // Genre toggle
+  document.querySelectorAll('.genre-pill').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      document.querySelectorAll('.genre-pill').forEach(function (p) { p.classList.remove('sel'); });
+      this.classList.add('sel');
+    });
+  });
+
+  // Mix knob drag (rotate on mousedown+move)
+  const mixKnob = document.getElementById('mix-knob');
+  if (mixKnob) {
+    let kDrag = false, kStartY = 0, kAngle = -40;
+    mixKnob.addEventListener('mousedown', function (e) { kDrag = true; kStartY = e.clientY; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!kDrag) return;
+      const dy = kStartY - e.clientY;
+      kAngle = Math.max(-135, Math.min(135, kAngle + dy * 0.8));
+      kStartY = e.clientY;
+      const line = mixKnob.querySelector('line');
+      if (line) line.setAttribute('transform', 'rotate(' + kAngle + ' 18 18)');
+    });
+    document.addEventListener('mouseup', function () { kDrag = false; });
+  }
+
+})();
+</script>
+</body>
+</html>

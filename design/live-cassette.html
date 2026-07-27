@@ -1,0 +1,1657 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acetate · Live · Cassette Spike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Aluminium chassis */
+  --chassis:    #1e1e1e;
+  --panel:      #252525;
+  --panel-hi:   #2e2e2e;
+  --panel-lo:   #181818;
+  --chrome:     #d0d0d0;
+  --chrome-hi:  #f0f0f0;
+  --chrome-lo:  #888;
+  --screw:      #3a3a3a;
+  --border:     #111;
+  --groove:     #0d0d0d;
+
+  /* LCD / phosphor */
+  --lcd-bg:     #0d1208;
+  --lcd-green:  #7bc67e;
+  --lcd-dim:    #1e3320;
+  --lcd-amber:  #c8b400;
+  --lcd-amber-dim: #2e2a00;
+  --phosphor:   #33ff66;
+  --phosphor-dim: #0a2210;
+
+  /* Accents */
+  --orange:     #ff6b35;
+  --orange-dim: #3a1800;
+  --red-led:    #ff2222;
+  --green-led:  #22ff44;
+  --amber-led:  #ffaa00;
+
+  /* Type */
+  --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+  --font-lcd:   'Silkscreen', 'Courier New', monospace;
+  --font-mono:  'Silkscreen', 'Courier New', monospace;
+
+  --caption-h: 22px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--chassis);
+  color: var(--chrome);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  image-rendering: pixelated;
+}
+
+/* ── CRT scanline overlay (whole page) ───────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,.13) 2px,
+    rgba(0,0,0,.13) 4px
+  );
+}
+
+/* ── Brushed aluminium texture ───────────────────────────────────────────── */
+.brushed {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,.018) 2px,
+      rgba(255,255,255,.018) 3px
+    ),
+    var(--panel);
+}
+
+/* ── Bevel / inset helpers ───────────────────────────────────────────────── */
+.bevel-out {
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,.18),
+    inset -1px -1px 0 rgba(0,0,0,.6),
+    0 1px 3px rgba(0,0,0,.5);
+}
+.bevel-in {
+  box-shadow:
+    inset 1px 1px 0 rgba(0,0,0,.7),
+    inset -1px -1px 0 rgba(255,255,255,.12);
+}
+
+/* ── Caption strip ───────────────────────────────────────────────────────── */
+.caption-strip {
+  height: var(--caption-h);
+  background: #111;
+  border-bottom: 1px solid #000;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 12px;
+}
+.caption-name {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--orange);
+  letter-spacing: .1em;
+}
+.caption-desc {
+  font-family: var(--font-lcd);
+  font-size: 8px;
+  color: var(--chrome-lo);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--caption-h));
+  overflow: hidden;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.top-bar {
+  height: 30px;
+  background: var(--panel-lo);
+  border-bottom: 2px solid var(--groove);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.logo {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--orange);
+  letter-spacing: .08em;
+  text-shadow: 0 0 8px var(--orange);
+}
+.lcd-readout {
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 #000, 0 0 6px rgba(200,180,0,.15);
+  padding: 2px 8px;
+  font-family: var(--font-lcd);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--lcd-amber);
+  text-shadow: 0 0 5px var(--lcd-amber);
+  min-width: 60px;
+  text-align: center;
+}
+.lcd-readout.green {
+  color: var(--lcd-green);
+  text-shadow: 0 0 5px var(--lcd-green);
+  box-shadow: inset 1px 1px 0 #000, 0 0 6px rgba(123,198,126,.15);
+}
+.track-title {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--chrome);
+  letter-spacing: .06em;
+}
+.status-tag {
+  font-family: var(--font-lcd);
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--green-led);
+  text-shadow: 0 0 5px var(--green-led);
+  animation: blink-slow 2s ease-in-out infinite;
+}
+@keyframes blink-slow { 0%,100%{opacity:1} 60%{opacity:.4} }
+.top-spacer { flex: 1; }
+.nav-btn {
+  font-family: var(--font-lcd);
+  font-size: 8px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: var(--panel-hi);
+  border: 1px solid var(--groove);
+  color: var(--chrome-lo);
+  cursor: pointer;
+}
+.nav-btn:hover { color: var(--chrome); background: var(--panel); }
+.nav-btn.active { color: var(--orange); border-color: var(--orange); }
+
+/* ── Main grid ───────────────────────────────────────────────────────────── */
+.main-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 230px;
+  grid-template-rows: 65% 35%;
+  overflow: hidden;
+  gap: 2px;
+  background: var(--groove);
+}
+
+/* Panel base */
+.pnl {
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Panel header — rack unit label strip */
+.pnl-head {
+  height: 20px;
+  background: var(--panel-lo);
+  border-bottom: 1px solid var(--groove);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.pnl-label {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+.pnl-label-hi { color: var(--chrome); }
+.pnl-actions { margin-left: auto; display: flex; gap: 4px; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+  border: 1px solid var(--groove);
+  background: var(--panel-hi);
+  color: var(--chrome-lo);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.1), inset -1px -1px 0 rgba(0,0,0,.5);
+}
+.btn:hover { color: var(--chrome); }
+.btn:active { box-shadow: inset 1px 1px 0 rgba(0,0,0,.5), inset -1px -1px 0 rgba(255,255,255,.08); }
+.btn-primary {
+  background: var(--orange-dim);
+  border-color: var(--orange);
+  color: var(--orange);
+  text-shadow: 0 0 6px var(--orange);
+}
+.btn-primary:hover { background: #5a2800; }
+.btn-approve {
+  border-color: var(--green-led);
+  color: var(--green-led);
+  background: #002208;
+  text-shadow: 0 0 5px var(--green-led);
+}
+.btn-approve:hover { background: #003812; }
+.btn-skip {
+  border-color: var(--red-led);
+  color: var(--red-led);
+  background: #1a0000;
+  text-shadow: 0 0 5px var(--red-led);
+}
+.btn-skip:hover { background: #2a0000; }
+
+/* ── REGION 1 · The Rig ──────────────────────────────────────────────────── */
+.rig-panel { grid-column:1; grid-row:1; }
+.rig-body {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+/* DJ status ticker */
+.status-ticker {
+  background: var(--lcd-bg);
+  border: 1px solid #000;
+  box-shadow: inset 1px 1px 0 #000;
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.ticker-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green-led);
+  box-shadow: 0 0 5px var(--green-led);
+  flex-shrink: 0;
+  animation: blink-slow 1.6s ease-in-out infinite;
+}
+.ticker-text {
+  font-family: var(--font-lcd);
+  font-size: 9px;
+  color: var(--lcd-green);
+  text-shadow: 0 0 4px var(--lcd-green);
+  letter-spacing: .05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chips row */
+.chips-row {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.chip-label {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  color: var(--chrome-lo);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+.chip {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  background: var(--panel-lo);
+  border: 1px solid var(--groove);
+  color: var(--chrome-lo);
+}
+.chip.active {
+  border-color: var(--lcd-green);
+  color: var(--lcd-green);
+  background: #051a08;
+  text-shadow: 0 0 4px var(--lcd-green);
+}
+.chip.pending {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: var(--orange-dim);
+  text-shadow: 0 0 4px var(--orange);
+  border-style: dashed;
+}
+
+/* ── Cassette deck housing ───────────────────────────────────────────────── */
+.cassette-rig {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.cassette-unit {
+  border: 2px solid var(--groove);
+  background: var(--panel-hi);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.1), inset -1px -1px 0 rgba(0,0,0,.7), 0 2px 6px rgba(0,0,0,.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cassette-header {
+  padding: 3px 6px;
+  background: var(--panel-lo);
+  border-bottom: 1px solid var(--groove);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.cass-deck-label {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  letter-spacing: .1em;
+}
+.deck-a-lbl { color: var(--lcd-green); text-shadow: 0 0 5px var(--lcd-green); }
+.deck-b-lbl { color: var(--orange); text-shadow: 0 0 5px var(--orange); }
+.cass-subtitle {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  color: var(--chrome-lo);
+  letter-spacing: .05em;
+}
+
+/* Cassette window */
+.cassette-window {
+  margin: 6px;
+  background: #0a0a0a;
+  border: 2px solid var(--groove);
+  box-shadow: inset 0 0 8px rgba(0,0,0,.8);
+  padding: 4px;
+  position: relative;
+}
+.cassette-window svg {
+  width: 100%;
+  display: block;
+}
+
+/* Transport strip under cassette */
+.transport-strip {
+  border-top: 1px solid var(--groove);
+  padding: 4px 6px;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  background: var(--panel-lo);
+}
+.t-btn {
+  width: 18px;
+  height: 14px;
+  background: var(--panel);
+  border: 1px solid var(--groove);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.12), inset -1px -1px 0 rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 7px;
+  color: var(--chrome-lo);
+}
+.t-btn:hover { color: var(--chrome); }
+.t-btn.active { color: var(--green-led); text-shadow: 0 0 4px var(--green-led); background: #001a06; }
+
+/* Pitch card on deck B */
+.pitch-card {
+  margin: 4px 6px 6px;
+  border: 1px solid var(--orange);
+  background: var(--orange-dim);
+  padding: 5px 6px;
+}
+.pitch-headline {
+  font-family: var(--font-lcd);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--orange);
+  text-shadow: 0 0 5px var(--orange);
+  letter-spacing: .05em;
+}
+.pitch-sub {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  color: var(--chrome-lo);
+  letter-spacing: .04em;
+  margin-top: 2px;
+}
+.pitch-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+/* Crossfader column */
+.xfader-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 0;
+}
+.xf-label {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.xf-a { color: var(--lcd-green); text-shadow: 0 0 4px var(--lcd-green); }
+.xf-b { color: var(--orange); text-shadow: 0 0 4px var(--orange); }
+.xfader-housing {
+  width: 28px;
+  height: 90px;
+  background: var(--panel-lo);
+  border: 2px solid var(--groove);
+  box-shadow: inset 1px 1px 0 rgba(0,0,0,.7), inset -1px -1px 0 rgba(255,255,255,.08);
+  border-radius: 2px;
+  position: relative;
+  cursor: ns-resize;
+}
+/* Notch marks on the housing */
+.xfader-housing::before {
+  content: '';
+  position: absolute;
+  top: 8px; bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: repeating-linear-gradient(180deg, var(--groove) 0, var(--groove) 2px, transparent 2px, transparent 6px);
+}
+.xf-thumb {
+  position: absolute;
+  left: 2px; right: 2px;
+  top: 30%;
+  height: 16px;
+  background: var(--panel-hi);
+  border: 1px solid var(--chrome-lo);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.2), inset -1px -1px 0 rgba(0,0,0,.5);
+  cursor: ns-resize;
+  border-radius: 1px;
+}
+.xf-thumb::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px; height: 1px;
+  background: var(--chrome-lo);
+  box-shadow: 0 -3px 0 var(--chrome-lo), 0 3px 0 var(--chrome-lo);
+}
+.xf-caption {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  color: var(--chrome-lo);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* ── REGION 2 · Console sidebar ──────────────────────────────────────────── */
+.console-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  border-left: 2px solid var(--groove);
+  overflow: hidden;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+}
+.console-panel::-webkit-scrollbar { width: 4px; }
+.console-panel::-webkit-scrollbar-track { background: var(--panel-lo); }
+.console-panel::-webkit-scrollbar-thumb { background: var(--groove); }
+
+.rack-block {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--groove);
+}
+.rack-label {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--chrome-lo);
+  margin-bottom: 5px;
+}
+
+/* Genre pills */
+.genre-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.genre-tag {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border: 1px solid var(--groove);
+  background: var(--panel-lo);
+  color: var(--chrome-lo);
+  cursor: pointer;
+}
+.genre-tag:hover { color: var(--chrome); }
+.genre-tag.selected {
+  border-color: var(--lcd-green);
+  color: var(--lcd-green);
+  background: #051a08;
+  text-shadow: 0 0 4px var(--lcd-green);
+}
+
+/* Density slider */
+.density-housing {
+  margin-top: 4px;
+  height: 14px;
+  background: var(--panel-lo);
+  border: 1px solid var(--groove);
+  box-shadow: inset 1px 1px 0 rgba(0,0,0,.7);
+  position: relative;
+  cursor: ew-resize;
+}
+.density-fill {
+  height: 100%;
+  width: 50%;
+  background: repeating-linear-gradient(90deg, var(--lcd-green) 0, var(--lcd-green) 2px, transparent 2px, transparent 4px);
+  opacity: .6;
+}
+.density-thumb {
+  position: absolute;
+  top: 1px; bottom: 1px;
+  left: calc(50% - 4px);
+  width: 8px;
+  background: var(--chrome-lo);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.3), inset -1px -1px 0 rgba(0,0,0,.5);
+  cursor: ew-resize;
+}
+.density-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  color: var(--chrome-lo);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+/* Channel strips — rack unit style */
+.ch-strip {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+  gap: 4px;
+  border-bottom: 1px solid rgba(20,20,20,.8);
+}
+.ch-strip:last-child { border-bottom: none; }
+.ch-name {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--chrome);
+  width: 32px;
+  flex-shrink: 0;
+}
+/* LED VU meter — individual segments */
+.vu-meter {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.vu-seg {
+  width: 4px;
+  height: 11px;
+  background: var(--panel-lo);
+  border: 1px solid var(--groove);
+}
+/* Fader track */
+.ch-fader {
+  flex: 1;
+  height: 4px;
+  background: var(--panel-lo);
+  border: 1px solid var(--groove);
+  box-shadow: inset 1px 1px 0 rgba(0,0,0,.7);
+  position: relative;
+  cursor: ew-resize;
+}
+.ch-fader-fill {
+  height: 100%;
+  background: var(--lcd-green);
+  box-shadow: 0 0 3px var(--lcd-green);
+}
+.ch-fader-thumb {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 10px;
+  background: var(--chrome-lo);
+  border: 1px solid var(--chrome-lo);
+  transform: translate(-50%, -50%);
+  box-shadow: inset 1px 0 0 rgba(255,255,255,.3);
+  cursor: ew-resize;
+}
+/* Mode button */
+.ch-mode {
+  font-family: var(--font-lcd);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 1px 3px;
+  border: 1px solid var(--groove);
+  background: var(--panel-lo);
+  color: var(--chrome-lo);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ch-mode.sel {
+  border-color: var(--lcd-green);
+  color: var(--lcd-green);
+  background: #051a08;
+  text-shadow: 0 0 3px var(--lcd-green);
+}
+.ch-strip-pending .ch-name { color: var(--orange); text-shadow: 0 0 4px var(--orange); }
+.ch-strip-pending .ch-fader-fill { background: var(--orange); box-shadow: 0 0 3px var(--orange); }
+
+/* ── REGION 3 · The Floor ────────────────────────────────────────────────── */
+.floor-panel {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.floor-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 190px 220px;
+  overflow: hidden;
+  gap: 1px;
+  background: var(--groove);
+}
+
+/* Now-playing + logs */
+.now-playing-col {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.np-lcd {
+  background: var(--lcd-bg);
+  border-bottom: 1px solid var(--groove);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.np-track {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--lcd-green);
+  text-shadow: 0 0 6px var(--lcd-green);
+  letter-spacing: .06em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.np-meta {
+  display: flex;
+  gap: 8px;
+}
+.np-field {
+  font-family: var(--font-lcd);
+  font-size: 8px;
+  color: var(--lcd-amber);
+  text-shadow: 0 0 4px var(--lcd-amber);
+  letter-spacing: .06em;
+}
+
+/* Scrolling waveform / progress bar */
+.progress-bar {
+  height: 18px;
+  background: var(--lcd-bg);
+  border-bottom: 1px solid var(--groove);
+  padding: 2px 0;
+  overflow: hidden;
+}
+.progress-bar svg { width: 100%; height: 100%; }
+
+/* Log area */
+.log-area {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--panel-lo);
+}
+.log-area::-webkit-scrollbar { width: 4px; }
+.log-area::-webkit-scrollbar-thumb { background: var(--groove); }
+
+.log-entry {
+  display: flex;
+  align-items: baseline;
+  padding: 1px 6px;
+  gap: 5px;
+  border-bottom: 1px solid rgba(10,10,10,.8);
+  font-family: var(--font-lcd);
+  font-size: 8px;
+  color: var(--chrome-lo);
+}
+.log-entry:last-child { border-bottom: none; }
+.log-led {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.log-led-keep { background: var(--green-led); box-shadow: 0 0 3px var(--green-led); }
+.log-led-skip { background: var(--red-led); box-shadow: 0 0 3px var(--red-led); }
+.log-led-info { background: var(--chrome-lo); }
+.log-led-active { background: var(--orange); box-shadow: 0 0 4px var(--orange); animation: blink-slow 1.2s ease-in-out infinite; }
+.log-text { flex: 1; letter-spacing: .03em; }
+.log-badge {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+.log-badge-keep { color: var(--green-led); text-shadow: 0 0 3px var(--green-led); }
+.log-badge-skip { color: var(--red-led); text-shadow: 0 0 3px var(--red-led); }
+
+/* Side section (DJ moves) */
+.side-section {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  border-left: 1px solid var(--groove);
+}
+
+/* ── REGION 4 · Terminal / session notes ─────────────────────────────────── */
+.terminal-pane {
+  background: #050e07;
+  border-left: 2px solid var(--groove);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.term-head {
+  height: 20px;
+  background: #030a05;
+  border-bottom: 1px solid var(--groove);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 6px;
+}
+.term-label {
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--phosphor);
+  text-shadow: 0 0 4px var(--phosphor);
+}
+.term-status {
+  margin-left: auto;
+  font-family: var(--font-lcd);
+  font-size: 7px;
+  color: var(--lcd-green);
+  text-shadow: 0 0 4px var(--lcd-green);
+  letter-spacing: .08em;
+  animation: blink-slow 2s ease-in-out infinite;
+}
+.term-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--phosphor);
+  text-shadow: 0 0 3px var(--phosphor);
+  position: relative;
+}
+.term-body::-webkit-scrollbar { width: 4px; }
+.term-body::-webkit-scrollbar-thumb { background: var(--phosphor-dim); }
+
+/* Phosphor token colours — slight differentiation within green family */
+.tok-kw   { color: #88ff99; text-shadow: 0 0 4px #88ff99; font-weight: bold; }
+.tok-fn   { color: #44cc66; text-shadow: 0 0 3px #44cc66; }
+.tok-str  { color: #aaffbb; text-shadow: 0 0 3px #aaffbb; }
+.tok-num  { color: var(--lcd-amber); text-shadow: 0 0 4px var(--lcd-amber); }
+.tok-punc { color: #2a8844; }
+.tok-cm   { color: #1a5530; font-style: italic; }
+/* Cursor blink */
+.term-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 11px;
+  background: var(--phosphor);
+  box-shadow: 0 0 5px var(--phosphor);
+  vertical-align: bottom;
+  animation: cursor-blink .9s step-end infinite;
+  margin-left: 1px;
+}
+@keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Screw corners ───────────────────────────────────────────────────────── */
+.screw {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--chrome-lo), var(--screw));
+  border: 1px solid #000;
+}
+</style>
+</head>
+<body>
+
+<!-- Caption strip -->
+<div class="caption-strip">
+  <span class="caption-name">CASSETTE</span>
+  <span class="caption-desc">Lo-fi bedroom / Winamp / MP3 blog</span>
+</div>
+
+<div class="app-shell">
+
+  <!-- Top bar -->
+  <div class="top-bar brushed">
+    <span class="logo">ACETATE</span>
+    <div class="lcd-readout">140 BPM</div>
+    <div class="lcd-readout green">F MIN</div>
+    <span class="track-title">NEON MELT</span>
+    <span class="status-tag">● LIVE</span>
+    <div class="top-spacer"></div>
+    <button class="nav-btn active">LIVE</button>
+    <button class="nav-btn">CRATE</button>
+    <button class="nav-btn">REMIX</button>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- ── REGION 1 · The Rig ──────────────────────────────────────────── -->
+    <div class="pnl rig-panel brushed" style="grid-column:1; grid-row:1; position:relative;">
+      <!-- Corner screws -->
+      <div class="screw" style="top:4px; left:4px;"></div>
+      <div class="screw" style="top:4px; right:4px;"></div>
+
+      <div class="pnl-head">
+        <span class="pnl-label pnl-label-hi">The Rig</span>
+        <span class="pnl-label">· decks · xfader</span>
+        <div class="pnl-actions">
+          <button class="btn btn-primary">▶ START</button>
+          <button class="btn">CUT DUBPLATE</button>
+          <button class="btn">NEW</button>
+        </div>
+      </div>
+
+      <div class="rig-body">
+        <!-- Status + parts combined row -->
+        <div style="display:flex; align-items:center; gap:6px; overflow:hidden; flex-shrink:0;">
+          <div class="status-ticker bevel-in" style="flex:1; min-width:0;">
+            <span class="ticker-led"></span>
+            <span class="ticker-text">CUTTING A LEAD LINE — DOTTED, CALL-AND-RESPONSE ···</span>
+          </div>
+          <div class="chips-row" style="flex-shrink:0; flex-wrap:nowrap;">
+            <span class="chip-label">PARTS:</span>
+            <span class="chip active">KICK</span>
+            <span class="chip active">HATS</span>
+            <span class="chip active">808</span>
+            <span class="chip active">CLAP</span>
+            <span class="chip active">CHORDS</span>
+            <span class="chip pending">+LEAD</span>
+          </div>
+        </div>
+
+        <!-- Cassette deck A/B + crossfader -->
+        <div class="cassette-rig">
+
+          <!-- Deck A -->
+          <div class="cassette-unit">
+            <div class="cassette-header">
+              <span class="cass-deck-label deck-a-lbl">DECK A</span>
+              <span class="cass-subtitle">committed</span>
+            </div>
+            <div class="cassette-window bevel-in">
+              <svg viewBox="0 0 160 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Cassette body -->
+                <rect width="160" height="80" fill="#0a0a0a"/>
+                <!-- Cassette shell outline -->
+                <rect x="4" y="4" width="152" height="72" rx="3" fill="#111" stroke="#1e1e1e" stroke-width="1"/>
+                <!-- Tape window cutout -->
+                <rect x="28" y="14" width="104" height="46" rx="2" fill="#050505" stroke="#222" stroke-width="1"/>
+                <!-- Tape reels -->
+                <!-- Left reel -->
+                <circle cx="58" cy="37" r="16" fill="#0d0d0d" stroke="#2a2a2a" stroke-width="1"/>
+                <circle cx="58" cy="37" r="12" fill="#141414" stroke="#1e1e1e" stroke-width=".8"/>
+                <circle cx="58" cy="37" r="6"  fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+                <!-- Reel spokes -->
+                <line x1="58" y1="25" x2="58" y2="31" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="68" y1="31" x2="63" y2="34" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="65" y1="44" x2="61" y2="41" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="58" y1="49" x2="58" y2="43" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="48" y1="44" x2="53" y2="41" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="51" y1="31" x2="55" y2="34" stroke="#2a2a2a" stroke-width="1"/>
+                <!-- Hub -->
+                <circle cx="58" cy="37" r="3" fill="#222" stroke="#444" stroke-width=".8"/>
+                <!-- Right reel -->
+                <circle cx="102" cy="37" r="16" fill="#0d0d0d" stroke="#2a2a2a" stroke-width="1"/>
+                <circle cx="102" cy="37" r="12" fill="#141414" stroke="#1e1e1e" stroke-width=".8"/>
+                <circle cx="102" cy="37" r="6"  fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+                <!-- Right reel spokes (slightly rotated = playing) -->
+                <line x1="102" y1="25" x2="104" y2="31" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="111" y1="33" x2="106" y2="36" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="107" y1="46" x2="104" y2="41" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="100" y1="49" x2="100" y2="43" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="92" y1="44" x2="97" y2="41" stroke="#2a2a2a" stroke-width="1"/>
+                <line x1="93" y1="33" x2="98" y2="36" stroke="#2a2a2a" stroke-width="1"/>
+                <circle cx="102" cy="37" r="3" fill="#222" stroke="#444" stroke-width=".8"/>
+                <!-- Tape path between reels -->
+                <path d="M68 52 Q80 56 92 52" stroke="#1a1a1a" stroke-width="3" fill="none"/>
+                <path d="M68 52 Q80 56 92 52" stroke="#2d2d2d" stroke-width="1" fill="none"/>
+                <!-- Green active glow on reel hubs -->
+                <circle cx="58"  cy="37" r="2" fill="#7bc67e" opacity=".6"/>
+                <circle cx="102" cy="37" r="2" fill="#7bc67e" opacity=".6"/>
+                <!-- Label strip -->
+                <rect x="40" y="58" width="80" height="14" rx="1" fill="#1a2a1a"/>
+                <text x="80" y="67" text-anchor="middle" font-family="'Courier New', monospace" font-size="5" fill="#7bc67e" letter-spacing=".08em">NEON MELT · 5 PARTS</text>
+              </svg>
+            </div>
+            <!-- VU progress strip -->
+            <div class="progress-bar">
+              <svg viewBox="0 0 200 14" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="200" height="14" fill="#0d1208"/>
+                <!-- Bass bars green -->
+                <g fill="#7bc67e" opacity=".7">
+                  <rect x="0"  y="3" width="2" height="8"/>
+                  <rect x="4"  y="2" width="2" height="10"/>
+                  <rect x="8"  y="4" width="2" height="7"/>
+                  <rect x="12" y="1" width="2" height="12"/>
+                  <rect x="16" y="3" width="2" height="8"/>
+                  <rect x="20" y="2" width="2" height="10"/>
+                  <rect x="24" y="4" width="2" height="7"/>
+                  <rect x="28" y="1" width="2" height="12"/>
+                  <rect x="32" y="3" width="2" height="8"/>
+                  <rect x="36" y="2" width="2" height="10"/>
+                  <rect x="40" y="4" width="2" height="7"/>
+                  <rect x="44" y="1" width="2" height="12"/>
+                  <rect x="48" y="3" width="2" height="8"/>
+                  <rect x="52" y="2" width="2" height="10"/>
+                  <rect x="56" y="4" width="2" height="7"/>
+                  <rect x="60" y="1" width="2" height="12"/>
+                  <rect x="64" y="3" width="2" height="8"/>
+                  <rect x="68" y="2" width="2" height="10"/>
+                  <rect x="72" y="4" width="2" height="7"/>
+                  <rect x="76" y="1" width="2" height="12"/>
+                  <rect x="80" y="3" width="2" height="8"/>
+                  <rect x="84" y="2" width="2" height="10"/>
+                  <rect x="88" y="4" width="2" height="7"/>
+                  <rect x="92" y="1" width="2" height="12"/>
+                  <rect x="96" y="3" width="2" height="8"/>
+                </g>
+                <!-- Playhead -->
+                <line x1="100" y1="0" x2="100" y2="14" stroke="#fff" stroke-width="1" opacity=".7"/>
+                <!-- Right side dimmer -->
+                <g fill="#7bc67e" opacity=".2">
+                  <rect x="104" y="3" width="2" height="8"/>
+                  <rect x="108" y="2" width="2" height="10"/>
+                  <rect x="112" y="4" width="2" height="7"/>
+                  <rect x="116" y="1" width="2" height="12"/>
+                  <rect x="120" y="3" width="2" height="8"/>
+                  <rect x="124" y="2" width="2" height="10"/>
+                  <rect x="128" y="4" width="2" height="7"/>
+                  <rect x="132" y="1" width="2" height="12"/>
+                  <rect x="136" y="3" width="2" height="8"/>
+                  <rect x="140" y="2" width="2" height="10"/>
+                  <rect x="144" y="4" width="2" height="7"/>
+                  <rect x="148" y="1" width="2" height="12"/>
+                  <rect x="152" y="3" width="2" height="8"/>
+                  <rect x="156" y="2" width="2" height="10"/>
+                  <rect x="160" y="4" width="2" height="7"/>
+                  <rect x="164" y="1" width="2" height="12"/>
+                  <rect x="168" y="3" width="2" height="8"/>
+                  <rect x="172" y="2" width="2" height="10"/>
+                  <rect x="176" y="4" width="2" height="7"/>
+                  <rect x="180" y="1" width="2" height="12"/>
+                  <rect x="184" y="3" width="2" height="8"/>
+                  <rect x="188" y="2" width="2" height="10"/>
+                  <rect x="192" y="4" width="2" height="7"/>
+                  <rect x="196" y="1" width="2" height="12"/>
+                </g>
+              </svg>
+            </div>
+            <div class="transport-strip">
+              <div class="t-btn">⏮</div>
+              <div class="t-btn">⏪</div>
+              <div class="t-btn active">▶</div>
+              <div class="t-btn">⏩</div>
+              <div class="t-btn">⏹</div>
+            </div>
+          </div>
+
+          <!-- Crossfader -->
+          <div class="xfader-col">
+            <span class="xf-label xf-a">A</span>
+            <div class="xfader-housing" id="xfader-housing">
+              <div class="xf-thumb" id="xf-thumb"></div>
+            </div>
+            <span class="xf-label xf-b">B</span>
+            <span class="xf-caption">BLEND</span>
+          </div>
+
+          <!-- Deck B -->
+          <div class="cassette-unit">
+            <div class="cassette-header">
+              <span class="cass-deck-label deck-b-lbl">DECK B</span>
+              <span class="cass-subtitle">acetate · proposed</span>
+            </div>
+            <div class="cassette-window bevel-in">
+              <svg viewBox="0 0 160 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Cassette body (mostly blank acetate) -->
+                <rect width="160" height="80" fill="#0a0a0a"/>
+                <rect x="4" y="4" width="152" height="72" rx="3" fill="#0d0806" stroke="#221400" stroke-width="1"/>
+                <!-- Tape window -->
+                <rect x="28" y="14" width="104" height="46" rx="2" fill="#050302" stroke="#1a1000" stroke-width="1"/>
+                <!-- Left reel — sparsely wound (fresh acetate) -->
+                <circle cx="58" cy="37" r="16" fill="#0a0600" stroke="#221400" stroke-width="1"/>
+                <circle cx="58" cy="37" r="6"  fill="#120800" stroke="#331a00" stroke-width="1"/>
+                <circle cx="58" cy="37" r="2" fill="#ff6b35" opacity=".5"/>
+                <!-- Right reel — full (mostly unplayed) -->
+                <circle cx="102" cy="37" r="16" fill="#0a0600" stroke="#221400" stroke-width="1"/>
+                <circle cx="102" cy="37" r="12" fill="#110700" stroke="#1a1000" stroke-width=".8"/>
+                <circle cx="102" cy="37" r="8"  fill="#150900" stroke="#221400" stroke-width=".8"/>
+                <circle cx="102" cy="37" r="4"  fill="#1a0b00" stroke="#331a00" stroke-width="1"/>
+                <circle cx="102" cy="37" r="2" fill="#ff6b35" opacity=".6"/>
+                <!-- Sparse tape path -->
+                <path d="M68 52 Q80 55 92 52" stroke="#221400" stroke-width="2" fill="none"/>
+                <!-- Lead line delta — orange dashed arc -->
+                <path d="M58 21 A20 20 0 0 1 78 37" stroke="#ff6b35" stroke-width="1.5" fill="none" opacity=".7" stroke-dasharray="4 2" stroke-linecap="round"/>
+                <!-- Label strip -->
+                <rect x="40" y="58" width="80" height="14" rx="1" fill="#2a1500"/>
+                <text x="80" y="67" text-anchor="middle" font-family="'Courier New', monospace" font-size="5" fill="#ff6b35" letter-spacing=".08em">LEAD LINE · PENDING</text>
+              </svg>
+            </div>
+            <!-- Pitch card -->
+            <div class="pitch-card">
+              <div class="pitch-headline">ADD A LEAD LINE</div>
+              <div class="pitch-sub">dotted · call-and-response</div>
+              <div class="pitch-actions">
+                <button class="btn btn-skip" id="btn-skip">✕ SKIP</button>
+                <button class="btn btn-approve" id="btn-approve">✓ APPROVE</button>
+              </div>
+            </div>
+            <div class="transport-strip">
+              <div class="t-btn">⏮</div>
+              <div class="t-btn">⏪</div>
+              <div class="t-btn">▶</div>
+              <div class="t-btn">⏩</div>
+              <div class="t-btn">⏹</div>
+            </div>
+          </div>
+
+        </div><!-- /cassette-rig -->
+      </div><!-- /rig-body -->
+    </div><!-- /rig-panel -->
+
+    <!-- ── REGION 2 · Console ──────────────────────────────────────────── -->
+    <div class="console-panel brushed" style="grid-column:2; grid-row:1/3;">
+      <div class="pnl-head" style="flex-shrink:0;">
+        <span class="pnl-label pnl-label-hi">Console</span>
+      </div>
+
+      <!-- Genre -->
+      <div class="rack-block" style="flex-shrink:0; padding:4px 8px;">
+        <div class="rack-label" style="margin-bottom:3px;">Genre</div>
+        <div class="genre-grid">
+          <button class="genre-tag">LO-FI</button>
+          <button class="genre-tag selected">DRILL</button>
+          <button class="genre-tag">TRAP</button>
+          <button class="genre-tag">HOUSE</button>
+          <button class="genre-tag">DNB</button>
+          <button class="genre-tag">GARAGE</button>
+          <button class="genre-tag">TECHNO</button>
+          <button class="genre-tag">BOOM BAP</button>
+        </div>
+      </div>
+
+      <!-- Density -->
+      <div class="rack-block" style="flex-shrink:0; padding:4px 8px;">
+        <div class="rack-label" style="margin-bottom:3px;">Density</div>
+        <div class="density-housing bevel-in" id="density-track">
+          <div class="density-fill" id="density-fill"></div>
+          <div class="density-thumb" id="density-thumb"></div>
+        </div>
+        <div class="density-labels">
+          <span>strip</span>
+          <span>hold</span>
+          <span>pile</span>
+        </div>
+      </div>
+
+      <!-- Channel strips — scrollable block -->
+      <div style="flex:1; min-height:0; overflow-y:auto; border-bottom:1px solid var(--groove); display:flex; flex-direction:column;">
+        <div style="padding:4px 8px 2px; border-bottom:1px solid var(--groove); flex-shrink:0;">
+          <div class="rack-label" style="margin-bottom:0;">Parts</div>
+        </div>
+
+      <!-- kick -->
+      <div class="rack-block" style="padding-top:3px; padding-bottom:3px; flex-shrink:0;">
+        <div class="ch-strip">
+          <span class="ch-name">KICK</span>
+          <div class="vu-meter">
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#ffaa00; box-shadow:0 0 3px #ffaa00;"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-fader"><div class="ch-fader-fill" style="width:80%"></div><div class="ch-fader-thumb" style="left:80%"></div></div>
+          <button class="ch-mode sel">AUTO</button>
+        </div>
+        <div class="ch-strip">
+          <span class="ch-name">HATS</span>
+          <div class="vu-meter">
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-fader"><div class="ch-fader-fill" style="width:55%"></div><div class="ch-fader-thumb" style="left:55%"></div></div>
+          <button class="ch-mode sel">AUTO</button>
+        </div>
+        <div class="ch-strip">
+          <span class="ch-name">808</span>
+          <div class="vu-meter">
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#ffaa00; box-shadow:0 0 3px #ffaa00;"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-fader"><div class="ch-fader-fill" style="width:75%"></div><div class="ch-fader-thumb" style="left:75%"></div></div>
+          <button class="ch-mode">DROP</button>
+        </div>
+        <div class="ch-strip">
+          <span class="ch-name">CLAP</span>
+          <div class="vu-meter">
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-fader"><div class="ch-fader-fill" style="width:65%"></div><div class="ch-fader-thumb" style="left:65%"></div></div>
+          <button class="ch-mode sel">AUTO</button>
+        </div>
+        <div class="ch-strip">
+          <span class="ch-name">CHORDS</span>
+          <div class="vu-meter">
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg" style="background:#22ff44; box-shadow:0 0 3px #22ff44;"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-fader"><div class="ch-fader-fill" style="width:50%"></div><div class="ch-fader-thumb" style="left:50%"></div></div>
+          <button class="ch-mode">FEAT</button>
+        </div>
+        <div class="ch-strip ch-strip-pending">
+          <span class="ch-name">LEAD</span>
+          <div class="vu-meter">
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-fader"><div class="ch-fader-fill" style="width:0%"></div><div class="ch-fader-thumb" style="left:0%"></div></div>
+          <button class="ch-mode" style="border-color:var(--orange); color:var(--orange);">—</button>
+        </div>
+      </div>
+
+      <!-- Spectrum analyser — fills remaining console space -->
+      <div style="flex:1; min-height:0; display:flex; flex-direction:column; padding:6px 8px; gap:4px;">
+        <div class="rack-label" style="margin-bottom:0; flex-shrink:0;">Spectrum</div>
+        <div style="flex:1; min-height:0; background:var(--lcd-bg); border:1px solid var(--groove); box-shadow:inset 1px 1px 0 #000; overflow:hidden; position:relative;">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 100 100">
+            <!-- Grid lines -->
+            <line x1="0" y1="20" x2="100" y2="20" stroke="#1a2e1a" stroke-width="0.8"/>
+            <line x1="0" y1="45" x2="100" y2="45" stroke="#1a2e1a" stroke-width="0.8"/>
+            <line x1="0" y1="70" x2="100" y2="70" stroke="#1a2e1a" stroke-width="0.8"/>
+            <line x1="25" y1="0" x2="25" y2="92" stroke="#1a2e1a" stroke-width="0.8"/>
+            <line x1="50" y1="0" x2="50" y2="92" stroke="#1a2e1a" stroke-width="0.8"/>
+            <line x1="75" y1="0" x2="75" y2="92" stroke="#1a2e1a" stroke-width="0.8"/>
+            <!-- Spectrum bars — kicks/bass heavy on left, rolling off right -->
+            <rect x="1"  y="12" width="4" height="80" fill="#7bc67e" opacity=".7"/>
+            <rect x="6"  y="7"  width="4" height="85" fill="#7bc67e" opacity=".75"/>
+            <rect x="11" y="14" width="4" height="78" fill="#7bc67e" opacity=".7"/>
+            <rect x="16" y="18" width="4" height="74" fill="#7bc67e" opacity=".65"/>
+            <rect x="21" y="9"  width="4" height="83" fill="#7bc67e" opacity=".8"/>
+            <rect x="26" y="22" width="4" height="70" fill="#7bc67e" opacity=".65"/>
+            <rect x="31" y="28" width="4" height="64" fill="#7bc67e" opacity=".6"/>
+            <rect x="36" y="34" width="4" height="58" fill="#7bc67e" opacity=".6"/>
+            <rect x="41" y="30" width="4" height="62" fill="#7bc67e" opacity=".6"/>
+            <rect x="46" y="42" width="4" height="50" fill="#7bc67e" opacity=".55"/>
+            <rect x="51" y="48" width="4" height="44" fill="#7bc67e" opacity=".5"/>
+            <rect x="56" y="39" width="4" height="53" fill="#7bc67e" opacity=".5"/>
+            <rect x="61" y="54" width="4" height="38" fill="#c8b400" opacity=".6"/>
+            <rect x="66" y="58" width="4" height="34" fill="#c8b400" opacity=".55"/>
+            <rect x="71" y="55" width="4" height="37" fill="#c8b400" opacity=".55"/>
+            <rect x="76" y="64" width="4" height="28" fill="#c8b400" opacity=".5"/>
+            <rect x="81" y="70" width="4" height="22" fill="#c8b400" opacity=".45"/>
+            <rect x="86" y="68" width="4" height="24" fill="#888"   opacity=".4"/>
+            <rect x="91" y="75" width="4" height="17" fill="#888"   opacity=".35"/>
+            <rect x="96" y="80" width="4" height="12" fill="#888"   opacity=".3"/>
+            <!-- Peak hold lines -->
+            <rect x="1"  y="10" width="4" height="1.5" fill="#7bc67e" opacity=".95"/>
+            <rect x="21" y="7"  width="4" height="1.5" fill="#7bc67e" opacity=".95"/>
+            <rect x="56" y="37" width="4" height="1.5" fill="#7bc67e" opacity=".95"/>
+            <rect x="61" y="52" width="4" height="1.5" fill="#c8b400" opacity=".95"/>
+            <!-- Freq labels -->
+            <text x="1"  y="98" font-size="5" fill="#3a4a3a" font-family="monospace">20</text>
+            <text x="23" y="98" font-size="5" fill="#3a4a3a" font-family="monospace">200</text>
+            <text x="47" y="98" font-size="5" fill="#3a4a3a" font-family="monospace">2k</text>
+            <text x="73" y="98" font-size="5" fill="#3a4a3a" font-family="monospace">10k</text>
+          </svg>
+        </div>
+      </div>
+
+      </div><!-- /parts scroll block -->
+
+      <!-- Session info -->
+      <div class="rack-block" style="border-top:1px solid var(--groove); flex-shrink:0;">
+        <div class="rack-label">Session</div>
+        <div style="font-family:var(--font-lcd); font-size:7px; color:var(--lcd-green); text-shadow:0 0 3px var(--lcd-green); line-height:1.9; letter-spacing:.04em;">
+          <div>PITCHES &nbsp;7 · KEPT 5</div>
+          <div>APPROVE &nbsp;71%</div>
+          <div>STAGE &nbsp;&nbsp;&nbsp;5/8</div>
+          <div>FORMAT &nbsp;&nbsp;ARRANGED</div>
+        </div>
+      </div>
+
+    </div><!-- /console-panel -->
+
+    <!-- ── REGIONS 3 + 4 · Floor + Terminal ───────────────────────────── -->
+    <div class="pnl" style="grid-column:1; grid-row:2; overflow:hidden;">
+      <div class="pnl-head">
+        <span class="pnl-label pnl-label-hi">Floor</span>
+        <span class="pnl-label">· now playing · history · moves</span>
+        <span class="pnl-label" style="margin-left:auto; border-left:1px solid var(--groove); padding-left:10px;">
+          <span class="pnl-label-hi">Terminal</span>
+          <span> · live code</span>
+        </span>
+      </div>
+      <div class="floor-body">
+
+        <!-- Now-playing + set history -->
+        <div class="now-playing-col">
+          <!-- LCD now-playing -->
+          <div class="np-lcd">
+            <div class="np-track">▶ NEON MELT — CUTTING LEAD LINE…</div>
+            <div class="np-meta">
+              <span class="np-field">140 BPM</span>
+              <span class="np-field">F MIN</span>
+              <span class="np-field">DRILL</span>
+              <span class="np-field">STAGE 5</span>
+            </div>
+          </div>
+          <!-- Progress -->
+          <div class="progress-bar" style="height:14px; border-bottom:1px solid var(--groove);">
+            <svg viewBox="0 0 400 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="400" height="10" fill="#0d1208"/>
+              <g fill="#7bc67e" opacity=".55">
+                <rect x="0"  y="2" width="2" height="6"/>
+                <rect x="4"  y="1" width="2" height="8"/>
+                <rect x="8"  y="3" width="2" height="5"/>
+                <rect x="12" y="0" width="2" height="10"/>
+                <rect x="16" y="2" width="2" height="6"/>
+                <rect x="20" y="1" width="2" height="8"/>
+                <rect x="24" y="3" width="2" height="5"/>
+                <rect x="28" y="0" width="2" height="10"/>
+                <rect x="32" y="2" width="2" height="6"/>
+                <rect x="36" y="1" width="2" height="8"/>
+                <rect x="40" y="3" width="2" height="5"/>
+                <rect x="44" y="0" width="2" height="10"/>
+                <rect x="48" y="2" width="2" height="6"/>
+                <rect x="52" y="1" width="2" height="8"/>
+                <rect x="56" y="3" width="2" height="5"/>
+                <rect x="60" y="0" width="2" height="10"/>
+                <rect x="64" y="2" width="2" height="6"/>
+                <rect x="68" y="1" width="2" height="8"/>
+                <rect x="72" y="3" width="2" height="5"/>
+                <rect x="76" y="0" width="2" height="10"/>
+                <rect x="80" y="2" width="2" height="6"/>
+                <rect x="84" y="1" width="2" height="8"/>
+                <rect x="88" y="3" width="2" height="5"/>
+                <rect x="92" y="0" width="2" height="10"/>
+                <rect x="96" y="2" width="2" height="6"/>
+              </g>
+              <line x1="100" y1="0" x2="100" y2="10" stroke="#fff" stroke-width="1" opacity=".8"/>
+              <g fill="#7bc67e" opacity=".18">
+                <rect x="104" y="2" width="2" height="6"/>
+                <rect x="108" y="1" width="2" height="8"/>
+                <rect x="112" y="3" width="2" height="5"/>
+                <rect x="116" y="0" width="2" height="10"/>
+                <rect x="120" y="2" width="2" height="6"/>
+                <rect x="124" y="1" width="2" height="8"/>
+                <rect x="128" y="3" width="2" height="5"/>
+                <rect x="132" y="0" width="2" height="10"/>
+                <rect x="136" y="2" width="2" height="6"/>
+                <rect x="140" y="1" width="2" height="8"/>
+                <rect x="144" y="3" width="2" height="5"/>
+                <rect x="148" y="0" width="2" height="10"/>
+                <rect x="152" y="2" width="2" height="6"/>
+                <rect x="156" y="1" width="2" height="8"/>
+                <rect x="160" y="3" width="2" height="5"/>
+                <rect x="164" y="0" width="2" height="10"/>
+                <rect x="168" y="2" width="2" height="6"/>
+                <rect x="172" y="1" width="2" height="8"/>
+                <rect x="176" y="3" width="2" height="5"/>
+                <rect x="180" y="0" width="2" height="10"/>
+                <rect x="184" y="2" width="2" height="6"/>
+                <rect x="188" y="1" width="2" height="8"/>
+                <rect x="192" y="3" width="2" height="5"/>
+                <rect x="196" y="0" width="2" height="10"/>
+                <rect x="200" y="2" width="2" height="6"/>
+                <rect x="204" y="1" width="2" height="8"/>
+                <rect x="208" y="3" width="2" height="5"/>
+                <rect x="212" y="0" width="2" height="10"/>
+                <rect x="216" y="2" width="2" height="6"/>
+                <rect x="220" y="1" width="2" height="8"/>
+                <rect x="224" y="3" width="2" height="5"/>
+                <rect x="228" y="0" width="2" height="10"/>
+                <rect x="232" y="2" width="2" height="6"/>
+                <rect x="236" y="1" width="2" height="8"/>
+                <rect x="240" y="3" width="2" height="5"/>
+                <rect x="244" y="0" width="2" height="10"/>
+                <rect x="248" y="2" width="2" height="6"/>
+                <rect x="252" y="1" width="2" height="8"/>
+                <rect x="256" y="3" width="2" height="5"/>
+                <rect x="260" y="0" width="2" height="10"/>
+                <rect x="264" y="2" width="2" height="6"/>
+                <rect x="268" y="1" width="2" height="8"/>
+                <rect x="272" y="3" width="2" height="5"/>
+                <rect x="276" y="0" width="2" height="10"/>
+                <rect x="280" y="2" width="2" height="6"/>
+                <rect x="284" y="1" width="2" height="8"/>
+                <rect x="288" y="3" width="2" height="5"/>
+                <rect x="292" y="0" width="2" height="10"/>
+                <rect x="296" y="2" width="2" height="6"/>
+                <rect x="300" y="1" width="2" height="8"/>
+                <rect x="304" y="3" width="2" height="5"/>
+                <rect x="308" y="0" width="2" height="10"/>
+                <rect x="312" y="2" width="2" height="6"/>
+                <rect x="316" y="1" width="2" height="8"/>
+                <rect x="320" y="3" width="2" height="5"/>
+                <rect x="324" y="0" width="2" height="10"/>
+                <rect x="328" y="2" width="2" height="6"/>
+                <rect x="332" y="1" width="2" height="8"/>
+                <rect x="336" y="3" width="2" height="5"/>
+                <rect x="340" y="0" width="2" height="10"/>
+                <rect x="344" y="2" width="2" height="6"/>
+                <rect x="348" y="1" width="2" height="8"/>
+                <rect x="352" y="3" width="2" height="5"/>
+                <rect x="356" y="0" width="2" height="10"/>
+                <rect x="360" y="2" width="2" height="6"/>
+                <rect x="364" y="1" width="2" height="8"/>
+                <rect x="368" y="3" width="2" height="5"/>
+                <rect x="372" y="0" width="2" height="10"/>
+                <rect x="376" y="2" width="2" height="6"/>
+                <rect x="380" y="1" width="2" height="8"/>
+                <rect x="384" y="3" width="2" height="5"/>
+                <rect x="388" y="0" width="2" height="10"/>
+                <rect x="392" y="2" width="2" height="6"/>
+                <rect x="396" y="1" width="2" height="8"/>
+              </g>
+            </svg>
+          </div>
+          <!-- Set history log -->
+          <div class="log-area" style="border-top:1px solid var(--groove);">
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">kick · 4-on-floor pattern</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">hats · 16th swing</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-skip"></div>
+              <span class="log-text">open hat · offbeat accent</span>
+              <span class="log-badge log-badge-skip">SKIP</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">808 slide · F minor root</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">clap · bars 2 &amp; 4</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">chord stab · minor voicing</span>
+              <span class="log-badge log-badge-keep">KEPT</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-skip"></div>
+              <span class="log-text">reverb tail · plate 0.4</span>
+              <span class="log-badge log-badge-skip">SKIP</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DJ moves -->
+        <div class="side-section">
+          <div class="pnl-head">
+            <span class="pnl-label pnl-label-hi">DJ Moves</span>
+          </div>
+          <div class="log-area">
+            <div class="log-entry" style="background:var(--orange-dim);">
+              <div class="log-led log-led-active"></div>
+              <span class="log-text" style="color:var(--orange); text-shadow:0 0 4px var(--orange);">pitching lead line</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-info"></div>
+              <span class="log-text">opened chords on B</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">approved: chords</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-skip"></div>
+              <span class="log-text">skipped: reverb FX</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">approved: 808 slide</span>
+            </div>
+            <div class="log-entry">
+              <div class="log-led log-led-keep"></div>
+              <span class="log-text">approved: clap pattern</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal / session notes -->
+        <div class="terminal-pane">
+          <div class="term-head">
+            <span class="term-label">Session Notes</span>
+            <span class="term-status">● EVALUATING</span>
+          </div>
+          <div class="term-body">
+<span class="tok-cm">; neon melt · drill · 140bpm · f min</span><br>
+<span class="tok-cm">; stage 5/8 · 5 parts committed</span><br>
+<br>
+<span class="tok-kw">stack</span><span class="tok-punc">(</span><br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"bd*4"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">bank</span><span class="tok-punc">(</span><span class="tok-str">"RolandTR808"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">0.9</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"~ hh ~ hh"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">.6</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f2 f2 ab2 c3&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"sawtooth"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">lpf</span><span class="tok-punc">(</span><span class="tok-num">700</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">penv</span><span class="tok-punc">(</span><span class="tok-num">4</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f4 ab4 c5 eb5&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"square"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">room</span><span class="tok-punc">(</span><span class="tok-num">.3</span><span class="tok-punc">)</span><br>
+<span class="tok-punc">)</span><span class="tok-punc">.</span><span class="tok-fn">slow</span><span class="tok-punc">(</span><span class="tok-num">2</span><span class="tok-punc">)</span><span class="term-cursor"></span>
+          </div>
+        </div>
+
+      </div><!-- /floor-body -->
+    </div><!-- /floor panel -->
+
+  </div><!-- /main-grid -->
+</div><!-- /app-shell -->
+
+<script>
+(function () {
+  'use strict';
+
+  // Crossfader drag (vertical)
+  const housing = document.getElementById('xfader-housing');
+  const thumb   = document.getElementById('xf-thumb');
+  let dragging = false;
+  if (housing && thumb) {
+    thumb.addEventListener('mousedown', function (e) { dragging = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      const rect = housing.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      thumb.style.top = (pct * 100) + '%';
+    });
+    document.addEventListener('mouseup', function () { dragging = false; });
+  }
+
+  // Density drag (horizontal)
+  const dTrack = document.getElementById('density-track');
+  const dFill  = document.getElementById('density-fill');
+  const dThumb = document.getElementById('density-thumb');
+  let dActive = false;
+  if (dTrack) {
+    dTrack.addEventListener('mousedown', function (e) { dActive = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dActive) return;
+      const rect = dTrack.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      dFill.style.width  = (pct * 100) + '%';
+      dThumb.style.left  = 'calc(' + (pct * 100) + '% - 4px)';
+    });
+    document.addEventListener('mouseup', function () { dActive = false; });
+  }
+
+  // Approve / skip
+  const approve = document.getElementById('btn-approve');
+  const skip    = document.getElementById('btn-skip');
+  if (approve) {
+    approve.addEventListener('click', function () {
+      this.textContent = '✓ APPROVED';
+      setTimeout(() => { this.textContent = '✓ APPROVE'; }, 900);
+    });
+  }
+  if (skip) {
+    skip.addEventListener('click', function () {
+      this.textContent = '✕ SKIPPED';
+      setTimeout(() => { this.textContent = '✕ SKIP'; }, 700);
+    });
+  }
+
+  // Genre pill toggle
+  document.querySelectorAll('.genre-tag').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      document.querySelectorAll('.genre-tag').forEach(function (p) { p.classList.remove('selected'); });
+      this.classList.add('selected');
+    });
+  });
+
+  // Channel fader drags
+  document.querySelectorAll('.ch-fader').forEach(function (fader) {
+    let active = false;
+    fader.addEventListener('mousedown', function (e) { active = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!active) return;
+      const rect = fader.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      fader.querySelector('.ch-fader-fill').style.width = (pct * 100) + '%';
+      fader.querySelector('.ch-fader-thumb').style.left = (pct * 100) + '%';
+    });
+    document.addEventListener('mouseup', function () { active = false; });
+  });
+})();
+</script>
+</body>
+</html>

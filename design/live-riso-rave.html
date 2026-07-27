@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RISO RAVE · Acetate Live · Design Spike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,700;0,900;1,700;1,900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   RISO RAVE · The Designers Republic / Warp / rave-flyer print
+   Palette: newsprint ground + fluoro pink + reflex blue + acid green
+   Technique: multiply overprint, misregistration, halftone, crop-marks
+═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --paper:     #efe9dd;
+  --paper-dk:  #e0d9cc;
+  --pink:      #ff2e88;
+  --blue:      #0b31ff;
+  --green:     #c6ff00;
+  --black:     #0a0806;
+  --white:     #ffffff;
+  --ink:       #1a1410;
+
+  --ff-disp:   'Barlow Condensed', 'Arial Black', Impact, Arial, sans-serif;
+  --ff-mono:   'Share Tech Mono', 'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--black);
+}
+
+body {
+  font-family: var(--ff-disp);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  background: var(--black);
+}
+
+/* ── HALFTONE SVG PATTERN ── */
+svg { display: block; }
+
+/* ── GRAIN TEXTURE (CSS only) ── */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  mix-blend-mode: multiply;
+  opacity: 0.4;
+  z-index: 99;
+}
+
+/* ══════════════════════════════════════════════
+   CAPTION STRIP
+══════════════════════════════════════════════ */
+.caption-strip {
+  background: var(--black);
+  color: var(--paper);
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--blue);
+}
+.caption-strip .cs-spike {
+  color: var(--pink);
+  font-weight: bold;
+  letter-spacing: 0.1em;
+}
+.caption-strip .cs-mid { flex: 1; }
+.caption-strip .cs-num { color: var(--green); }
+
+/* ══════════════════════════════════════════════
+   STAGE GRID
+══════════════════════════════════════════════ */
+.stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  background: var(--black);
+  min-height: 0;
+  position: relative;
+}
+
+/* ── PANEL BASE ── */
+.panel {
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panel.grain::after { border-radius: 0; }
+
+/* halftone dot field overlay on every panel */
+.panel-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.55;
+}
+
+/* ══════════════════════════════════════════════
+   PANEL: RIG  (top-left)
+══════════════════════════════════════════════ */
+.rig {
+  grid-column: 1;
+  grid-row: 1;
+  padding: 0;
+}
+
+/* RIG — header bar */
+.rig-header {
+  background: var(--pink);
+  mix-blend-mode: multiply;
+  padding: 6px 12px 5px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+/* misregistration ghost */
+.rig-header::before {
+  content: 'NEON MELT';
+  position: absolute;
+  font-family: var(--ff-disp);
+  font-weight: 900;
+  font-style: italic;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--blue);
+  opacity: 0.55;
+  top: 4px;
+  left: 14px;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  line-height: 1;
+}
+.rig-title {
+  font-weight: 900;
+  font-style: italic;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--black);
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+}
+.rig-meta {
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--black);
+  opacity: 0.8;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 2px;
+  align-self: flex-end;
+}
+.rig-status {
+  margin-left: auto;
+  font-family: var(--ff-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--black);
+  background: var(--green);
+  mix-blend-mode: multiply;
+  padding: 2px 6px;
+  position: relative;
+  z-index: 2;
+}
+
+/* RIG — chips row */
+.rig-chips {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--black);
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--blue);
+}
+.stage-label {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--blue);
+  padding: 4px 8px 4px 0;
+  flex-shrink: 0;
+}
+.chip {
+  font-family: var(--ff-disp);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper);
+  padding: 4px 8px;
+  border-left: 1px solid #333;
+  line-height: 1;
+}
+.chip.active {
+  background: var(--pink);
+  color: var(--black);
+}
+
+/* RIG — buttons */
+.rig-btns {
+  display: flex;
+  gap: 0;
+  padding: 8px 12px;
+  align-items: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--paper-dk);
+}
+.btn-riso {
+  font-family: var(--ff-disp);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  padding: 6px 14px;
+  line-height: 1;
+  position: relative;
+}
+.btn-primary {
+  background: var(--blue);
+  color: var(--paper);
+}
+.btn-primary::before {
+  content: '▶';
+  margin-right: 5px;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  margin-left: 6px;
+}
+.btn-ghost.cut::before { content: '◉ '; }
+.btn-ghost.new::before { content: '⏭ '; }
+
+/* RIG — now playing status */
+.now-playing {
+  font-family: var(--ff-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--paper-dk);
+}
+.now-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--pink);
+  flex-shrink: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── DECK RIG ── */
+.deck-rig {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0;
+  padding: 8px 12px;
+  min-height: 0;
+  position: relative;
+  z-index: 5;
+}
+
+/* DECK A / B */
+.tdeck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.deck-label {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.6;
+  text-align: center;
+}
+.deck-label strong {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  opacity: 1;
+  font-family: var(--ff-disp);
+  font-weight: 900;
+}
+
+/* VINYL RECORD SVG */
+.vinyl-wrap {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  flex-shrink: 0;
+}
+.vinyl-wrap svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.35));
+}
+
+/* DECK A cap */
+.deck-cap-a {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: var(--ink);
+  opacity: 0.55;
+  max-width: 130px;
+}
+
+/* DECK B pitch card */
+.pitch-card {
+  background: var(--blue);
+  color: var(--paper);
+  padding: 7px 10px;
+  max-width: 130px;
+  position: relative;
+}
+.pitch-card::before {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px; right: -2px; bottom: -2px;
+  background: var(--pink);
+  z-index: -1;
+  mix-blend-mode: multiply;
+}
+.pitch-kind {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 3px;
+}
+.pitch-desc {
+  font-family: var(--ff-disp);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.pitch-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  justify-content: center;
+  width: 100%;
+}
+.btn-skip {
+  font-family: var(--ff-disp);
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--paper);
+  border: 1.5px solid var(--paper);
+  padding: 4px 10px;
+  cursor: pointer;
+  flex: 1;
+}
+.btn-approve {
+  font-family: var(--ff-disp);
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--green);
+  color: var(--black);
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+  flex: 1;
+}
+
+/* ── CROSSFADER ── */
+.xfade-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+}
+.xfade-label {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  opacity: 0.5;
+}
+/* HUD chevron track */
+.xfade-track {
+  width: 20px;
+  height: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+.xfade-track::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 8px; bottom: 8px;
+  width: 2px;
+  background: var(--ink);
+  transform: translateX(-50%);
+}
+.chevron {
+  font-size: 8px;
+  color: var(--blue);
+  line-height: 1;
+  font-style: normal;
+  z-index: 2;
+}
+.xfade-thumb {
+  position: absolute;
+  left: 50%;
+  top: 25%;
+  width: 18px; height: 8px;
+  background: var(--pink);
+  transform: translateX(-50%);
+  border: 1px solid var(--black);
+  z-index: 3;
+}
+.xfade-abcaps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--ff-disp);
+  font-weight: 900;
+  font-size: 10px;
+  color: var(--ink);
+}
+.xfade-abcaps span {
+  width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--ink);
+  font-size: 9px;
+}
+
+
+/* ══════════════════════════════════════════════
+   PANEL: CONSOLE  (top-right)
+══════════════════════════════════════════════ */
+.console {
+  grid-column: 2;
+  grid-row: 1;
+  background: var(--black);
+  color: var(--paper);
+  padding: 0;
+  border-left: 2px solid var(--blue);
+}
+
+.console-header {
+  background: var(--blue);
+  padding: 5px 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.console-title {
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper);
+  position: relative;
+}
+/* misreg */
+.console-title::before {
+  content: 'THE CONSOLE';
+  position: absolute;
+  color: var(--pink);
+  top: 2px; left: 2px;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.console-index {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  color: var(--green);
+  margin-left: auto;
+}
+
+.console-section {
+  border-bottom: 1px solid #222;
+  padding: 7px 10px;
+  flex-shrink: 0;
+}
+.ctrl-label {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ctrl-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #333;
+}
+
+/* genre pills */
+.genre-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.gpill {
+  font-family: var(--ff-disp);
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 1px solid #444;
+  color: #888;
+  background: transparent;
+  cursor: pointer;
+  line-height: 1;
+}
+.gpill.active {
+  background: var(--pink);
+  color: var(--black);
+  border-color: var(--pink);
+}
+
+/* density */
+.density-track {
+  height: 14px;
+  background: #111;
+  border: 1px solid #333;
+  position: relative;
+  margin: 5px 0;
+}
+.density-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 50%;
+  background: var(--blue);
+  mix-blend-mode: screen;
+}
+.density-handle {
+  position: absolute;
+  left: 50%;
+  top: -3px; bottom: -3px;
+  width: 6px;
+  background: var(--paper);
+  transform: translateX(-50%);
+  border: 1px solid var(--black);
+}
+.density-scale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--ff-mono);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+}
+
+/* part strips */
+.part-strips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+.part-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #1a1a1a;
+}
+.part-name {
+  font-family: var(--ff-disp);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper);
+  width: 38px;
+  flex-shrink: 0;
+}
+.part-opts {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.part-opt {
+  flex: 1;
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 3px 2px;
+  border: 1px solid #333;
+  color: #555;
+  background: transparent;
+  cursor: pointer;
+  line-height: 1;
+}
+.part-opt.sel {
+  background: var(--paper);
+  color: var(--black);
+  border-color: var(--paper);
+}
+.part-opt.sel.feat {
+  background: var(--green);
+  border-color: var(--green);
+}
+.part-bar {
+  width: 30px;
+  height: 4px;
+  background: #222;
+  position: relative;
+  flex-shrink: 0;
+}
+.part-bar-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--pink);
+}
+
+
+/* ══════════════════════════════════════════════
+   PANEL: FLOOR  (bottom-left)
+══════════════════════════════════════════════ */
+.floor {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 0;
+  background: var(--paper);
+}
+
+.floor-main {
+  border-right: 2px solid var(--black);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.floor-header {
+  background: var(--black);
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.floor-title {
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper);
+  position: relative;
+}
+.floor-title::before {
+  content: 'THE ROLL';
+  position: absolute;
+  color: var(--blue);
+  top: 2px; left: 2px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.floor-index {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  color: var(--green);
+  letter-spacing: 0.15em;
+  margin-left: auto;
+}
+
+/* ── PIANOROLL ── */
+.roll-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-dk);
+  min-height: 0;
+}
+.roll-canvas {
+  width: 100%; height: 100%;
+  display: block;
+}
+
+/* ── FLOOR SIDE (history + moves) ── */
+.floor-side {
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  border-right: 0;
+  min-width: 0;
+}
+.side-header {
+  background: var(--ink);
+  padding: 5px 8px;
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--green);
+  flex-shrink: 0;
+}
+.feed-list {
+  list-style: none;
+  font-family: var(--ff-mono);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px;
+}
+.feed-list li {
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.3;
+}
+.feed-list li .tag {
+  font-size: 7px;
+  padding: 1px 3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.tag-kept { background: var(--green); color: var(--black); }
+.tag-skip { background: var(--paper-dk); color: #888; border: 1px solid #ccc; }
+
+.moves-list {
+  list-style: none;
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  color: #777;
+  overflow-y: auto;
+  padding: 4px 8px;
+  max-height: 80px;
+  border-top: 1px solid var(--paper-dk);
+  flex-shrink: 0;
+}
+.moves-list li { padding: 1px 0; }
+.moves-list li span { color: var(--pink); margin-right: 3px; }
+
+
+/* ══════════════════════════════════════════════
+   PANEL: CODE  (bottom-right)
+══════════════════════════════════════════════ */
+.codepanel {
+  grid-column: 2;
+  grid-row: 2;
+  background: var(--black);
+  color: var(--paper);
+  border-left: 2px solid var(--blue);
+  display: flex;
+  flex-direction: column;
+}
+
+.code-header {
+  background: var(--pink);
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.code-title {
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--black);
+  position: relative;
+}
+.code-title::before {
+  content: '</> THE LIVE CODE';
+  position: absolute;
+  color: var(--blue);
+  top: 2px; left: 2px;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+.code-index {
+  font-family: var(--ff-mono);
+  font-size: 7px;
+  letter-spacing: 0.15em;
+  color: var(--black);
+  margin-left: auto;
+  opacity: 0.6;
+}
+.code-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  line-height: 1.7;
+  min-height: 0;
+}
+.t-fn   { color: var(--pink); }
+.t-str  { color: var(--green); }
+.t-num  { color: #ffb347; }
+.t-pn   { color: #aaa; }
+.t-met  { color: #6af; }
+.t-cmt  { color: #555; font-style: italic; }
+
+/* ══════════════════════════════════════════════
+   HAZARD / CROPMARK ACCENTS
+══════════════════════════════════════════════ */
+/* corner cropmarks on the whole stage */
+.cropmark {
+  position: absolute;
+  width: 12px; height: 12px;
+  pointer-events: none;
+  z-index: 200;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  color: var(--ink);
+  opacity: 0.3;
+  line-height: 1;
+}
+.cropmark.tl { top: 38px; left: 2px; }
+.cropmark.tr { top: 38px; right: 2px; text-align: right; }
+.cropmark.bl { bottom: 2px; left: 2px; }
+.cropmark.br { bottom: 2px; right: 2px; text-align: right; }
+
+/* hazard stripe border (bottom of rig) */
+.hazard-stripe {
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--black) 0px,
+    var(--black) 8px,
+    var(--pink) 8px,
+    var(--pink) 16px
+  );
+  flex-shrink: 0;
+}
+
+/* overprint overlay on vinyl */
+.vinyl-overprint {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* ── RECORD LABEL hue patch ── */
+.label-hue {
+  position: absolute;
+  inset: 38%;
+  border-radius: 50%;
+  background: var(--pink);
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+/* ══════════════════════════════════════════════
+   SCROLLBAR (dark panels)
+══════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; }
+
+</style>
+</head>
+<body>
+
+<!-- ── CAPTION STRIP ── -->
+<div class="caption-strip">
+  <span>⌐</span>
+  <span class="cs-spike">RISO RAVE · The Designers Republic / Warp / Rave-Flyer Print</span>
+  <span class="cs-mid"></span>
+  <span>+</span>
+  <span class="cs-num">SPIKE_05 / ACETATE·LIVE</span>
+  <span>⌐</span>
+</div>
+
+<!-- ── CROPMARKS ── -->
+<div class="cropmark tl">⌐</div>
+<div class="cropmark tr">¬</div>
+<div class="cropmark bl">L</div>
+<div class="cropmark br">J</div>
+
+<!-- ══════════════ STAGE GRID ══════════════ -->
+<div class="stage">
+
+  <!-- ███████ RIG (top-left) ███████ -->
+  <section class="panel rig grain">
+
+    <!-- halftone dot field -->
+    <svg class="panel-dots" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <defs>
+        <pattern id="ht-rig" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+          <circle cx="5" cy="5" r="1.2" fill="#0b31ff" opacity="0.18"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#ht-rig)"/>
+    </svg>
+
+    <!-- header -->
+    <div class="rig-header">
+      <div class="rig-title">NEON MELT</div>
+      <div class="rig-meta">DRILL · 140 BPM · F MINOR · STAGE 5 PARTS</div>
+      <div class="rig-status">⬤ CUTTING A LEAD LINE</div>
+    </div>
+
+    <!-- chips -->
+    <div class="rig-chips">
+      <span class="stage-label">TRK_01/07 ▸</span>
+      <span class="chip active">kick</span>
+      <span class="chip active">hats</span>
+      <span class="chip active">808</span>
+      <span class="chip active">clap</span>
+      <span class="chip active">chords</span>
+      <span class="chip active">lead</span>
+    </div>
+
+    <!-- buttons + now playing -->
+    <div class="rig-btns">
+      <button class="btn-riso btn-primary">Start the set</button>
+      <button class="btn-riso btn-ghost cut">Cut a dubplate</button>
+      <button class="btn-riso btn-ghost new">New</button>
+      <div class="now-playing" style="margin-left:auto;padding:0;">
+        <span class="now-dot"></span>
+        <span style="font-family:var(--ff-mono);font-size:8px;letter-spacing:0.1em;text-transform:uppercase;">cutting a lead line…</span>
+      </div>
+    </div>
+
+    <!-- hazard -->
+    <div class="hazard-stripe"></div>
+
+    <!-- DECK RIG -->
+    <div class="deck-rig">
+
+      <!-- DECK A -->
+      <div class="tdeck">
+        <div class="deck-label"><strong>DECK A</strong>the track so far</div>
+        <div class="vinyl-wrap">
+          <!-- Vinyl record SVG — Deck A (committed track, full record) -->
+          <svg viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="vinyl-a" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#2a1a10"/>
+                <stop offset="100%" stop-color="#0a0806"/>
+              </radialGradient>
+              <pattern id="groove-a" x="0" y="0" width="130" height="130" patternUnits="userSpaceOnUse">
+                <circle cx="65" cy="65" r="58" fill="none" stroke="#1a1210" stroke-width="0.6"/>
+                <circle cx="65" cy="65" r="55" fill="none" stroke="#1a1210" stroke-width="0.5"/>
+                <circle cx="65" cy="65" r="52" fill="none" stroke="#1a1210" stroke-width="0.5"/>
+                <circle cx="65" cy="65" r="49" fill="none" stroke="#1a1210" stroke-width="0.5"/>
+                <circle cx="65" cy="65" r="46" fill="none" stroke="#1a1210" stroke-width="0.5"/>
+                <circle cx="65" cy="65" r="43" fill="none" stroke="#1a1210" stroke-width="0.5"/>
+                <circle cx="65" cy="65" r="40" fill="none" stroke="#1a1210" stroke-width="0.5"/>
+              </pattern>
+              <clipPath id="disc-clip-a"><circle cx="65" cy="65" r="62"/></clipPath>
+            </defs>
+            <!-- disc body -->
+            <circle cx="65" cy="65" r="62" fill="url(#vinyl-a)"/>
+            <rect width="130" height="130" fill="url(#groove-a)" clip-path="url(#disc-clip-a)"/>
+            <!-- lane rings — pink overprint -->
+            <!-- kick ring (outer) -->
+            <circle cx="65" cy="65" r="56" fill="none" stroke="#ff2e88" stroke-width="2.5" stroke-dasharray="16 6" opacity="0.7" style="mix-blend-mode:screen"/>
+            <!-- hats ring -->
+            <circle cx="65" cy="65" r="50" fill="none" stroke="#ff2e88" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.5" style="mix-blend-mode:screen"/>
+            <!-- 808 bass (solid) -->
+            <circle cx="65" cy="65" r="44" fill="none" stroke="#0b31ff" stroke-width="3" opacity="0.6" style="mix-blend-mode:screen"/>
+            <!-- clap backbeat arcs -->
+            <path d="M65,21 A44,44 0 0,1 109,65" fill="none" stroke="#c6ff00" stroke-width="2" opacity="0.5" style="mix-blend-mode:screen"/>
+            <path d="M65,109 A44,44 0 0,1 21,65" fill="none" stroke="#c6ff00" stroke-width="2" opacity="0.5" style="mix-blend-mode:screen"/>
+            <!-- chords ring -->
+            <circle cx="65" cy="65" r="37" fill="none" stroke="#ff2e88" stroke-width="1.5" stroke-dasharray="8 4 2 4" opacity="0.6" style="mix-blend-mode:screen"/>
+            <!-- label -->
+            <circle cx="65" cy="65" r="18" fill="#ff2e88" opacity="0.85" style="mix-blend-mode:screen"/>
+            <circle cx="65" cy="65" r="18" fill="none" stroke="#c6ff00" stroke-width="0.8" opacity="0.6"/>
+            <!-- misreg label text -->
+            <text x="67" y="62" text-anchor="middle" font-family="'Barlow Condensed',Arial Black,sans-serif" font-weight="900" font-size="5" fill="#0b31ff" letter-spacing="0.5" text-decoration="none" opacity="0.7" transform="rotate(-10,65,65)">NEON MELT</text>
+            <text x="65" y="61" text-anchor="middle" font-family="'Barlow Condensed',Arial Black,sans-serif" font-weight="900" font-size="5" fill="#efe9dd" letter-spacing="0.5">NEON MELT</text>
+            <text x="65" y="67" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="3.5" fill="#efe9dd" letter-spacing="0.3" opacity="0.7">F MIN · 140</text>
+            <circle cx="65" cy="65" r="2" fill="#0a0806"/>
+            <!-- halftone overprint on record -->
+            <circle cx="65" cy="65" r="62" fill="url(#ht-rig)" opacity="0.15" style="mix-blend-mode:multiply"/>
+          </svg>
+        </div>
+        <div class="deck-cap-a">F MIN · 140 BPM · COMMITTED</div>
+      </div>
+
+      <!-- CROSSFADER -->
+      <div class="xfade-wrap">
+        <div class="xfade-label">BLEND</div>
+        <div class="xfade-abcaps">
+          <span>A</span>
+        </div>
+        <div class="xfade-track">
+          <i class="chevron">›</i>
+          <i class="chevron">›</i>
+          <i class="chevron">›</i>
+          <div class="xfade-thumb"></div>
+          <i class="chevron">‹</i>
+          <i class="chevron">‹</i>
+          <i class="chevron">‹</i>
+        </div>
+        <div class="xfade-abcaps">
+          <span>B</span>
+        </div>
+        <div class="xfade-label" style="margin-top:3px;">A ↕ B</div>
+      </div>
+
+      <!-- DECK B -->
+      <div class="tdeck">
+        <div class="deck-label"><strong>DECK B</strong>the DJ's pitch</div>
+        <div class="vinyl-wrap">
+          <!-- Translucent acetate disc — Deck B (proposed change only) -->
+          <svg viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="disc-clip-b"><circle cx="65" cy="65" r="62"/></clipPath>
+            </defs>
+            <!-- translucent acetate body -->
+            <circle cx="65" cy="65" r="62" fill="#efe9dd" opacity="0.18"/>
+            <circle cx="65" cy="65" r="62" fill="none" stroke="#0b31ff" stroke-width="1" stroke-dasharray="4 4" opacity="0.4"/>
+            <!-- sparse grooves -->
+            <circle cx="65" cy="65" r="55" fill="none" stroke="#0b31ff" stroke-width="0.3" stroke-dasharray="2 8" opacity="0.25"/>
+            <circle cx="65" cy="65" r="48" fill="none" stroke="#0b31ff" stroke-width="0.3" stroke-dasharray="2 8" opacity="0.25"/>
+            <!-- DELTA MARK: lead line ring (dotted, call-and-response) -->
+            <circle cx="65" cy="65" r="33" fill="none" stroke="#ff2e88" stroke-width="2.5"
+              stroke-dasharray="6 3 2 3" opacity="0.9" style="mix-blend-mode:multiply"/>
+            <!-- misreg ghost of lead ring -->
+            <circle cx="67" cy="63" r="33" fill="none" stroke="#0b31ff" stroke-width="1.5"
+              stroke-dasharray="6 3 2 3" opacity="0.35" style="mix-blend-mode:multiply"/>
+            <!-- label zone — minimal, just outline -->
+            <circle cx="65" cy="65" r="14" fill="none" stroke="#ff2e88" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
+            <circle cx="65" cy="65" r="2" fill="#0b31ff" opacity="0.5"/>
+          </svg>
+        </div>
+        <div class="pitch-card">
+          <div class="pitch-kind">⚠ NEW PART</div>
+          <div class="pitch-desc">Add a lead line — dotted, call-and-response</div>
+          <div class="pitch-actions">
+            <button class="btn-skip">✗ Skip</button>
+            <button class="btn-approve">✓ Approve</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /deck-rig -->
+  </section>
+
+
+  <!-- ███████ CONSOLE (top-right) ███████ -->
+  <aside class="panel console">
+
+    <div class="console-header">
+      <span class="console-title">THE CONSOLE</span>
+      <span class="console-index">SYS_02</span>
+    </div>
+
+    <!-- genre pills -->
+    <div class="console-section">
+      <div class="ctrl-label">Genre</div>
+      <div class="genre-pills">
+        <span class="gpill active">drill</span>
+        <span class="gpill">techno</span>
+        <span class="gpill">lo-fi</span>
+        <span class="gpill">house</span>
+        <span class="gpill">dnb</span>
+        <span class="gpill">ambient</span>
+      </div>
+    </div>
+
+    <!-- density -->
+    <div class="console-section">
+      <div class="ctrl-label">Density</div>
+      <div class="density-track">
+        <div class="density-fill"></div>
+        <div class="density-handle"></div>
+      </div>
+      <div class="density-scale">
+        <span>strip</span><span>hold</span><span>pile on</span>
+      </div>
+    </div>
+
+    <!-- part strips -->
+    <div class="ctrl-label" style="padding:6px 10px 2px;flex-shrink:0;">The parts</div>
+    <div class="part-strips">
+
+      <div class="part-strip">
+        <div class="part-name">kick</div>
+        <div class="part-opts">
+          <button class="part-opt">drop</button>
+          <button class="part-opt sel">auto</button>
+          <button class="part-opt">feat</button>
+        </div>
+        <div class="part-bar"><div class="part-bar-fill" style="width:70%"></div></div>
+      </div>
+
+      <div class="part-strip">
+        <div class="part-name">hats</div>
+        <div class="part-opts">
+          <button class="part-opt">drop</button>
+          <button class="part-opt sel">auto</button>
+          <button class="part-opt">feat</button>
+        </div>
+        <div class="part-bar"><div class="part-bar-fill" style="width:50%"></div></div>
+      </div>
+
+      <div class="part-strip">
+        <div class="part-name">808</div>
+        <div class="part-opts">
+          <button class="part-opt">drop</button>
+          <button class="part-opt sel">auto</button>
+          <button class="part-opt">feat</button>
+        </div>
+        <div class="part-bar"><div class="part-bar-fill" style="width:80%"></div></div>
+      </div>
+
+      <div class="part-strip">
+        <div class="part-name">clap</div>
+        <div class="part-opts">
+          <button class="part-opt">drop</button>
+          <button class="part-opt sel">auto</button>
+          <button class="part-opt">feat</button>
+        </div>
+        <div class="part-bar"><div class="part-bar-fill" style="width:55%"></div></div>
+      </div>
+
+      <div class="part-strip">
+        <div class="part-name">chords</div>
+        <div class="part-opts">
+          <button class="part-opt">drop</button>
+          <button class="part-opt">auto</button>
+          <button class="part-opt sel feat">feat</button>
+        </div>
+        <div class="part-bar"><div class="part-bar-fill" style="width:90%"></div></div>
+      </div>
+
+      <div class="part-strip">
+        <div class="part-name">lead</div>
+        <div class="part-opts">
+          <button class="part-opt">drop</button>
+          <button class="part-opt sel">auto</button>
+          <button class="part-opt">feat</button>
+        </div>
+        <div class="part-bar"><div class="part-bar-fill" style="width:40%"></div></div>
+      </div>
+
+    </div>
+  </aside>
+
+
+  <!-- ███████ FLOOR (bottom-left) ███████ -->
+  <section class="panel floor">
+
+    <!-- pianoroll main -->
+    <div class="floor-main">
+      <div class="floor-header">
+        <span class="floor-title">THE ROLL</span>
+        <span class="floor-index">⬤ LIVE</span>
+      </div>
+      <div class="roll-wrap">
+        <!-- Pianoroll — inline SVG halftone bar representation -->
+        <svg class="roll-canvas" viewBox="0 0 520 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="ht-roll" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+              <circle cx="3" cy="3" r="0.9" fill="#0b31ff" opacity="0.25"/>
+            </pattern>
+          </defs>
+          <rect width="520" height="120" fill="#e0d9cc"/>
+          <rect width="520" height="120" fill="url(#ht-roll)"/>
+
+          <!-- pitch lane lines -->
+          <!-- kick (bottom band) -->
+          <rect x="0"   y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="65"  y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="130" y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="195" y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="260" y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="325" y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="390" y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+          <rect x="455" y="100" width="30"  height="8" fill="#ff2e88" opacity="0.85"/>
+
+          <!-- 808 sliding bass (pink, tall, lower-mid) -->
+          <rect x="0"   y="70" width="60"  height="12" fill="#0b31ff" opacity="0.7"/>
+          <rect x="130" y="68" width="60"  height="12" fill="#0b31ff" opacity="0.7"/>
+          <rect x="260" y="72" width="60"  height="12" fill="#0b31ff" opacity="0.7"/>
+          <rect x="390" y="70" width="60"  height="12" fill="#0b31ff" opacity="0.7"/>
+
+          <!-- chords (stacked, mid) -->
+          <rect x="0"   y="45" width="55"  height="6"  fill="#ff2e88" opacity="0.55"/>
+          <rect x="0"   y="52" width="55"  height="6"  fill="#ff2e88" opacity="0.35"/>
+          <rect x="0"   y="39" width="55"  height="5"  fill="#ff2e88" opacity="0.25"/>
+          <rect x="130" y="43" width="55"  height="6"  fill="#ff2e88" opacity="0.55"/>
+          <rect x="130" y="50" width="55"  height="6"  fill="#ff2e88" opacity="0.35"/>
+          <rect x="260" y="47" width="55"  height="6"  fill="#ff2e88" opacity="0.55"/>
+          <rect x="260" y="54" width="55"  height="6"  fill="#ff2e88" opacity="0.35"/>
+          <rect x="390" y="45" width="55"  height="6"  fill="#ff2e88" opacity="0.55"/>
+          <rect x="390" y="52" width="55"  height="6"  fill="#ff2e88" opacity="0.35"/>
+
+          <!-- lead (dotted, call-and-response, top) -->
+          <rect x="10"  y="15" width="18"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="35"  y="22" width="14"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="75"  y="10" width="22"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="104" y="18" width="12"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="140" y="14" width="18"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="165" y="21" width="10"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="200" y="9"  width="25"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="230" y="17" width="14"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="270" y="13" width="18"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="295" y="20" width="12"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="335" y="8"  width="20"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="362" y="16" width="15"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="400" y="12" width="18"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="425" y="19" width="11"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="460" y="10" width="22"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+          <rect x="487" y="18" width="14"  height="5"  fill="#c6ff00" opacity="0.9" style="mix-blend-mode:multiply"/>
+
+          <!-- hats fine ticks -->
+          <rect x="0"   y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="16"  y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="32"  y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="48"  y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="64"  y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="80"  y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="96"  y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="112" y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="128" y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="144" y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="160" y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+          <rect x="176" y="112" width="2" height="5" fill="#0a0806" opacity="0.6"/>
+
+          <!-- beat dividers -->
+          <line x1="65"  y1="0" x2="65"  y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+          <line x1="130" y1="0" x2="130" y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+          <line x1="195" y1="0" x2="195" y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+          <line x1="260" y1="0" x2="260" y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+          <line x1="325" y1="0" x2="325" y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+          <line x1="390" y1="0" x2="390" y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+          <line x1="455" y1="0" x2="455" y2="120" stroke="#0a0806" stroke-width="0.5" opacity="0.2"/>
+
+          <!-- playhead -->
+          <line x1="195" y1="0" x2="195" y2="120" stroke="#ff2e88" stroke-width="1.5" opacity="0.9"/>
+          <polygon points="195,0 201,6 189,6" fill="#ff2e88" opacity="0.9"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- set history + moves -->
+    <div class="floor-side">
+      <div class="side-header">Kept · skipped</div>
+      <ul class="feed-list">
+        <li><span class="tag tag-kept">kept</span>add 808 slide</li>
+        <li><span class="tag tag-kept">kept</span>add clap backbeat</li>
+        <li><span class="tag tag-kept">kept</span>add chords — stacked 4ths</li>
+        <li><span class="tag tag-skip">skip</span>add open hat accent</li>
+        <li><span class="tag tag-kept">kept</span>fill — rising arc bar 8</li>
+        <li><span class="tag tag-skip">skip</span>rework hats — shuffle</li>
+      </ul>
+      <div class="side-header" style="background:#1a1410;">DJ moves</div>
+      <ul class="moves-list">
+        <li><span>▸</span>proposed: add lead line</li>
+        <li><span>▸</span>kept fill arc</li>
+        <li><span>▸</span>skipped hat rework</li>
+        <li><span>▸</span>kept chords voicing</li>
+      </ul>
+    </div>
+
+  </section>
+
+
+  <!-- ███████ CODE (bottom-right) ███████ -->
+  <section class="panel codepanel">
+
+    <div class="code-header">
+      <span class="code-title">&lt;/&gt; THE LIVE CODE</span>
+      <span class="code-index">⌐ EVAL</span>
+    </div>
+
+    <div class="code-body">
+      <!-- syntax-highlighted Strudel snippet -->
+      <code>
+<span class="t-fn">stack</span><span class="t-pn">(</span><br>
+&nbsp;&nbsp;<span class="t-fn">s</span><span class="t-pn">(</span><span class="t-str">"bd*4"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.bank</span><span class="t-pn">(</span><span class="t-str">"RolandTR808"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.gain</span><span class="t-pn">(</span><span class="t-num">0.9</span><span class="t-pn">)</span><span class="t-pn">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="t-fn">s</span><span class="t-pn">(</span><span class="t-str">"~ hh ~ hh"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.gain</span><span class="t-pn">(</span><span class="t-num">.6</span><span class="t-pn">)</span><span class="t-pn">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="t-fn">note</span><span class="t-pn">(</span><span class="t-str">"&lt;f2 f2 ab2 c3&gt;"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.s</span><span class="t-pn">(</span><span class="t-str">"sawtooth"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.lpf</span><span class="t-pn">(</span><span class="t-num">700</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.penv</span><span class="t-pn">(</span><span class="t-num">4</span><span class="t-pn">)</span><span class="t-pn">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="t-fn">note</span><span class="t-pn">(</span><span class="t-str">"&lt;f4 ab4 c5 eb5&gt;"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.s</span><span class="t-pn">(</span><span class="t-str">"square"</span><span class="t-pn">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-met">.room</span><span class="t-pn">(</span><span class="t-num">.3</span><span class="t-pn">)</span><br>
+<span class="t-pn">)</span><span class="t-met">.slow</span><span class="t-pn">(</span><span class="t-num">2</span><span class="t-pn">)</span>
+      </code>
+
+      <!-- warning label footer -->
+      <div style="margin-top:14px;padding-top:8px;border-top:1px solid #222;font-family:var(--ff-mono);font-size:7px;letter-spacing:0.12em;text-transform:uppercase;color:#444;display:flex;justify-content:space-between;align-items:center;">
+        <span>⚠ LIVE EVAL · DO NOT MODIFY</span>
+        <span style="color:var(--green);">カタカナ · ACETATE</span>
+      </div>
+    </div>
+
+  </section>
+
+</div><!-- /stage -->
+
+<script>
+// Minimal interaction: clicking Approve/Skip toggles visual state only
+document.querySelector('.btn-approve').addEventListener('click', function() {
+  this.textContent = '✓ Approved';
+  this.style.background = '#0b31ff';
+  this.style.color = '#efe9dd';
+  document.querySelector('.pitch-kind').textContent = '✓ PRESSED';
+});
+document.querySelector('.btn-skip').addEventListener('click', function() {
+  document.querySelector('.pitch-card').style.opacity = '0.35';
+  document.querySelector('.pitch-kind').textContent = '✗ BINNED';
+});
+
+// Genre pill toggle
+document.querySelectorAll('.gpill').forEach(function(pill) {
+  pill.addEventListener('click', function() {
+    document.querySelectorAll('.gpill').forEach(function(p){ p.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+
+// Part option toggle
+document.querySelectorAll('.part-strip').forEach(function(strip) {
+  strip.querySelectorAll('.part-opt').forEach(function(opt) {
+    opt.addEventListener('click', function() {
+      strip.querySelectorAll('.part-opt').forEach(function(o){ o.classList.remove('sel','feat'); });
+      this.classList.add('sel');
+      if (this.textContent.trim() === 'feat') this.classList.add('feat');
+    });
+  });
+});
+</script>
+</body>
+</html>

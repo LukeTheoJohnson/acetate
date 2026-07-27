@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Acetate · Live page — 5 look-and-feel spikes</title>
+<style>
+  :root {
+    --bg: #08070d; --ink: #f2eef7; --muted: #9a92b0;
+    --line: rgba(150,140,180,0.22);
+    --hot: #ff4d8d; --warm: #ff9f45; --cool: #45b6ff; --good: #38e0a6;
+    --font: "Space Grotesk", "DM Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(120% 90% at 50% 0%, #16112c 0%, var(--bg) 55%);
+         color: var(--ink); font-family: var(--font); line-height: 1.55; }
+  main { max-width: 1080px; margin: 0 auto; padding: 46px 24px 100px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--cool); }
+  h1 { margin: 10px 0 8px; font-size: clamp(30px, 5vw, 52px); line-height: 1.02;
+       background: linear-gradient(105deg, #fff, var(--warm) 45%, var(--hot) 80%);
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); font-size: 14px; max-width: 78ch; }
+  .sub b { color: var(--ink); }
+  h2 { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--cool);
+       margin: 46px 0 14px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  a { color: var(--warm); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { border: 1px solid var(--line); border-radius: 16px; padding: 22px 22px 18px;
+          background: linear-gradient(160deg, rgba(150,140,180,0.07), rgba(150,140,180,0.02)); position: relative; }
+  .card .idx { position: absolute; top: 16px; right: 20px; font-size: 34px; font-weight: 700;
+               color: rgba(255,255,255,0.07); line-height: 1; }
+  .card h3 { margin: 0 0 2px; font-size: 20px; }
+  .card .src { color: var(--warm); font-size: 12px; letter-spacing: 0.5px; margin: 0 0 12px; }
+  .card .thesis { font-size: 13px; color: var(--ink); margin: 0 0 12px; }
+  .card .thesis .q { color: var(--muted); font-style: italic; }
+  .swatch { display: flex; gap: 0; height: 20px; border-radius: 6px; overflow: hidden;
+            border: 1px solid var(--line); margin: 0 0 12px; }
+  .swatch span { flex: 1; }
+  .moves { margin: 0 0 12px; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+  .moves li { margin: 3px 0; }
+  .moves b { color: var(--ink); font-weight: 500; }
+  .risk { border-left: 3px solid var(--hot); padding: 4px 0 4px 12px; font-size: 12px;
+          color: var(--muted); margin: 0 0 14px; }
+  .risk b { color: var(--hot); font-weight: 500; letter-spacing: 0.5px; }
+  .open { display: inline-block; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+          border: 1px solid var(--line); border-radius: 99px; padding: 7px 16px; color: var(--ink);
+          text-decoration: none; }
+  .open:hover { border-color: var(--warm); color: var(--warm); }
+
+  .rec { border: 1px solid rgba(56,224,166,0.4); background: rgba(56,224,166,0.06); border-radius: 16px;
+         padding: 22px 24px; margin-top: 20px; font-size: 14px; }
+  .rec h3 { margin: 0 0 10px; color: var(--good); font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
+  .rec p { margin: 8px 0; color: var(--ink); }
+  .rec .pick { color: var(--good); font-weight: 600; }
+
+  .bonus { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  @media (max-width: 820px) { .bonus { grid-template-columns: 1fr; } }
+  .bcard { border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; background: rgba(150,140,180,0.03); }
+  .bcard h4 { margin: 0 0 3px; font-size: 15px; }
+  .bcard .src { color: var(--warm); font-size: 11px; margin: 0 0 8px; }
+  .bcard p { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .bcard a { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .note { font-size: 12.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 12px;
+          padding: 14px 16px; margin: 16px 0 0; background: rgba(255,159,69,0.05); }
+  .note b { color: var(--warm); }
+  .how { font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+  code { color: var(--cool); font-size: 0.92em; }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">design spikes · the live page</div>
+  <h1>Five ways the Live page could feel</h1>
+  <p class="sub">The brief: the Live floor — where the DJ cuts a track turn-by-turn — <b>works</b>, but
+  it reads like a generic dark-neon webpage with no point of view. Each spike below re-skins the exact same
+  Live page (the rig · the console · the roll · the live code) against <b>one specific, sourced taste</b> —
+  a real design lineage, not a vibe. Same track (<b>NEON MELT</b> · drill · 140 BPM · F minor) in every one,
+  so you're comparing skins, not content. Click <b>Open</b> to audition each full-screen.</p>
+
+  <div class="note"><b>Read before judging:</b> there's no browser in the build environment, so these are
+  <b>code-verified but un-rendered</b> — your eyes are the gate, exactly like the menu and remix rounds.
+  Two are light-ground (OP-Lab, Riso Rave) and one is near-white (Grid): stunning in a browser showcase,
+  but a full reskin would need to reconcile with the dark menu/nav — a whole-shell decision, not just Live.</p>
+
+  <h2>The five sourced tastes</h2>
+  <div class="grid">
+
+    <div class="card">
+      <div class="idx">01</div>
+      <h3>OP-Lab</h3>
+      <p class="src">Teenage Engineering (OP-1 / OP-Z) · Dieter Rams / Braun</p>
+      <p class="thesis">A precise toy you want to touch. Swedish industrial minimalism: <span class="q">restraint
+        is the flex</span> — cream faceplate, engraved micro-labels, one hot accent, real drawn hardware.</p>
+      <div class="swatch"><span style="background:#ece7dd"></span><span style="background:#f4f1ea"></span>
+        <span style="background:#1a1a1a"></span><span style="background:#ff5b1a"></span><span style="background:#8fd14f"></span></div>
+      <ul class="moves">
+        <li><b>One accent, zero gradients</b> — orange only on the live/critical element</li>
+        <li><b>Drawn hardware</b> — machined crossfader slot, SVG encoders with tick indicators, 3D rubber keys</li>
+        <li><b>Dot-matrix screens</b> for the roll + code, engraved uppercase labels under every control</li>
+      </ul>
+      <p class="risk"><b>RISK</b> Warm paper palette is a full-shell commitment — jarring beside the current dark menu/nav until the whole app follows.</p>
+      <a class="open" href="live-op-lab.html">Open →</a>
+    </div>
+
+    <div class="card">
+      <div class="idx">02</div>
+      <h3>Riso Rave</h3>
+      <p class="src">The Designers Republic · Warp Records · WipEout · rave-flyer riso</p>
+      <p class="thesis">The loud, cultural one. Sheffield electronica print crossed with photocopied warehouse
+        flyers: <span class="q">it should look screen-printed, not rendered.</span></p>
+      <div class="swatch"><span style="background:#efe9dd"></span><span style="background:#ff2e88"></span>
+        <span style="background:#0b31ff"></span><span style="background:#c6ff00"></span><span style="background:#111"></span></div>
+      <ul class="moves">
+        <li><b>Overprint physics</b> — two riso spot colours in <code>multiply</code> self-mix into a third</li>
+        <li><b>Misregistration</b> ghost on every headline — the definitive TDR tell, pure CSS</li>
+        <li><b>HUD chevron crossfader</b>, halftone pianoroll, hazard stripes + warning micro-copy</li>
+      </ul>
+      <p class="risk"><b>RISK</b> Highest wow-factor, but a pale flyer ground is loud against code and unreadable in a dark room — would need a dark variant to ever ship live.</p>
+      <a class="open" href="live-riso-rave.html">Open →</a>
+    </div>
+
+    <div class="card">
+      <div class="idx">03</div>
+      <h3>Serato</h3>
+      <p class="src">Serato DJ Pro · Ableton Live · Pioneer Rekordbox</p>
+      <p class="thesis">The credible-instrument one. The dense, calm workstation real DJs stare at for hours —
+        and Acetate genuinely <span class="q">is</span> a DJ tool, so the authenticity lands.</p>
+      <div class="swatch"><span style="background:#1c1e22"></span><span style="background:#26282d"></span>
+        <span style="background:#28c8e0"></span><span style="background:#ff9b2f"></span><span style="background:#38e0a6"></span></div>
+      <ul class="moves">
+        <li><b>Scrolling waveform + beatgrid</b> as the hero timing element (frequency-coloured)</li>
+        <li><b>Deck A cyan / Deck B amber</b> — Serato's two-deck convention; VU meters, pro rotary EQ</li>
+        <li>Channel-strip parts, tabular BPM/key readouts, IDE-feel code pane</li>
+      </ul>
+      <p class="risk"><b>RISK</b> Closest to the current dark theme, so the smallest leap — but it borrows an existing look, so it's the <em>weakest unique signature</em> for a portfolio piece.</p>
+      <a class="open" href="live-serato.html">Open →</a>
+    </div>
+
+    <div class="card">
+      <div class="idx">04</div>
+      <h3>Tape Console</h3>
+      <p class="src">Cassette-futurism · Studer tape · Roland &amp; Moog · Nostromo used-future</p>
+      <p class="thesis">The warm, tactile one. 1970s–80s studio hardware you'd find in a real room —
+        <span class="q">used-future warmth, not sci-fi neon.</span></p>
+      <div class="swatch"><span style="background:#221f1c"></span><span style="background:#5a3a24"></span>
+        <span style="background:#c8c2b6"></span><span style="background:#ffb64a"></span><span style="background:#e0342a"></span></div>
+      <ul class="moves">
+        <li><b>Walnut end-cheeks + brushed-aluminium faceplate</b>, warm vignette, silk-screened labels</li>
+        <li><b>Real SVG VU needle meters</b>, illuminated push-buttons, tape-reel platters</li>
+        <li>Backlit amber / seven-seg readouts, coloured patch-cable accents</li>
+      </ul>
+      <p class="risk"><b>RISK</b> Skeuomorphism is a knife-edge — done a hair too far it reads kitsch/dated, and the visual weight competes with code legibility.</p>
+      <a class="open" href="live-tape-console.html">Open →</a>
+    </div>
+
+    <div class="card">
+      <div class="idx">05</div>
+      <h3>Grid</h3>
+      <p class="src">Swiss International Typographic · Müller-Brockmann · Vignelli · Bauhaus</p>
+      <p class="thesis">The anti-neon. Grid, type and whitespace do all the work — <span class="q">the strongest
+        possible "a real designer decided this" signal.</span></p>
+      <div class="swatch"><span style="background:#ffffff"></span><span style="background:#f4f3f0"></span>
+        <span style="background:#111111"></span><span style="background:#e2231a"></span><span style="background:#8a8a8a"></span></div>
+      <ul class="moves">
+        <li><b>One red, one black, paper white</b> — no gradient, glow, shadow or rounded corner anywhere</li>
+        <li><b>Visible modular grid</b> + baseline rules, a huge track index number, religious alignment</li>
+        <li>Controls as minimal diagrams — slider = line + dot, record = concentric rings (Deck B in red)</li>
+      </ul>
+      <p class="risk"><b>RISK</b> Bravest and most tasteful, but Swiss calm can read clinical/quiet — it may drain the live-performance energy a DJ floor wants.</p>
+      <a class="open" href="live-grid.html">Open →</a>
+    </div>
+
+  </div>
+
+  <div class="rec">
+    <h3>My read</h3>
+    <p>For a <b>portfolio showcase</b> whose story is "AI + craft + a point of view", the two most memorable —
+    the ones that instantly read as human-designed — are <span class="pick">Riso Rave</span> (maximum distinctive
+    impact, unmistakably not-generic) and <span class="pick">OP-Lab</span> (the refined, tasteful counter-argument).
+    Audition those two first.</p>
+    <p>If you'd rather it read as a <b>serious instrument</b> than an art object, <span class="pick">Serato</span> is
+    the safe, credible pick and the smallest leap from today. And <span class="pick">Grid</span> is the dark-horse —
+    the highest pure-taste ceiling, if you're brave enough to make a live tool quiet.</p>
+    <p>My one-line call: <b>Riso Rave for the wow, OP-Lab if you want it to age well.</b></p>
+  </div>
+
+  <h2>Bonus — three the agents span up unprompted</h2>
+  <p class="sub">Beyond the five briefed, the design agents produced three more directions. Un-audited and
+  un-refined by me — kept in case one sparks something. <b>Cassette</b> overlaps Tape Console (pick one).</p>
+  <div class="bonus">
+    <div class="bcard"><h4>Modular</h4><p class="src">Eurorack · Max/MSP · VCV Rack</p>
+      <p>Patch-cable synth-rack aesthetic — modules, jacks, signal flow. A genuinely distinct sixth taste.</p>
+      <a href="live-modular.html">Open →</a></div>
+    <div class="bcard"><h4>Tracklist</h4><p class="src">editorial / liner-notes</p>
+      <p>A typographic tracklist / setlist take. Confirm its source lineage before leaning on it.</p>
+      <a href="live-tracklist.html">Open →</a></div>
+    <div class="bcard"><h4>Cassette</h4><p class="src">cassette-futurism (dupe of Tape Console)</p>
+      <p>Pixel + LCD variant of the analogue direction. Redundant with #04 — compare and cull one.</p>
+      <a href="live-cassette.html">Open →</a></div>
+  </div>
+
+  <p class="how"><b>Next:</b> pick one (or a hybrid — e.g. OP-Lab restraint with Serato's waveform), and I'll
+  port it into the real app (<code>styles.css</code> + the Live markup in <code>index.html</code>), scoped to
+  the Live view first so the rest of the app is untouched until you're happy.</p>
+</main>
+</body>
+</html>

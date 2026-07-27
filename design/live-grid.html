@@ -1,0 +1,1150 @@
+<!doctype html>
+<!--
+  ── SPIKE · GRID ───────────────────────────────────────────────────────────────
+  Swiss International Typographic Style / Bauhaus modernism.
+  Müller-Brockmann grid discipline. Vignelli typographic rigour.
+
+  Palette: paper white, true black, one red (#e2231a). Nothing else.
+  Grid:    visible modular columns + hairline rules carry all structure.
+  Type:    Helvetica Neue / Inter on a strict scale. Mono only for code + data.
+  Motifs:  huge index number, concentric-ring diagrams, diagrammatic controls.
+
+  Static mockup — no audio, no Strudel eval.
+-->
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Acetate — Live Grid Spike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ─── RESET ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── TOKENS ─────────────────────────────────────────────────────────────── */
+:root {
+  --white:   #ffffff;
+  --paper:   #f4f3f0;
+  --grey:    #d0cec8;
+  --mid:     #888;
+  --black:   #111111;
+  --red:     #e2231a;
+
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
+
+  /* Typographic scale — 6:8:11:14:18:28:48:80 */
+  --t0:  6px;
+  --t1:  8px;
+  --t2:  11px;
+  --t3:  14px;
+  --t4:  18px;
+  --t5:  28px;
+  --t6:  48px;
+  --t7:  80px;
+
+  --col: 1px solid var(--black);
+  --hair: 1px solid var(--grey);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--t3);
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--black);
+  background: var(--paper);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── LEGEND STRIP ───────────────────────────────────────────────────────── */
+.legend {
+  border-bottom: var(--col);
+  padding: 7px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  background: var(--white);
+}
+.legend-title {
+  font-size: var(--t2);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.legend-sub {
+  font-size: var(--t1);
+  font-weight: 400;
+  color: var(--mid);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* ─── OUTER GRID ─────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  min-height: calc(100vh - 33px);
+  border-left: var(--col);
+}
+
+/* ─── SECTION SHELL ──────────────────────────────────────────────────────── */
+.section {
+  border-right: var(--col);
+  border-bottom: var(--col);
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  position: relative;
+  overflow: hidden;
+}
+.section--paper { background: var(--paper); }
+
+.section-head {
+  border-bottom: var(--col);
+  padding: 9px 20px 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.section-label {
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.section-sub {
+  font-size: var(--t1);
+  color: var(--mid);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.section-body {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ─── SECTION 1 · THE RIG ────────────────────────────────────────────────── */
+.rig-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: var(--hair);
+}
+.rig-index {
+  font-size: var(--t7);
+  font-weight: 900;
+  line-height: 1;
+  color: var(--grey);
+  letter-spacing: -.04em;
+  user-select: none;
+  flex-shrink: 0;
+  width: 100px;
+}
+.rig-info {
+  flex: 1;
+  padding-top: 6px;
+}
+.rig-title {
+  font-size: var(--t5);
+  font-weight: 900;
+  letter-spacing: -.02em;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.rig-tags {
+  display: flex;
+  gap: 10px;
+  font-size: var(--t2);
+  font-weight: 500;
+  color: var(--mid);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+.rig-tags span { position: relative; }
+.rig-tags span + span::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--grey);
+}
+.rig-status {
+  font-size: var(--t2);
+  font-weight: 400;
+  color: var(--mid);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+.rig-status-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-right: 6px;
+  vertical-align: middle;
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* buttons */
+.rig-actions {
+  display: flex;
+  gap: 0;
+  margin-bottom: 14px;
+  border: var(--col);
+}
+.btn {
+  font-family: var(--font-sans);
+  font-size: var(--t2);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: none;
+  background: var(--white);
+  color: var(--black);
+  border-right: var(--col);
+  transition: background .1s, color .1s;
+}
+.btn:last-child { border-right: none; }
+.btn:hover { background: var(--black); color: var(--white); }
+.btn--red { background: var(--red); color: var(--white); }
+.btn--red:hover { background: var(--black); }
+
+/* arrangement chips */
+.chips-label {
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 6px;
+}
+.chips {
+  display: flex;
+  gap: 0;
+  border: var(--col);
+  margin-bottom: 18px;
+}
+.chip {
+  font-size: var(--t1);
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-right: var(--col);
+  cursor: default;
+  color: var(--black);
+}
+.chip:last-child { border-right: none; }
+.chip--active { background: var(--black); color: var(--white); }
+
+/* deck rig */
+.deck-rig {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 64px 1fr;
+  gap: 0;
+  border: var(--col);
+}
+.deck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 10px 10px;
+  gap: 8px;
+}
+.deck--b { border-left: var(--col); }
+.deck-label {
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  align-self: flex-start;
+  color: var(--mid);
+}
+.deck-label--b { color: var(--red); }
+.deck-desc {
+  font-size: var(--t2);
+  font-weight: 400;
+  color: var(--mid);
+  text-align: center;
+  font-style: italic;
+  line-height: 1.3;
+  min-height: 28px;
+}
+.deck-desc--b { color: var(--red); }
+
+/* concentric ring diagrams */
+.ring-wrap {
+  position: relative;
+  width: 120px; height: 120px;
+  flex-shrink: 0;
+}
+.ring-wrap svg { width: 100%; height: 100%; }
+
+/* pitch card */
+.pitch-card {
+  border: var(--col);
+  padding: 8px 10px;
+  width: 100%;
+}
+.pitch-text {
+  font-size: var(--t2);
+  font-weight: 400;
+  color: var(--black);
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.pitch-text--red { color: var(--red); }
+.pitch-actions {
+  display: flex;
+  gap: 0;
+  border: var(--col);
+}
+.pitch-btn {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 5px 0;
+  border: none;
+  cursor: pointer;
+  background: var(--white);
+  color: var(--black);
+  transition: background .1s, color .1s;
+  border-right: var(--col);
+}
+.pitch-btn:last-child { border-right: none; }
+.pitch-btn--approve { color: var(--red); }
+.pitch-btn:hover { background: var(--black); color: var(--white); }
+
+/* crossfader column */
+.crossfader-col {
+  border-left: var(--col);
+  border-right: var(--col);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 4px;
+  gap: 10px;
+}
+.cf-label {
+  font-size: var(--t0);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+/* ─── SECTION 2 · THE CONSOLE ────────────────────────────────────────────── */
+.console-body {
+  padding: 0;
+  gap: 0;
+}
+.console-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: var(--hair);
+}
+.console-row:last-child { border-bottom: none; }
+.console-cell-label {
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  padding: 10px 14px;
+  border-right: var(--col);
+  min-width: 72px;
+  display: flex;
+  align-items: center;
+  background: var(--paper);
+}
+.console-cell-content {
+  flex: 1;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* genre pills */
+.genres {
+  display: flex;
+  gap: 0;
+  border: var(--col);
+}
+.genre {
+  font-size: var(--t2);
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-right: var(--col);
+  cursor: pointer;
+  color: var(--black);
+  background: var(--white);
+}
+.genre:last-child { border-right: none; }
+.genre--active { background: var(--black); color: var(--white); }
+
+/* density slider */
+.density-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.density-axis {
+  position: relative;
+  flex: 1;
+  height: 1px;
+  background: var(--black);
+}
+.density-dot {
+  position: absolute;
+  left: 42%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--black);
+  border: 2px solid var(--white);
+  outline: 1px solid var(--black);
+}
+.density-ticks {
+  position: absolute;
+  top: 4px;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+}
+.density-tick {
+  font-size: var(--t0);
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--mid);
+  font-family: var(--font-mono);
+}
+.density-end {
+  font-size: var(--t1);
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--mid);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+/* parts table */
+.parts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.parts-table th {
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  text-align: left;
+  padding: 7px 10px 6px;
+  border-bottom: var(--col);
+  border-right: var(--hair);
+}
+.parts-table th:last-child { border-right: none; }
+.parts-table td {
+  font-size: var(--t2);
+  font-weight: 400;
+  padding: 7px 10px;
+  border-bottom: var(--hair);
+  border-right: var(--hair);
+  vertical-align: middle;
+}
+.parts-table td:last-child { border-right: none; }
+.parts-table tr:last-child td { border-bottom: none; }
+.part-name {
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.part-name--active { color: var(--red); }
+.part-mode {
+  font-family: var(--font-mono);
+  font-size: var(--t1);
+}
+.part-mode--sel {
+  font-weight: 700;
+  color: var(--black);
+}
+.part-mode--dim { color: var(--grey); }
+.part-bar {
+  display: flex;
+  height: 3px;
+  background: var(--grey);
+  width: 56px;
+  position: relative;
+}
+.part-bar-fill {
+  background: var(--black);
+  height: 100%;
+}
+.part-bar--red .part-bar-fill { background: var(--red); }
+
+/* ─── SECTION 3 · THE FLOOR ──────────────────────────────────────────────── */
+.floor-body {
+  padding: 0;
+  gap: 0;
+}
+.floor-panel {
+  border-bottom: var(--col);
+  flex-shrink: 0;
+}
+.floor-panel:last-child { border-bottom: none; }
+.floor-panel-head {
+  border-bottom: var(--hair);
+  padding: 7px 16px;
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mid);
+  background: var(--paper);
+}
+
+/* pianoroll */
+.roll-grid {
+  display: grid;
+  grid-template-rows: repeat(12, 12px);
+  grid-template-columns: repeat(16, 1fr);
+  gap: 1px;
+  padding: 12px 16px;
+  background: var(--hair);
+}
+.roll-cell {
+  background: var(--white);
+  height: 12px;
+}
+.roll-cell--on { background: var(--black); }
+.roll-cell--on-red { background: var(--red); }
+.roll-cell--grey { background: var(--grey); }
+
+/* history */
+.history-list {
+  list-style: none;
+  padding: 8px 16px;
+}
+.history-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: var(--hair);
+  font-size: var(--t2);
+}
+.history-item:last-child { border-bottom: none; }
+.history-verdict {
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  width: 48px;
+  flex-shrink: 0;
+}
+.history-verdict--kept { color: var(--black); }
+.history-verdict--skip { color: var(--grey); }
+.history-text { flex: 1; color: var(--black); }
+.history-text--dim { color: var(--mid); text-decoration: line-through; }
+
+/* dj moves */
+.moves-list {
+  list-style: none;
+  padding: 8px 16px;
+}
+.move-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: var(--t2);
+  border-bottom: var(--hair);
+}
+.move-item:last-child { border-bottom: none; }
+.move-time {
+  font-family: var(--font-mono);
+  font-size: var(--t1);
+  color: var(--mid);
+  width: 36px;
+  flex-shrink: 0;
+}
+.move-text { flex: 1; }
+.move-text--red { color: var(--red); }
+
+/* ─── SECTION 4 · THE CODE ───────────────────────────────────────────────── */
+.code-body {
+  padding: 20px;
+  flex: 1;
+}
+.code-block {
+  font-family: var(--font-mono);
+  font-size: var(--t3);
+  line-height: 1.7;
+  color: var(--black);
+  white-space: pre;
+  overflow-x: auto;
+}
+/* Syntax: keyword=bold, string=mid, comment=grey, red=active token */
+.tok-fn   { font-weight: 700; }
+.tok-str  { color: var(--mid); }
+.tok-num  { font-family: var(--font-mono); }
+.tok-key  { font-weight: 500; }
+.tok-red  { color: var(--red); font-weight: 700; }
+.tok-dim  { color: var(--grey); }
+
+.code-rule {
+  border-top: var(--col);
+  margin-top: 16px;
+  padding-top: 12px;
+  font-size: var(--t1);
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--mid);
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .section { border-right: var(--col); }
+  .rig-index { font-size: 48px; width: 64px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LEGEND STRIP -->
+<header class="legend">
+  <span class="legend-title">Grid</span>
+  <span class="legend-sub">Swiss International Typographic &nbsp;·&nbsp; Müller-Brockmann &nbsp;·&nbsp; Vignelli</span>
+</header>
+
+<main class="app">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1 · THE RIG -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-head">
+      <span class="section-label">The Rig</span>
+      <span class="section-sub">Deck &amp; pitch</span>
+    </div>
+    <div class="section-body">
+
+      <!-- meta -->
+      <div class="rig-meta">
+        <div class="rig-index" aria-hidden="true">01</div>
+        <div class="rig-info">
+          <div class="rig-title">Neon Melt</div>
+          <div class="rig-tags">
+            <span>Drill</span>
+            <span>140 BPM</span>
+            <span>F minor</span>
+          </div>
+          <div class="rig-status">
+            <span class="rig-status-dot" aria-hidden="true"></span>cutting a lead line&hellip;
+          </div>
+        </div>
+      </div>
+
+      <!-- actions -->
+      <div class="rig-actions" role="toolbar" aria-label="Transport controls">
+        <button class="btn btn--red" type="button">Start</button>
+        <button class="btn" type="button">Cut a dubplate</button>
+        <button class="btn" type="button">New track</button>
+      </div>
+
+      <!-- arrangement chips -->
+      <div class="chips-label">Arrangement</div>
+      <div class="chips" role="list">
+        <div class="chip chip--active" role="listitem">Kick</div>
+        <div class="chip chip--active" role="listitem">Hats</div>
+        <div class="chip chip--active" role="listitem">808</div>
+        <div class="chip chip--active" role="listitem">Clap</div>
+        <div class="chip chip--active" role="listitem">Chords</div>
+        <div class="chip chip--active" role="listitem" style="color:var(--red);background:var(--black);">Lead</div>
+      </div>
+
+      <!-- deck rig -->
+      <div class="deck-rig" aria-label="Deck rig">
+
+        <!-- Deck A -->
+        <div class="deck" aria-label="Deck A — committed track">
+          <div class="deck-label">Deck A</div>
+
+          <!-- Record diagram: concentric rings, black on white -->
+          <div class="ring-wrap" aria-hidden="true">
+            <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- groove rings -->
+              <circle cx="60" cy="60" r="56" stroke="#111" stroke-width=".75"/>
+              <circle cx="60" cy="60" r="50" stroke="#ccc" stroke-width=".5"/>
+              <circle cx="60" cy="60" r="44" stroke="#111" stroke-width=".75"/>
+              <circle cx="60" cy="60" r="38" stroke="#ccc" stroke-width=".5"/>
+              <circle cx="60" cy="60" r="32" stroke="#111" stroke-width=".75"/>
+              <circle cx="60" cy="60" r="26" stroke="#ccc" stroke-width=".5"/>
+              <!-- kick marks (4 blocks) -->
+              <rect x="58" y="4"  width="4" height="9" fill="#111" transform="rotate(0 60 60)"/>
+              <rect x="58" y="4"  width="4" height="9" fill="#111" transform="rotate(90 60 60)"/>
+              <rect x="58" y="4"  width="4" height="9" fill="#111" transform="rotate(180 60 60)"/>
+              <rect x="58" y="4"  width="4" height="9" fill="#111" transform="rotate(270 60 60)"/>
+              <!-- hat ticks -->
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(22.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(67.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(112.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(157.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(202.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(247.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(292.5 60 60)"/>
+              <line x1="60" y1="8"  x2="60" y2="14" stroke="#111" stroke-width=".75" transform="rotate(337.5 60 60)"/>
+              <!-- 808 bass core -->
+              <circle cx="60" cy="60" r="20" stroke="#111" stroke-width="1.5"/>
+              <circle cx="60" cy="60" r="23" stroke="#111" stroke-width=".5" stroke-dasharray="3 3"/>
+              <!-- clap backbeat arcs -->
+              <path d="M 36 60 A 24 24 0 0 1 84 60" stroke="#111" stroke-width="1" fill="none"/>
+              <path d="M 84 60 A 24 24 0 0 1 36 60" stroke="#111" stroke-width=".5" fill="none" stroke-dasharray="2 4"/>
+              <!-- chord voicings (stacked) -->
+              <circle cx="60" cy="60" r="14" stroke="#111" stroke-width=".75"/>
+              <circle cx="60" cy="60" r="10" stroke="#111" stroke-width=".5"/>
+              <!-- centre spindle -->
+              <circle cx="60" cy="60" r="4" fill="#111"/>
+            </svg>
+          </div>
+
+          <div class="deck-desc">5 parts committed</div>
+        </div>
+
+        <!-- Crossfader -->
+        <div class="crossfader-col" aria-label="Crossfader — blend A to B">
+          <div class="cf-label">Blend</div>
+          <svg width="12" height="80" viewBox="0 0 12 80" fill="none" aria-hidden="true">
+            <!-- vertical axis -->
+            <line x1="6" y1="4" x2="6" y2="76" stroke="#111" stroke-width="1"/>
+            <!-- A label -->
+            <text x="6" y="4" text-anchor="middle" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="6" font-weight="700" fill="#888">A</text>
+            <!-- B label -->
+            <text x="6" y="80" text-anchor="middle" font-family="Inter,Helvetica Neue,Arial,sans-serif" font-size="6" font-weight="700" fill="#e2231a">B</text>
+            <!-- dot at A position -->
+            <circle cx="6" cy="22" r="4" fill="#111"/>
+            <!-- tick marks -->
+            <line x1="3" y1="40" x2="9" y2="40" stroke="#ccc" stroke-width=".75"/>
+          </svg>
+          <div class="cf-label">A↔B</div>
+        </div>
+
+        <!-- Deck B -->
+        <div class="deck deck--b" aria-label="Deck B — proposed pitch">
+          <div class="deck-label deck-label--b">Deck B</div>
+
+          <!-- Record diagram: outlined in red, mostly blank (proposal acetate) -->
+          <div class="ring-wrap" aria-hidden="true">
+            <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- outer rim in red -->
+              <circle cx="60" cy="60" r="56" stroke="#e2231a" stroke-width="1.25"/>
+              <!-- translucent grooves -->
+              <circle cx="60" cy="60" r="50" stroke="#e2231a" stroke-width=".4" stroke-dasharray="4 6" opacity=".4"/>
+              <circle cx="60" cy="60" r="44" stroke="#e2231a" stroke-width=".4" stroke-dasharray="4 6" opacity=".3"/>
+              <circle cx="60" cy="60" r="38" stroke="#e2231a" stroke-width=".4" stroke-dasharray="4 6" opacity=".2"/>
+              <!-- NEW lead mark — dotted melody arc at outer groove, in red -->
+              <path d="M 10 60 A 50 50 0 0 1 110 60" stroke="#e2231a" stroke-width="1.5" fill="none" stroke-dasharray="3 5"/>
+              <!-- call-response dots -->
+              <circle cx="30" cy="38" r="2.5" fill="#e2231a"/>
+              <circle cx="90" cy="38" r="2.5" fill="#e2231a" opacity=".5"/>
+              <!-- centre spindle -->
+              <circle cx="60" cy="60" r="4" stroke="#e2231a" stroke-width="1" fill="none"/>
+            </svg>
+          </div>
+
+          <!-- pitch card -->
+          <div class="pitch-card">
+            <div class="pitch-text pitch-text--red">Add a lead line — dotted, call-and-response</div>
+            <div class="pitch-actions">
+              <button class="pitch-btn" type="button" aria-label="Skip this pitch">&#x2717;&ensp;Skip</button>
+              <button class="pitch-btn pitch-btn--approve" type="button" aria-label="Approve this pitch">&#x2713;&ensp;Approve</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /deck-rig -->
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2 · THE CONSOLE -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="section section--paper">
+    <div class="section-head">
+      <span class="section-label">The Console</span>
+      <span class="section-sub">Genre &amp; parts</span>
+    </div>
+    <div class="section-body console-body">
+
+      <!-- genre row -->
+      <div class="console-row">
+        <div class="console-cell-label">Genre</div>
+        <div class="console-cell-content">
+          <div class="genres">
+            <div class="genre genre--active">Drill</div>
+            <div class="genre">Trap</div>
+            <div class="genre">Lo-fi</div>
+            <div class="genre">Jungle</div>
+            <div class="genre">Footwork</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- density row -->
+      <div class="console-row">
+        <div class="console-cell-label">Density</div>
+        <div class="console-cell-content">
+          <div class="density-wrap">
+            <span class="density-end">Strip</span>
+            <div class="density-axis">
+              <div class="density-dot"></div>
+              <div class="density-ticks" aria-hidden="true">
+                <span class="density-tick">·</span>
+                <span class="density-tick">·</span>
+                <span class="density-tick">·</span>
+                <span class="density-tick">·</span>
+                <span class="density-tick">·</span>
+              </div>
+            </div>
+            <span class="density-end">Pile on</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- parts -->
+      <div class="console-row" style="flex:1;align-items:flex-start;">
+        <div class="console-cell-label" style="align-items:flex-start;padding-top:10px;">Parts</div>
+        <div class="console-cell-content" style="align-items:flex-start;padding:0;">
+          <table class="parts-table" aria-label="Part channel strips">
+            <thead>
+              <tr>
+                <th style="width:56px;">Part</th>
+                <th style="width:44px;">Drop</th>
+                <th style="width:44px;">Auto</th>
+                <th style="width:56px;">Feature</th>
+                <th>Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="part-name">Kick</span></td>
+                <td><span class="part-mode part-mode--sel">Drop</span></td>
+                <td><span class="part-mode part-mode--dim">Auto</span></td>
+                <td><span class="part-mode part-mode--dim">Feat.</span></td>
+                <td>
+                  <div class="part-bar">
+                    <div class="part-bar-fill" style="width:80%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="part-name">Hats</span></td>
+                <td><span class="part-mode part-mode--dim">Drop</span></td>
+                <td><span class="part-mode part-mode--sel">Auto</span></td>
+                <td><span class="part-mode part-mode--dim">Feat.</span></td>
+                <td>
+                  <div class="part-bar">
+                    <div class="part-bar-fill" style="width:60%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="part-name">808</span></td>
+                <td><span class="part-mode part-mode--dim">Drop</span></td>
+                <td><span class="part-mode part-mode--sel">Auto</span></td>
+                <td><span class="part-mode part-mode--dim">Feat.</span></td>
+                <td>
+                  <div class="part-bar">
+                    <div class="part-bar-fill" style="width:72%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="part-name">Clap</span></td>
+                <td><span class="part-mode part-mode--dim">Drop</span></td>
+                <td><span class="part-mode part-mode--sel">Auto</span></td>
+                <td><span class="part-mode part-mode--dim">Feat.</span></td>
+                <td>
+                  <div class="part-bar">
+                    <div class="part-bar-fill" style="width:55%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="part-name">Chords</span></td>
+                <td><span class="part-mode part-mode--dim">Drop</span></td>
+                <td><span class="part-mode part-mode--dim">Auto</span></td>
+                <td><span class="part-mode part-mode--sel">Feat.</span></td>
+                <td>
+                  <div class="part-bar">
+                    <div class="part-bar-fill" style="width:65%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="part-name part-name--active">Lead</span></td>
+                <td><span class="part-mode part-mode--dim">Drop</span></td>
+                <td><span class="part-mode part-mode--dim">Auto</span></td>
+                <td><span class="part-mode part-mode--sel" style="color:var(--red);">Feat.</span></td>
+                <td>
+                  <div class="part-bar part-bar--red">
+                    <div class="part-bar-fill" style="width:90%"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3 · THE FLOOR -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-head">
+      <span class="section-label">The Floor</span>
+      <span class="section-sub">Roll &amp; history</span>
+    </div>
+    <div class="section-body floor-body">
+
+      <!-- piano roll -->
+      <div class="floor-panel">
+        <div class="floor-panel-head">The Roll &mdash; Lead / Chords / 808</div>
+        <!-- 12 pitches × 16 steps -->
+        <div class="roll-grid" aria-label="Pianoroll diagram" role="img">
+          <!-- Row 1 — high (lead dotted, active) -->
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <!-- Row 2 -->
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on-red"></div>
+          <!-- Row 3 (chords) -->
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <!-- Row 4 -->
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <!-- Row 5 -->
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell roll-cell--on"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <div class="roll-cell"></div>
+          <!-- Rows 6–8 empty -->
+          <div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div>
+          <div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div>
+          <div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div>
+          <!-- Row 9 — 808 bass -->
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <div class="roll-cell roll-cell--grey"></div>
+          <!-- Rows 10–12 empty -->
+          <div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div>
+          <div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div>
+          <div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div><div class="roll-cell"></div>
+        </div>
+      </div>
+
+      <!-- set history -->
+      <div class="floor-panel">
+        <div class="floor-panel-head">Set history</div>
+        <ul class="history-list" aria-label="Set history">
+          <li class="history-item">
+            <span class="history-verdict history-verdict--kept">Kept</span>
+            <span class="history-text">Added 808 sliding bass</span>
+          </li>
+          <li class="history-item">
+            <span class="history-verdict history-verdict--kept">Kept</span>
+            <span class="history-text">Added clap with backbeat swing</span>
+          </li>
+          <li class="history-item">
+            <span class="history-verdict history-verdict--skip">Skip</span>
+            <span class="history-text history-text--dim">Rework chords — wider voicing</span>
+          </li>
+          <li class="history-item">
+            <span class="history-verdict history-verdict--kept">Kept</span>
+            <span class="history-text">Added chords — F min / Ab / C</span>
+          </li>
+          <li class="history-item">
+            <span class="history-verdict history-verdict--kept">Kept</span>
+            <span class="history-text">Added hi-hats, open on the 3</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- dj moves -->
+      <div class="floor-panel">
+        <div class="floor-panel-head">DJ moves</div>
+        <ul class="moves-list" aria-label="DJ move log">
+          <li class="move-item">
+            <span class="move-time">0:42</span>
+            <span class="move-text move-text--red">Pitching: add lead — dotted call-and-response</span>
+          </li>
+          <li class="move-item">
+            <span class="move-time">0:31</span>
+            <span class="move-text">Approved chords. 5 parts active.</span>
+          </li>
+          <li class="move-item">
+            <span class="move-time">0:22</span>
+            <span class="move-text">Skipped chord rework.</span>
+          </li>
+          <li class="move-item">
+            <span class="move-time">0:14</span>
+            <span class="move-text">Approved clap.</span>
+          </li>
+          <li class="move-item">
+            <span class="move-time">0:06</span>
+            <span class="move-text">Approved 808. Seeded sliding 808s.</span>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4 · THE CODE -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="section section--paper">
+    <div class="section-head">
+      <span class="section-label">The Live Code</span>
+      <span class="section-sub">Strudel pattern</span>
+    </div>
+    <div class="section-body code-body" style="padding:20px;">
+      <pre class="code-block" aria-label="Live Strudel code"><span class="tok-fn">stack</span><span class="tok-dim">(</span>
+  <span class="tok-fn">s</span>(<span class="tok-str">"bd*4"</span>).<span class="tok-key">bank</span>(<span class="tok-str">"RolandTR808"</span>)
+         .<span class="tok-key">gain</span>(<span class="tok-num">0.9</span>),
+
+  <span class="tok-fn">s</span>(<span class="tok-str">"~ hh ~ hh"</span>)
+         .<span class="tok-key">gain</span>(<span class="tok-num">.6</span>),
+
+  <span class="tok-fn">note</span>(<span class="tok-str">"&lt;f2 f2 ab2 c3&gt;"</span>).<span class="tok-key">s</span>(<span class="tok-str">"sawtooth"</span>)
+         .<span class="tok-key">lpf</span>(<span class="tok-num">700</span>).<span class="tok-key">penv</span>(<span class="tok-num">4</span>),
+
+  <span class="tok-red">note</span>(<span class="tok-str">"&lt;f4 ab4 c5 eb5&gt;"</span>).<span class="tok-key">s</span>(<span class="tok-str">"square"</span>)
+         .<span class="tok-key">room</span>(<span class="tok-num">.3</span>)        <span class="tok-dim">// ← lead, pending</span>
+<span class="tok-dim">)</span>.<span class="tok-key">slow</span>(<span class="tok-num">2</span>)</pre>
+
+      <div class="code-rule">
+        Pattern · F minor · 140 BPM · 4 bars
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,1707 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acetate · Live · Serato Spike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Tokens ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Structural greys — Serato/Rekordbox palette */
+  --bg:        #17191d;
+  --panel:     #1c1e23;
+  --raised:    #23262c;
+  --surface:   #2a2d34;
+  --border:    #33363e;
+  --border-hi: #44484f;
+  --muted:     #555a63;
+  --label:     #8a9099;
+  --text:      #c8cdd6;
+  --bright:    #e8ecf2;
+
+  /* Deck colours — Serato's two-deck convention */
+  --deck-a:    #28c8e0;   /* cyan */
+  --deck-b:    #ff9b2f;   /* amber */
+
+  /* Functional accents */
+  --green:     #3ecf72;
+  --amber:     #f5a623;
+  --red:       #e84545;
+  --blue-hi:   #4fa3e8;
+
+  /* Waveform frequency colours */
+  --wf-bass:   #e05a28;
+  --wf-mid:    #3ecf72;
+  --wf-hi:     #4fa3e8;
+
+  /* Type */
+  --font-ui:   'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+
+  /* Layout */
+  --header-h:  28px;
+  --caption-h: 24px;
+  --radius:    3px;
+  --radius-sm: 2px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Caption strip ──────────────────────────────────────────────────────── */
+.caption-strip {
+  height: var(--caption-h);
+  background: #0f1013;
+  border-bottom: 1px solid #000;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.caption-strip .spike-name {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--deck-a);
+}
+.caption-strip .spike-desc {
+  font-size: 9px;
+  letter-spacing: .06em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ── App chrome ─────────────────────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--caption-h));
+  overflow: hidden;
+}
+
+/* Top transport bar */
+.transport-bar {
+  height: var(--header-h);
+  background: #111316;
+  border-bottom: 1px solid #000;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.transport-bar .logo {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--bright);
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+}
+.transport-bar .track-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bpm-box, .key-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  color: var(--bright);
+  min-width: 50px;
+  text-align: center;
+}
+.bpm-box { color: var(--deck-a); }
+.key-box { color: var(--deck-b); }
+.track-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--bright);
+}
+.stage-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.transport-spacer { flex: 1; }
+.nav-pill {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--label);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+}
+.nav-pill.active {
+  color: var(--bright);
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+/* ── Main grid ──────────────────────────────────────────────────────────── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  grid-template-rows: 1fr 1fr;
+  flex: 1;
+  overflow: hidden;
+  gap: 1px;
+  background: #000;
+}
+.panel {
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panel-header {
+  height: 26px;
+  background: #111316;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.panel-title-accent { color: var(--bright); }
+.panel-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transition: background .1s, border-color .1s;
+}
+.btn:hover { background: var(--raised); border-color: var(--border-hi); color: var(--bright); }
+.btn-primary {
+  background: var(--deck-a);
+  border-color: var(--deck-a);
+  color: #0a1012;
+}
+.btn-primary:hover { background: #38d8f0; border-color: #38d8f0; }
+.btn-ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--label);
+}
+.btn-ghost:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
+
+/* ── Region 1: The Rig ──────────────────────────────────────────────────── */
+.rig-panel {
+  grid-column: 1;
+  grid-row: 1;
+}
+.rig-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px;
+  gap: 6px;
+}
+
+/* Status row */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dj-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--label);
+}
+.dj-status .pulse {
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+.dj-status span { color: var(--text); font-style: italic; }
+
+/* Arrangement chips */
+.chips-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--label);
+}
+.chip.active {
+  border-color: var(--deck-a);
+  color: var(--deck-a);
+  background: rgba(40,200,224,.08);
+}
+.chip-label {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+
+/* Deck rig */
+.deck-rig {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 90px 1fr;
+  gap: 8px;
+  min-height: 0;
+}
+
+.deck {
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.deck-header {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.deck-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.deck-a .deck-label { color: var(--deck-a); }
+.deck-b .deck-label { color: var(--deck-b); }
+.deck-subtitle {
+  font-size: 9px;
+  color: var(--label);
+  flex: 1;
+}
+
+/* Jog wheel */
+.jog-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px 6px;
+}
+.jog-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 120px;
+  aspect-ratio: 1;
+}
+.jog-wrap svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Waveform strip */
+.waveform-strip {
+  height: 36px;
+  background: #0d0e11;
+  border-top: 1px solid var(--border);
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+.waveform-strip svg {
+  width: 100%;
+  height: 100%;
+}
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: #fff;
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* Deck B pitch card */
+.pitch-card {
+  margin: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pitch-desc {
+  font-size: 10px;
+  color: var(--text);
+  line-height: 1.3;
+}
+.pitch-desc strong { color: var(--deck-b); font-weight: 600; }
+.pitch-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 2px;
+}
+.btn-skip {
+  border-color: var(--red);
+  color: var(--red);
+  flex: 1;
+  justify-content: center;
+}
+.btn-skip:hover { background: rgba(232,69,69,.12); border-color: var(--red); color: var(--red); }
+.btn-approve {
+  border-color: var(--green);
+  color: var(--green);
+  flex: 1.5;
+  justify-content: center;
+}
+.btn-approve:hover { background: rgba(62,207,114,.12); border-color: var(--green); color: var(--green); }
+
+/* Crossfader column */
+.crossfader-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+.cf-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.cf-track {
+  width: 36px;
+  height: 120px;
+  background: #0d0e11;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  position: relative;
+  cursor: ns-resize;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4px;
+}
+.cf-thumb {
+  width: 28px;
+  height: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+  transition: background .1s;
+}
+.cf-thumb:hover { background: var(--raised); }
+.cf-thumb::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 1px;
+  background: var(--muted);
+  box-shadow: 0 -2px 0 var(--muted), 0 2px 0 var(--muted);
+}
+.cf-deck-a { color: var(--deck-a); }
+.cf-deck-b { color: var(--deck-b); }
+
+/* ── Region 2: The Console ──────────────────────────────────────────────── */
+.console-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  border-left: 1px solid var(--border);
+}
+.console-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.console-body::-webkit-scrollbar { width: 4px; }
+.console-body::-webkit-scrollbar-track { background: transparent; }
+.console-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Genre pills */
+.section-block {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.section-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.genre-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.genre-pill {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--label);
+  cursor: pointer;
+}
+.genre-pill.selected {
+  border-color: var(--deck-a);
+  color: var(--deck-a);
+  background: rgba(40,200,224,.1);
+}
+
+/* Density slider */
+.density-track {
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  position: relative;
+  margin: 6px 0;
+  cursor: ew-resize;
+}
+.density-fill {
+  height: 100%;
+  width: 55%;
+  background: linear-gradient(90deg, var(--deck-a) 0%, var(--deck-b) 100%);
+  border-radius: 2px;
+}
+.density-thumb {
+  position: absolute;
+  top: 50%;
+  left: 55%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bright);
+  border: 1px solid var(--border-hi);
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+.density-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* Channel strips */
+.channel-strip {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 6px;
+  border-bottom: 1px solid rgba(51,54,62,.5);
+}
+.channel-strip:last-child { border-bottom: none; }
+.ch-name {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text);
+  width: 36px;
+  flex-shrink: 0;
+}
+.ch-fader {
+  flex: 1;
+  height: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 1.5px;
+  position: relative;
+  cursor: ew-resize;
+}
+.ch-fader-fill {
+  height: 100%;
+  background: var(--deck-a);
+  border-radius: 1.5px;
+}
+.ch-fader-thumb {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--bright);
+  border: 1px solid var(--border-hi);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+/* VU meter */
+.vu {
+  width: 6px;
+  height: 28px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.vu-seg {
+  height: 3px;
+  border-radius: .5px;
+  background: var(--surface);
+}
+/* EQ knob */
+.knob-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.knob-label {
+  font-size: 7px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.knob {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* mode pills on channel strip */
+.ch-modes {
+  display: flex;
+  gap: 2px;
+}
+.ch-mode {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+}
+.ch-mode.sel {
+  border-color: var(--deck-a);
+  color: var(--deck-a);
+  background: rgba(40,200,224,.08);
+}
+
+/* ── Region 3: The Floor ────────────────────────────────────────────────── */
+.floor-panel {
+  grid-column: 1;
+  grid-row: 2;
+}
+.floor-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  overflow: hidden;
+  gap: 1px;
+  background: #000;
+}
+.floor-roll {
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.roll-header {
+  height: 22px;
+  background: #111316;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+}
+.roll-sub-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.roll-canvas {
+  flex: 1;
+  overflow: hidden;
+}
+.floor-side {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.floor-side-section {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.floor-side-section + .floor-side-section {
+  border-top: 1px solid var(--border);
+}
+.floor-side-header {
+  height: 22px;
+  background: #111316;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.log-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.log-list::-webkit-scrollbar { width: 3px; }
+.log-list::-webkit-scrollbar-thumb { background: var(--border); }
+.log-entry {
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--label);
+  border-bottom: 1px solid rgba(51,54,62,.35);
+}
+.log-entry:last-child { border-bottom: none; }
+.log-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.log-dot-keep { background: var(--green); }
+.log-dot-skip { background: var(--muted); }
+.log-text { flex: 1; color: var(--text); }
+.log-badge {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--label);
+}
+
+/* ── Region 4: The Code ─────────────────────────────────────────────────── */
+.code-panel {
+  grid-column: 2;  /* actually floor row but overlaps — handled below */
+}
+/* We've made console span both rows; code panel is embedded in the floor area */
+/* Re-layout: floor + code side by side at the bottom */
+/* Already handled by floor-body grid */
+
+.code-pane {
+  flex: 1;
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+.code-pane-header {
+  height: 22px;
+  background: #111316;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.code-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: #aab1bf;
+}
+.code-body::-webkit-scrollbar { width: 4px; }
+.code-body::-webkit-scrollbar-thumb { background: var(--border); }
+/* Syntax colouring */
+.tok-kw   { color: #c678dd; }  /* keyword / function */
+.tok-fn   { color: #61afef; }  /* method */
+.tok-str  { color: #98c379; }  /* string / mini-notation */
+.tok-num  { color: #d19a66; }  /* number */
+.tok-cm   { color: #5c6370; font-style: italic; }  /* comment */
+.tok-punc { color: #abb2bf; }  /* punctuation */
+.tok-note { color: #e06c75; }  /* note literal */
+
+/* ── Scrollbars global ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Utility ────────────────────────────────────────────────────────────── */
+.gap4  { gap: 4px; }
+.gap6  { gap: 6px; }
+.row   { display: flex; align-items: center; }
+.mono  { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- Caption strip -->
+<div class="caption-strip">
+  <span class="spike-name">SERATO</span>
+  <span class="spike-desc">Pro-DJ workstation aesthetic · Serato DJ Pro / Ableton Live / Pioneer Rekordbox</span>
+</div>
+
+<div class="app-shell">
+
+  <!-- Transport bar -->
+  <div class="transport-bar">
+    <span class="logo">Acetate</span>
+    <div class="track-id row gap4">
+      <div class="bpm-box mono">140 BPM</div>
+      <div class="key-box mono">F min</div>
+      <span class="track-name">NEON MELT</span>
+      <span class="stage-pill">5 PARTS</span>
+    </div>
+    <div class="transport-spacer"></div>
+    <button class="btn btn-ghost">Live</button>
+    <button class="nav-pill active">Live</button>
+    <button class="nav-pill">Crate</button>
+    <button class="nav-pill">Remix</button>
+  </div>
+
+  <!-- Main grid: [rig | console] / [floor | console] -->
+  <div class="main-grid">
+
+    <!-- ── REGION 1 · The Rig ──────────────────────────────────────────── -->
+    <div class="panel rig-panel">
+      <div class="panel-header">
+        <span class="panel-title panel-title-accent">The Rig</span>
+        <span class="panel-title">· deck A/B · crossfader</span>
+        <div class="panel-actions">
+          <button class="btn btn-primary">▶ Start</button>
+          <button class="btn">Cut a dubplate</button>
+          <button class="btn btn-ghost">New</button>
+        </div>
+      </div>
+      <div class="rig-body">
+
+        <!-- Status + chips -->
+        <div class="row gap6" style="align-items:flex-start; justify-content:space-between;">
+          <div class="dj-status">
+            <span class="pulse"></span>
+            cutting a <span>lead line</span> — dotted, call-and-response
+          </div>
+        </div>
+
+        <div class="chips-row">
+          <span class="chip-label">Parts</span>
+          <span class="chip active">kick</span>
+          <span class="chip active">hats</span>
+          <span class="chip active">808</span>
+          <span class="chip active">clap</span>
+          <span class="chip active">chords</span>
+          <span class="chip" style="border-color:var(--deck-b); color:var(--deck-b); background:rgba(255,155,47,.08);">+ lead</span>
+        </div>
+
+        <!-- Deck rig -->
+        <div class="deck-rig">
+
+          <!-- Deck A -->
+          <div class="deck deck-a">
+            <div class="deck-header">
+              <span class="deck-label">A</span>
+              <span class="deck-subtitle">committed track</span>
+              <span style="font-size:8px; color:var(--label); font-variant-numeric:tabular-nums;">+0.0%</span>
+            </div>
+            <div class="jog-area">
+              <div class="jog-wrap">
+                <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Outer ring -->
+                  <circle cx="60" cy="60" r="58" stroke="#33363e" stroke-width="1"/>
+                  <!-- Platter ridges -->
+                  <circle cx="60" cy="60" r="54" stroke="#2a2d34" stroke-width="1.5" stroke-dasharray="3 4"/>
+                  <!-- Grooves -->
+                  <circle cx="60" cy="60" r="48" stroke="#222529" stroke-width=".8"/>
+                  <circle cx="60" cy="60" r="42" stroke="#222529" stroke-width=".8"/>
+                  <circle cx="60" cy="60" r="36" stroke="#222529" stroke-width=".8"/>
+                  <circle cx="60" cy="60" r="30" stroke="#222529" stroke-width=".8"/>
+                  <circle cx="60" cy="60" r="24" stroke="#222529" stroke-width=".8"/>
+                  <!-- Label area -->
+                  <circle cx="60" cy="60" r="20" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+                  <circle cx="60" cy="60" r="3" fill="#28c8e0" opacity=".8"/>
+                  <!-- Cyan sector — active portion -->
+                  <path d="M60 12 A48 48 0 0 1 96 84 L60 60 Z" fill="rgba(40,200,224,.06)"/>
+                  <!-- Play position line -->
+                  <line x1="60" y1="2" x2="60" y2="16" stroke="#28c8e0" stroke-width="1.5"/>
+                  <!-- Sticker text -->
+                  <text x="60" y="63" text-anchor="middle" font-family="Inter, system-ui" font-size="5" fill="#5a6070" letter-spacing=".08em">NEON MELT</text>
+                </svg>
+              </div>
+            </div>
+            <!-- Waveform strip -->
+            <div class="waveform-strip">
+              <svg viewBox="0 0 400 36" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Bass layer (red/orange) -->
+                <g opacity=".8">
+                  <rect x="0"   y="16" width="4"  height="8"  fill="#e05a28"/>
+                  <rect x="6"   y="14" width="3"  height="10" fill="#e05a28"/>
+                  <rect x="11"  y="17" width="3"  height="6"  fill="#d44f20"/>
+                  <rect x="16"  y="12" width="4"  height="14" fill="#e05a28"/>
+                  <rect x="22"  y="16" width="3"  height="7"  fill="#d44f20"/>
+                  <rect x="27"  y="13" width="4"  height="11" fill="#e05a28"/>
+                  <rect x="33"  y="15" width="3"  height="9"  fill="#d44f20"/>
+                  <rect x="38"  y="11" width="4"  height="15" fill="#e05a28"/>
+                  <rect x="44"  y="16" width="3"  height="8"  fill="#d44f20"/>
+                  <rect x="49"  y="13" width="4"  height="12" fill="#e05a28"/>
+                  <rect x="55"  y="15" width="3"  height="9"  fill="#d44f20"/>
+                  <rect x="60"  y="11" width="4"  height="15" fill="#e05a28"/>
+                  <rect x="66"  y="14" width="3"  height="10" fill="#d44f20"/>
+                  <rect x="71"  y="16" width="4"  height="8"  fill="#e05a28"/>
+                  <rect x="77"  y="12" width="3"  height="14" fill="#e05a28"/>
+                  <rect x="82"  y="16" width="4"  height="7"  fill="#d44f20"/>
+                  <rect x="88"  y="13" width="3"  height="12" fill="#e05a28"/>
+                  <rect x="93"  y="15" width="4"  height="9"  fill="#d44f20"/>
+                  <rect x="99"  y="10" width="3"  height="16" fill="#e05a28"/>
+                  <rect x="104" y="15" width="4"  height="8"  fill="#d44f20"/>
+                </g>
+                <!-- Mid layer (green) -->
+                <g opacity=".7">
+                  <rect x="0"   y="14" width="4"  height="4"  fill="#3ecf72"/>
+                  <rect x="6"   y="12" width="3"  height="5"  fill="#3ecf72"/>
+                  <rect x="11"  y="15" width="3"  height="3"  fill="#35b862"/>
+                  <rect x="16"  y="10" width="4"  height="6"  fill="#3ecf72"/>
+                  <rect x="22"  y="14" width="3"  height="4"  fill="#35b862"/>
+                  <rect x="27"  y="11" width="4"  height="6"  fill="#3ecf72"/>
+                  <rect x="33"  y="13" width="3"  height="5"  fill="#35b862"/>
+                  <rect x="38"  y="9"  width="4"  height="7"  fill="#3ecf72"/>
+                  <rect x="44"  y="14" width="3"  height="4"  fill="#35b862"/>
+                  <rect x="49"  y="11" width="4"  height="6"  fill="#3ecf72"/>
+                  <rect x="55"  y="13" width="3"  height="5"  fill="#35b862"/>
+                  <rect x="60"  y="9"  width="4"  height="7"  fill="#3ecf72"/>
+                  <rect x="66"  y="12" width="3"  height="5"  fill="#35b862"/>
+                  <rect x="71"  y="14" width="4"  height="4"  fill="#3ecf72"/>
+                  <rect x="77"  y="10" width="3"  height="7"  fill="#3ecf72"/>
+                  <rect x="82"  y="14" width="4"  height="4"  fill="#35b862"/>
+                  <rect x="88"  y="11" width="3"  height="6"  fill="#3ecf72"/>
+                  <rect x="93"  y="13" width="4"  height="5"  fill="#35b862"/>
+                  <rect x="99"  y="8"  width="3"  height="8"  fill="#3ecf72"/>
+                  <rect x="104" y="13" width="4"  height="4"  fill="#35b862"/>
+                </g>
+                <!-- Hi layer (blue) -->
+                <g opacity=".6">
+                  <rect x="0"   y="13" width="4"  height="2"  fill="#4fa3e8"/>
+                  <rect x="6"   y="11" width="3"  height="2"  fill="#4fa3e8"/>
+                  <rect x="11"  y="14" width="3"  height="2"  fill="#3d8fd4"/>
+                  <rect x="16"  y="9"  width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="22"  y="13" width="3"  height="2"  fill="#3d8fd4"/>
+                  <rect x="27"  y="10" width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="33"  y="12" width="3"  height="2"  fill="#3d8fd4"/>
+                  <rect x="38"  y="8"  width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="44"  y="13" width="3"  height="2"  fill="#3d8fd4"/>
+                  <rect x="49"  y="10" width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="55"  y="12" width="3"  height="2"  fill="#3d8fd4"/>
+                  <rect x="60"  y="8"  width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="66"  y="11" width="3"  height="2"  fill="#3d8fd4"/>
+                  <rect x="71"  y="13" width="4"  height="2"  fill="#4fa3e8"/>
+                  <rect x="77"  y="9"  width="3"  height="3"  fill="#4fa3e8"/>
+                  <rect x="82"  y="13" width="4"  height="2"  fill="#3d8fd4"/>
+                  <rect x="88"  y="10" width="3"  height="3"  fill="#4fa3e8"/>
+                  <rect x="93"  y="12" width="4"  height="2"  fill="#3d8fd4"/>
+                  <rect x="99"  y="7"  width="3"  height="3"  fill="#4fa3e8"/>
+                  <rect x="104" y="12" width="4"  height="2"  fill="#3d8fd4"/>
+                  <!-- Mirrored bottom -->
+                  <rect x="0"   y="21" width="4"  height="2"  fill="#4fa3e8"/>
+                  <rect x="16"  y="24" width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="38"  y="25" width="4"  height="3"  fill="#4fa3e8"/>
+                  <rect x="60"  y="25" width="4"  height="3"  fill="#4fa3e8"/>
+                </g>
+                <!-- Beatgrid markers -->
+                <g stroke="#28c8e0" stroke-width=".5" opacity=".6">
+                  <line x1="0"   y1="0" x2="0"   y2="36"/>
+                  <line x1="25"  y1="0" x2="25"  y2="36"/>
+                  <line x1="50"  y1="0" x2="50"  y2="36"/>
+                  <line x1="75"  y1="0" x2="75"  y2="36"/>
+                  <line x1="100" y1="0" x2="100" y2="36"/>
+                </g>
+                <!-- Phrase marker -->
+                <rect x="0" y="0" width="100" height="2" fill="rgba(40,200,224,.25)"/>
+                <!-- Playhead (centre) -->
+                <line x1="200" y1="0" x2="200" y2="36" stroke="#fff" stroke-width="1" opacity=".85"/>
+                <!-- Continue waveform right of playhead -->
+                <g opacity=".4">
+                  <rect x="110" y="16" width="4"  height="7"  fill="#e05a28"/>
+                  <rect x="116" y="13" width="3"  height="11" fill="#e05a28"/>
+                  <rect x="121" y="17" width="4"  height="6"  fill="#d44f20"/>
+                  <rect x="127" y="14" width="3"  height="10" fill="#e05a28"/>
+                  <rect x="132" y="16" width="4"  height="7"  fill="#d44f20"/>
+                  <rect x="138" y="12" width="3"  height="14" fill="#e05a28"/>
+                  <rect x="143" y="15" width="4"  height="9"  fill="#d44f20"/>
+                  <rect x="149" y="14" width="3"  height="11" fill="#e05a28"/>
+                  <rect x="154" y="16" width="4"  height="7"  fill="#d44f20"/>
+                  <rect x="160" y="13" width="3"  height="12" fill="#e05a28"/>
+                  <rect x="165" y="15" width="4"  height="9"  fill="#d44f20"/>
+                  <rect x="171" y="12" width="3"  height="14" fill="#e05a28"/>
+                  <rect x="176" y="16" width="4"  height="7"  fill="#d44f20"/>
+                  <rect x="182" y="14" width="3"  height="11" fill="#e05a28"/>
+                  <rect x="187" y="15" width="4"  height="8"  fill="#d44f20"/>
+                  <rect x="193" y="11" width="3"  height="15" fill="#e05a28"/>
+                </g>
+                <!-- Future waveform (right of playhead, dimmer) -->
+                <g opacity=".3">
+                  <rect x="205" y="16" width="4"  height="8"  fill="#e05a28"/>
+                  <rect x="211" y="14" width="3"  height="10" fill="#e05a28"/>
+                  <rect x="216" y="17" width="4"  height="6"  fill="#d44f20"/>
+                  <rect x="222" y="12" width="4"  height="14" fill="#e05a28"/>
+                  <rect x="228" y="15" width="3"  height="9"  fill="#d44f20"/>
+                  <rect x="233" y="13" width="4"  height="12" fill="#e05a28"/>
+                  <rect x="239" y="16" width="3"  height="8"  fill="#d44f20"/>
+                  <rect x="244" y="11" width="4"  height="15" fill="#e05a28"/>
+                  <rect x="250" y="14" width="3"  height="10" fill="#d44f20"/>
+                  <rect x="255" y="16" width="4"  height="7"  fill="#e05a28"/>
+                  <rect x="261" y="13" width="3"  height="11" fill="#d44f20"/>
+                  <rect x="266" y="10" width="4"  height="16" fill="#e05a28"/>
+                  <rect x="272" y="15" width="3"  height="9"  fill="#d44f20"/>
+                  <rect x="277" y="13" width="4"  height="12" fill="#e05a28"/>
+                  <rect x="283" y="16" width="3"  height="8"  fill="#d44f20"/>
+                  <rect x="288" y="12" width="4"  height="13" fill="#e05a28"/>
+                  <rect x="294" y="15" width="3"  height="9"  fill="#d44f20"/>
+                  <rect x="299" y="11" width="4"  height="15" fill="#e05a28"/>
+                  <rect x="305" y="14" width="3"  height="10" fill="#d44f20"/>
+                  <rect x="310" y="16" width="4"  height="7"  fill="#e05a28"/>
+                  <rect x="316" y="13" width="3"  height="12" fill="#d44f20"/>
+                  <rect x="321" y="10" width="4"  height="16" fill="#e05a28"/>
+                  <rect x="327" y="15" width="3"  height="9"  fill="#d44f20"/>
+                  <rect x="332" y="12" width="4"  height="13" fill="#e05a28"/>
+                  <rect x="338" y="16" width="3"  height="8"  fill="#d44f20"/>
+                  <rect x="343" y="11" width="4"  height="15" fill="#e05a28"/>
+                  <rect x="349" y="14" width="3"  height="10" fill="#e05a28"/>
+                  <rect x="354" y="16" width="4"  height="7"  fill="#d44f20"/>
+                  <rect x="360" y="13" width="3"  height="12" fill="#e05a28"/>
+                  <rect x="365" y="15" width="4"  height="9"  fill="#d44f20"/>
+                  <rect x="371" y="10" width="3"  height="16" fill="#e05a28"/>
+                  <rect x="376" y="14" width="4"  height="10" fill="#d44f20"/>
+                  <rect x="382" y="16" width="3"  height="7"  fill="#e05a28"/>
+                  <rect x="387" y="12" width="4"  height="13" fill="#d44f20"/>
+                  <rect x="393" y="15" width="3"  height="9"  fill="#e05a28"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Crossfader -->
+          <div class="crossfader-col">
+            <span class="cf-label cf-deck-a">A</span>
+            <div class="cf-track">
+              <div class="cf-thumb"></div>
+            </div>
+            <span class="cf-label cf-deck-b">B</span>
+            <span style="font-size:8px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; margin-top:2px;">blend</span>
+          </div>
+
+          <!-- Deck B -->
+          <div class="deck deck-b">
+            <div class="deck-header">
+              <span class="deck-label">B</span>
+              <span class="deck-subtitle">pitched change</span>
+              <span style="font-size:8px; color:var(--label); font-variant-numeric:tabular-nums;">+0.0%</span>
+            </div>
+            <div class="jog-area">
+              <div class="jog-wrap">
+                <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Outer ring -->
+                  <circle cx="60" cy="60" r="58" stroke="#33363e" stroke-width="1"/>
+                  <!-- Platter ridges -->
+                  <circle cx="60" cy="60" r="54" stroke="#2a2d34" stroke-width="1.5" stroke-dasharray="3 4"/>
+                  <!-- Grooves (sparser — acetate, mostly blank) -->
+                  <circle cx="60" cy="60" r="48" stroke="#1e2024" stroke-width=".6"/>
+                  <circle cx="60" cy="60" r="42" stroke="#1e2024" stroke-width=".6"/>
+                  <circle cx="60" cy="60" r="36" stroke="#1e2024" stroke-width=".6"/>
+                  <circle cx="60" cy="60" r="30" stroke="#1e2024" stroke-width=".6"/>
+                  <circle cx="60" cy="60" r="24" stroke="#1e2024" stroke-width=".6"/>
+                  <!-- Label area -->
+                  <circle cx="60" cy="60" r="20" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+                  <circle cx="60" cy="60" r="3" fill="#ff9b2f" opacity=".8"/>
+                  <!-- Amber delta mark — lead line arc -->
+                  <path d="M60 14 A46 46 0 0 1 97 74" stroke="#ff9b2f" stroke-width="2" fill="none" opacity=".7" stroke-linecap="round" stroke-dasharray="5 3"/>
+                  <!-- Play position line -->
+                  <line x1="60" y1="2" x2="60" y2="16" stroke="#ff9b2f" stroke-width="1.5"/>
+                </svg>
+              </div>
+            </div>
+            <!-- Pitch card -->
+            <div class="pitch-card">
+              <div class="pitch-desc">
+                <strong>add a lead line</strong> — dotted, call-and-response
+              </div>
+              <div class="pitch-actions">
+                <button class="btn btn-skip">✕ Skip</button>
+                <button class="btn btn-approve">✓ Approve</button>
+              </div>
+            </div>
+            <!-- Waveform strip (amber tint — proposed addition) -->
+            <div class="waveform-strip" style="border-top-color: rgba(255,155,47,.2);">
+              <svg viewBox="0 0 400 36" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Sparse melodic line in amber -->
+                <g opacity=".6">
+                  <rect x="0"   y="18" width="2"  height="4"  fill="#ff9b2f"/>
+                  <rect x="25"  y="14" width="2"  height="8"  fill="#ff9b2f"/>
+                  <rect x="30"  y="16" width="2"  height="5"  fill="#ff9b2f"/>
+                  <rect x="50"  y="12" width="2"  height="10" fill="#ff9b2f"/>
+                  <rect x="55"  y="15" width="2"  height="6"  fill="#ff9b2f"/>
+                  <rect x="75"  y="17" width="2"  height="4"  fill="#ff9b2f"/>
+                  <rect x="100" y="13" width="2"  height="9"  fill="#ff9b2f"/>
+                  <rect x="105" y="16" width="2"  height="5"  fill="#ff9b2f"/>
+                  <rect x="125" y="15" width="2"  height="7"  fill="#ff9b2f"/>
+                  <rect x="150" y="11" width="2"  height="12" fill="#ff9b2f"/>
+                  <rect x="155" y="14" width="2"  height="7"  fill="#ff9b2f"/>
+                  <rect x="175" y="18" width="2"  height="4"  fill="#ff9b2f"/>
+                </g>
+                <!-- Beatgrid -->
+                <g stroke="#ff9b2f" stroke-width=".5" opacity=".3">
+                  <line x1="0"   y1="0" x2="0"   y2="36"/>
+                  <line x1="25"  y1="0" x2="25"  y2="36"/>
+                  <line x1="50"  y1="0" x2="50"  y2="36"/>
+                  <line x1="75"  y1="0" x2="75"  y2="36"/>
+                  <line x1="100" y1="0" x2="100" y2="36"/>
+                </g>
+                <line x1="200" y1="0" x2="200" y2="36" stroke="#ff9b2f" stroke-width="1" opacity=".7"/>
+              </svg>
+            </div>
+          </div>
+
+        </div><!-- /deck-rig -->
+      </div><!-- /rig-body -->
+    </div><!-- /rig-panel -->
+
+    <!-- ── REGION 2 · The Console ──────────────────────────────────────── -->
+    <div class="panel console-panel">
+      <div class="panel-header">
+        <span class="panel-title panel-title-accent">Console</span>
+        <span class="panel-title">· genre · density · parts</span>
+      </div>
+      <div class="console-body">
+
+        <!-- Genre -->
+        <div class="section-block">
+          <div class="section-label">Genre</div>
+          <div class="genre-pills">
+            <span class="genre-pill">lo-fi</span>
+            <span class="genre-pill selected">drill</span>
+            <span class="genre-pill">trap</span>
+            <span class="genre-pill">house</span>
+            <span class="genre-pill">dnb</span>
+            <span class="genre-pill">garage</span>
+            <span class="genre-pill">techno</span>
+            <span class="genre-pill">boom bap</span>
+          </div>
+        </div>
+
+        <!-- Density -->
+        <div class="section-block">
+          <div class="section-label">Density</div>
+          <div class="density-track">
+            <div class="density-fill"></div>
+            <div class="density-thumb"></div>
+          </div>
+          <div class="density-labels">
+            <span>strip</span>
+            <span>hold</span>
+            <span>pile on</span>
+          </div>
+        </div>
+
+        <!-- Channel strips — the parts -->
+        <div class="section-block" style="padding-bottom:0;">
+          <div class="section-label">The Parts</div>
+        </div>
+
+        <!-- kick -->
+        <div class="channel-strip">
+          <span class="ch-name">kick</span>
+          <!-- EQ knob -->
+          <div class="knob-wrap">
+            <svg class="knob" viewBox="0 0 18 18">
+              <circle cx="9" cy="9" r="7" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+              <path d="M9 9 L9 3.5" stroke="#28c8e0" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="9" cy="4" r="1" fill="#28c8e0"/>
+            </svg>
+            <span class="knob-label">EQ</span>
+          </div>
+          <div class="ch-fader">
+            <div class="ch-fader-fill" style="width:80%"></div>
+            <div class="ch-fader-thumb" style="left:80%"></div>
+          </div>
+          <div class="vu">
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#f5a623"></div>
+            <div class="vu-seg" style="background:#f5a623"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-modes">
+            <button class="ch-mode">drop</button>
+            <button class="ch-mode sel">auto</button>
+            <button class="ch-mode">feat</button>
+          </div>
+        </div>
+
+        <!-- hats -->
+        <div class="channel-strip">
+          <span class="ch-name">hats</span>
+          <div class="knob-wrap">
+            <svg class="knob" viewBox="0 0 18 18">
+              <circle cx="9" cy="9" r="7" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+              <path d="M9 9 L12 4.5" stroke="#28c8e0" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="5" r="1" fill="#28c8e0"/>
+            </svg>
+            <span class="knob-label">EQ</span>
+          </div>
+          <div class="ch-fader">
+            <div class="ch-fader-fill" style="width:55%"></div>
+            <div class="ch-fader-thumb" style="left:55%"></div>
+          </div>
+          <div class="vu">
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-modes">
+            <button class="ch-mode">drop</button>
+            <button class="ch-mode sel">auto</button>
+            <button class="ch-mode">feat</button>
+          </div>
+        </div>
+
+        <!-- 808 -->
+        <div class="channel-strip">
+          <span class="ch-name">808</span>
+          <div class="knob-wrap">
+            <svg class="knob" viewBox="0 0 18 18">
+              <circle cx="9" cy="9" r="7" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+              <path d="M9 9 L6 4.5" stroke="#ff9b2f" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="6" cy="5" r="1" fill="#ff9b2f"/>
+            </svg>
+            <span class="knob-label">EQ</span>
+          </div>
+          <div class="ch-fader">
+            <div class="ch-fader-fill" style="width:75%"></div>
+            <div class="ch-fader-thumb" style="left:75%"></div>
+          </div>
+          <div class="vu">
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-modes">
+            <button class="ch-mode sel">drop</button>
+            <button class="ch-mode">auto</button>
+            <button class="ch-mode">feat</button>
+          </div>
+        </div>
+
+        <!-- clap -->
+        <div class="channel-strip">
+          <span class="ch-name">clap</span>
+          <div class="knob-wrap">
+            <svg class="knob" viewBox="0 0 18 18">
+              <circle cx="9" cy="9" r="7" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+              <path d="M9 9 L9 3.5" stroke="#28c8e0" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="9" cy="4" r="1" fill="#28c8e0"/>
+            </svg>
+            <span class="knob-label">EQ</span>
+          </div>
+          <div class="ch-fader">
+            <div class="ch-fader-fill" style="width:65%"></div>
+            <div class="ch-fader-thumb" style="left:65%"></div>
+          </div>
+          <div class="vu">
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-modes">
+            <button class="ch-mode">drop</button>
+            <button class="ch-mode sel">auto</button>
+            <button class="ch-mode">feat</button>
+          </div>
+        </div>
+
+        <!-- chords -->
+        <div class="channel-strip">
+          <span class="ch-name">chords</span>
+          <div class="knob-wrap">
+            <svg class="knob" viewBox="0 0 18 18">
+              <circle cx="9" cy="9" r="7" fill="#1c1e23" stroke="#33363e" stroke-width="1"/>
+              <path d="M9 9 L11 4" stroke="#28c8e0" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="11" cy="4.5" r="1" fill="#28c8e0"/>
+            </svg>
+            <span class="knob-label">EQ</span>
+          </div>
+          <div class="ch-fader">
+            <div class="ch-fader-fill" style="width:50%"></div>
+            <div class="ch-fader-thumb" style="left:50%"></div>
+          </div>
+          <div class="vu">
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg" style="background:#3ecf72"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-modes">
+            <button class="ch-mode">drop</button>
+            <button class="ch-mode">auto</button>
+            <button class="ch-mode sel">feat</button>
+          </div>
+        </div>
+
+        <!-- lead (pending — amber) -->
+        <div class="channel-strip" style="background:rgba(255,155,47,.04); border-left:2px solid var(--deck-b);">
+          <span class="ch-name" style="color:var(--deck-b);">lead</span>
+          <div class="knob-wrap">
+            <svg class="knob" viewBox="0 0 18 18">
+              <circle cx="9" cy="9" r="7" fill="#1c1e23" stroke="#44484f" stroke-width="1"/>
+              <path d="M9 9 L9 3.5" stroke="#ff9b2f" stroke-width="1.5" stroke-linecap="round" opacity=".4"/>
+              <circle cx="9" cy="4" r="1" fill="#ff9b2f" opacity=".4"/>
+            </svg>
+            <span class="knob-label" style="color:var(--deck-b); opacity:.6;">EQ</span>
+          </div>
+          <div class="ch-fader">
+            <div class="ch-fader-fill" style="width:0%; background:var(--deck-b);"></div>
+            <div class="ch-fader-thumb" style="left:0%;"></div>
+          </div>
+          <div class="vu">
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+            <div class="vu-seg"></div>
+          </div>
+          <div class="ch-modes">
+            <button class="ch-mode">drop</button>
+            <button class="ch-mode">auto</button>
+            <button class="ch-mode">feat</button>
+          </div>
+        </div>
+
+      </div><!-- /console-body -->
+    </div><!-- /console-panel -->
+
+    <!-- ── REGION 3 & 4 · Floor + Code (bottom-left panel) ────────────── -->
+    <div class="panel" style="grid-column:1; grid-row:2; overflow:hidden;">
+      <div class="panel-header">
+        <span class="panel-title panel-title-accent">The Floor</span>
+        <span class="panel-title">· roll · set history · moves</span>
+        <div class="panel-actions" style="gap:6px;">
+          <span class="panel-title" style="margin-left:32px; border-left:1px solid var(--border); padding-left:10px;">
+            <span class="panel-title-accent">Live Code</span>
+          </span>
+        </div>
+      </div>
+      <div class="floor-body">
+
+        <!-- Floor left: roll + logs -->
+        <div class="floor-roll">
+
+          <!-- Roll sub-header -->
+          <div class="roll-header">
+            <span class="roll-sub-label">The Roll</span>
+            <span style="font-size:8px; color:var(--muted); letter-spacing:.05em; margin-left:auto;">4 bars · 140 BPM</span>
+          </div>
+
+          <!-- Pianoroll SVG -->
+          <div class="roll-canvas">
+            <svg width="100%" height="100%" viewBox="0 0 500 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Background grid -->
+              <rect width="500" height="120" fill="#0e1013"/>
+              <!-- Bar lines -->
+              <g stroke="#1e2228" stroke-width="1">
+                <line x1="0"   y1="0" x2="0"   y2="120"/>
+                <line x1="125" y1="0" x2="125" y2="120"/>
+                <line x1="250" y1="0" x2="250" y2="120"/>
+                <line x1="375" y1="0" x2="375" y2="120"/>
+                <line x1="500" y1="0" x2="500" y2="120"/>
+              </g>
+              <!-- Beat subdivisions -->
+              <g stroke="#191c21" stroke-width=".5">
+                <line x1="31"  y1="0" x2="31"  y2="120"/>
+                <line x1="63"  y1="0" x2="63"  y2="120"/>
+                <line x1="94"  y1="0" x2="94"  y2="120"/>
+                <line x1="156" y1="0" x2="156" y2="120"/>
+                <line x1="188" y1="0" x2="188" y2="120"/>
+                <line x1="219" y1="0" x2="219" y2="120"/>
+                <line x1="281" y1="0" x2="281" y2="120"/>
+                <line x1="313" y1="0" x2="313" y2="120"/>
+                <line x1="344" y1="0" x2="344" y2="120"/>
+                <line x1="406" y1="0" x2="406" y2="120"/>
+                <line x1="438" y1="0" x2="438" y2="120"/>
+                <line x1="469" y1="0" x2="469" y2="120"/>
+              </g>
+              <!-- Row bands — lane colours -->
+              <!-- kick row -->
+              <rect x="0" y="102" width="500" height="12" fill="rgba(232,69,69,.04)"/>
+              <!-- hats row -->
+              <rect x="0" y="88" width="500" height="12" fill="rgba(79,163,232,.04)"/>
+              <!-- 808 row -->
+              <rect x="0" y="72" width="500" height="14" fill="rgba(255,155,47,.04)"/>
+              <!-- clap row -->
+              <rect x="0" y="58" width="500" height="12" fill="rgba(62,207,114,.04)"/>
+              <!-- chords rows -->
+              <rect x="0" y="30" width="500" height="26" fill="rgba(40,200,224,.03)"/>
+
+              <!-- Row labels -->
+              <text x="3" y="111" font-family="Inter, system-ui" font-size="7" fill="#444" letter-spacing=".04em">KICK</text>
+              <text x="3" y="97"  font-family="Inter, system-ui" font-size="7" fill="#444" letter-spacing=".04em">HATS</text>
+              <text x="3" y="83"  font-family="Inter, system-ui" font-size="7" fill="#444" letter-spacing=".04em">808</text>
+              <text x="3" y="69"  font-family="Inter, system-ui" font-size="7" fill="#444" letter-spacing=".04em">CLAP</text>
+              <text x="3" y="54"  font-family="Inter, system-ui" font-size="7" fill="#444" letter-spacing=".04em">CHD</text>
+
+              <!-- Kick notes -->
+              <rect x="0"   y="103" width="22" height="8" rx="1" fill="#e84545" opacity=".85"/>
+              <rect x="125" y="103" width="22" height="8" rx="1" fill="#e84545" opacity=".85"/>
+              <rect x="250" y="103" width="22" height="8" rx="1" fill="#e84545" opacity=".85"/>
+              <rect x="375" y="103" width="22" height="8" rx="1" fill="#e84545" opacity=".85"/>
+
+              <!-- Hat pattern (16th notes) -->
+              <rect x="0"   y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="31"  y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="63"  y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="94"  y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="125" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="156" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="188" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="219" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="250" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="281" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="313" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="344" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="375" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="406" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="438" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+              <rect x="469" y="89" width="10" height="7" rx="1" fill="#4fa3e8" opacity=".7"/>
+
+              <!-- 808 bass notes (long) -->
+              <rect x="0"   y="73" width="115" height="10" rx="1" fill="#ff9b2f" opacity=".8"/>
+              <rect x="125" y="73" width="55"  height="10" rx="1" fill="#ff9b2f" opacity=".8"/>
+              <rect x="188" y="78" width="55"  height="5"  rx="1" fill="#ff9b2f" opacity=".6"/>
+              <rect x="250" y="73" width="115" height="10" rx="1" fill="#ff9b2f" opacity=".8"/>
+              <rect x="375" y="73" width="55"  height="10" rx="1" fill="#ff9b2f" opacity=".8"/>
+
+              <!-- Clap (backbeat) -->
+              <rect x="63"  y="59" width="18" height="8" rx="1" fill="#3ecf72" opacity=".8"/>
+              <rect x="188" y="59" width="18" height="8" rx="1" fill="#3ecf72" opacity=".8"/>
+              <rect x="313" y="59" width="18" height="8" rx="1" fill="#3ecf72" opacity=".8"/>
+              <rect x="438" y="59" width="18" height="8" rx="1" fill="#3ecf72" opacity=".8"/>
+
+              <!-- Chords (stacked, progressing) -->
+              <rect x="0"   y="31" width="118" height="6" rx="1" fill="#28c8e0" opacity=".55"/>
+              <rect x="0"   y="38" width="118" height="6" rx="1" fill="#28c8e0" opacity=".45"/>
+              <rect x="0"   y="45" width="118" height="4" rx="1" fill="#28c8e0" opacity=".35"/>
+              <rect x="125" y="33" width="118" height="6" rx="1" fill="#28c8e0" opacity=".55"/>
+              <rect x="125" y="40" width="118" height="6" rx="1" fill="#28c8e0" opacity=".45"/>
+              <rect x="250" y="31" width="118" height="6" rx="1" fill="#28c8e0" opacity=".55"/>
+              <rect x="250" y="38" width="118" height="6" rx="1" fill="#28c8e0" opacity=".45"/>
+              <rect x="250" y="45" width="118" height="4" rx="1" fill="#28c8e0" opacity=".35"/>
+              <rect x="375" y="35" width="118" height="6" rx="1" fill="#28c8e0" opacity=".55"/>
+              <rect x="375" y="42" width="118" height="6" rx="1" fill="#28c8e0" opacity=".45"/>
+
+              <!-- Playhead -->
+              <line x1="200" y1="0" x2="200" y2="120" stroke="#fff" stroke-width="1" opacity=".6"/>
+            </svg>
+          </div>
+
+        </div><!-- /floor-roll -->
+
+        <!-- Floor right: set history + DJ moves + code -->
+        <div class="floor-side">
+
+          <!-- Set history -->
+          <div class="floor-side-section" style="flex:0 0 auto; max-height:50%;">
+            <div class="floor-side-header">
+              <span class="roll-sub-label">Set History</span>
+            </div>
+            <div class="log-list">
+              <div class="log-entry">
+                <div class="log-dot log-dot-keep"></div>
+                <span class="log-text">kick pattern · 4-on-floor</span>
+                <span class="log-badge">kept</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot log-dot-keep"></div>
+                <span class="log-text">hi-hat roll · 16th swing</span>
+                <span class="log-badge">kept</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot log-dot-skip"></div>
+                <span class="log-text">open hat accent · offbeat</span>
+                <span class="log-badge">skipped</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot log-dot-keep"></div>
+                <span class="log-text">808 slide · F minor root</span>
+                <span class="log-badge">kept</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot log-dot-keep"></div>
+                <span class="log-text">backbeat clap · bars 2 &amp; 4</span>
+                <span class="log-badge">kept</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot log-dot-keep"></div>
+                <span class="log-text">chord stab · minor voicing</span>
+                <span class="log-badge">kept</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot log-dot-skip"></div>
+                <span class="log-text">reverb tail · plate 0.4</span>
+                <span class="log-badge">skipped</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- DJ moves -->
+          <div class="floor-side-section">
+            <div class="floor-side-header">
+              <span class="roll-sub-label">DJ Moves</span>
+            </div>
+            <div class="log-list">
+              <div class="log-entry" style="color:var(--label);">
+                <div class="log-dot" style="background:var(--deck-b);"></div>
+                <span class="log-text" style="color:var(--deck-b);">pitching lead line — call &amp; response</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot" style="background:var(--muted);"></div>
+                <span class="log-text">opened chords on deck B</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot" style="background:var(--green);"></div>
+                <span class="log-text">approved: chord stab</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot" style="background:var(--muted);"></div>
+                <span class="log-text">skipped: reverb FX</span>
+              </div>
+              <div class="log-entry">
+                <div class="log-dot" style="background:var(--green);"></div>
+                <span class="log-text">approved: 808 slide</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /floor-side -->
+
+        <!-- Code pane -->
+        <div class="code-pane" style="max-width:240px;">
+          <div class="code-pane-header">
+            <span class="roll-sub-label">Live Code</span>
+            <span style="margin-left:auto; font-size:7px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; font-variant-numeric:tabular-nums;">Strudel · evaluating</span>
+          </div>
+          <div class="code-body">
+<span class="tok-kw">stack</span><span class="tok-punc">(</span><br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"bd*4"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">bank</span><span class="tok-punc">(</span><span class="tok-str">"RolandTR808"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">0.9</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"~ hh ~ hh"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">.6</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f2 f2 ab2 c3&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"sawtooth"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">lpf</span><span class="tok-punc">(</span><span class="tok-num">700</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">penv</span><span class="tok-punc">(</span><span class="tok-num">4</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f4 ab4 c5 eb5&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"square"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">room</span><span class="tok-punc">(</span><span class="tok-num">.3</span><span class="tok-punc">)</span><br>
+<span class="tok-punc">)</span><span class="tok-punc">.</span><span class="tok-fn">slow</span><span class="tok-punc">(</span><span class="tok-num">2</span><span class="tok-punc">)</span>
+          </div>
+        </div>
+
+      </div><!-- /floor-body -->
+    </div><!-- /floor panel -->
+
+  </div><!-- /main-grid -->
+</div><!-- /app-shell -->
+
+<script>
+// Minimal interaction: crossfader drag, approve/skip flash
+(function () {
+  'use strict';
+
+  // Crossfader drag
+  const cf = document.querySelector('.cf-track');
+  const thumb = document.querySelector('.cf-thumb');
+  let dragging = false;
+
+  cf.addEventListener('mousedown', function (e) {
+    dragging = true;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    const rect = cf.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    thumb.style.top = (pct * 100) + '%';
+  });
+  document.addEventListener('mouseup', function () { dragging = false; });
+
+  // Approve button flash
+  document.querySelector('.btn-approve').addEventListener('click', function () {
+    this.textContent = '✓ Approved';
+    this.style.background = 'rgba(62,207,114,.2)';
+    setTimeout(() => {
+      this.textContent = '✓ Approve';
+      this.style.background = '';
+    }, 800);
+  });
+
+  // Skip button flash
+  document.querySelector('.btn-skip').addEventListener('click', function () {
+    this.textContent = '✕ Skipped';
+    this.style.opacity = '.5';
+    setTimeout(() => {
+      this.textContent = '✕ Skip';
+      this.style.opacity = '';
+    }, 600);
+  });
+
+  // Channel fader drag
+  document.querySelectorAll('.ch-fader').forEach(function (fader) {
+    let active = false;
+    fader.addEventListener('mousedown', function (e) {
+      active = true;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!active) return;
+      const rect = fader.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      fader.querySelector('.ch-fader-fill').style.width = (pct * 100) + '%';
+      fader.querySelector('.ch-fader-thumb').style.left = (pct * 100) + '%';
+    });
+    document.addEventListener('mouseup', function () { active = false; });
+  });
+})();
+</script>
+</body>
+</html>

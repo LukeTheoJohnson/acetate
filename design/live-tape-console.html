@@ -1,0 +1,1396 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike — Tape Console · Acetate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+<style>
+/* ── TAPE CONSOLE SPIKE · cassette-futurism / analogue studio ───────────────
+   Studer tape machines · Roland & Moog synths · 1970s–80s console
+   Warm charcoal faceplate, walnut end-cheeks, brushed aluminium, amber readouts
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Faceplate / body */
+  --face:       #2b2724;
+  --face-dark:  #221f1c;
+  --face-mid:   #302c29;
+  /* Walnut end-cheeks */
+  --wood-light: #5a3a24;
+  --wood-dark:  #3a2416;
+  /* Aluminium accents */
+  --alu:        #c8c2b6;
+  --alu-dark:   #9e9890;
+  --alu-deep:   #6e6a64;
+  /* Amber display */
+  --amber:      #ffb64a;
+  --amber-dim:  #7a4e10;
+  --amber-glow: rgba(255, 182, 74, 0.18);
+  --cream:      #f2e6c8;
+  --cream-dim:  #8a7e68;
+  /* Signal colours */
+  --red-light:  #e0342a;
+  --red-dim:    #5c140f;
+  --green-vu:   #4ecb5a;
+  --yellow-vu:  #e6c843;
+  --orange-vu:  #e07832;
+  /* Type */
+  --font-plate: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-lcd:   'Share Tech Mono', 'Courier Prime', monospace;
+  --font-code:  'Courier Prime', 'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--face-dark);
+  color: var(--cream);
+  font-family: var(--font-plate);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── BRUSHED ALUMINIUM TEXTURE ─────────────────────────────────────────── */
+.brushed {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,255,255,0.03) 0px,
+      rgba(255,255,255,0.00) 1px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(255,255,255,0.02) 3px
+    ),
+    linear-gradient(180deg, #c4beb2 0%, #b8b2a8 50%, #c0bab0 100%);
+  color: #1a1714;
+}
+
+/* ── WOOD TEXTURE ──────────────────────────────────────────────────────── */
+.wood {
+  background:
+    repeating-linear-gradient(
+      170deg,
+      rgba(255,200,100,0.04) 0px,
+      transparent 2px,
+      rgba(0,0,0,0.06) 4px,
+      transparent 6px
+    ),
+    linear-gradient(180deg, var(--wood-light) 0%, var(--wood-dark) 100%);
+}
+
+/* ── FACEPLATE TEXTURE ─────────────────────────────────────────────────── */
+.faceplate {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.012) 0px,
+      transparent 1px,
+      transparent 3px
+    ),
+    linear-gradient(160deg, var(--face) 0%, var(--face-dark) 60%, #1e1b18 100%);
+}
+
+/* ── SPIKE LEGEND STRIP ────────────────────────────────────────────────── */
+.spike-legend {
+  height: 28px;
+  display: flex; align-items: center; padding: 0 16px;
+  gap: 18px;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px,
+      transparent 1px, transparent 4px),
+    linear-gradient(90deg, #b8b2a8 0%, #c4beb4 40%, #b0aaa0 100%);
+  border-bottom: 2px solid #7a7268;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.spike-legend .spike-name {
+  font-family: var(--font-plate);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: #2a2520;
+}
+.spike-legend .spike-sub {
+  font-size: 9px; letter-spacing: 2px; color: #5a5248; text-transform: uppercase;
+}
+.spike-legend .spike-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red-light);
+  box-shadow: 0 0 6px rgba(224,52,42,0.8);
+  flex-shrink: 0;
+}
+
+/* ── MASTER LAYOUT ─────────────────────────────────────────────────────── */
+.console-body {
+  display: flex;
+  height: calc(100vh - 28px);
+}
+
+/* Wood side cheeks */
+.cheek {
+  width: 22px; flex-shrink: 0;
+}
+.cheek.left {
+  background:
+    repeating-linear-gradient(170deg,
+      rgba(255,180,80,0.06) 0px, transparent 3px, rgba(0,0,0,0.08) 6px, transparent 9px),
+    linear-gradient(180deg, #6b4428 0%, #3a2416 60%, #2e1c10 100%);
+  border-right: 1px solid rgba(0,0,0,0.4);
+  box-shadow: inset -3px 0 6px rgba(0,0,0,0.3), 2px 0 4px rgba(0,0,0,0.4);
+}
+.cheek.right {
+  background:
+    repeating-linear-gradient(170deg,
+      rgba(255,180,80,0.06) 0px, transparent 3px, rgba(0,0,0,0.08) 6px, transparent 9px),
+    linear-gradient(180deg, #6b4428 0%, #3a2416 60%, #2e1c10 100%);
+  border-left: 1px solid rgba(0,0,0,0.4);
+  box-shadow: inset 3px 0 6px rgba(0,0,0,0.3), -2px 0 4px rgba(0,0,0,0.4);
+}
+
+/* Main panel area */
+.panel-area {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.75fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 0;
+  overflow: hidden;
+  background: var(--face-dark);
+}
+
+/* Each quadrant */
+.quadrant {
+  border: 1px solid rgba(0,0,0,0.5);
+  overflow: hidden;
+  position: relative;
+  display: flex; flex-direction: column;
+}
+.quadrant::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.025) 0%, transparent 60%);
+}
+
+/* Quadrant headers — silk-screen plate labels */
+.q-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px 5px;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px,
+      transparent 1px, transparent 4px),
+    linear-gradient(180deg, #393530 0%, #302c29 100%);
+  border-bottom: 1px solid rgba(0,0,0,0.6);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  flex-shrink: 0;
+}
+.q-label {
+  font-family: var(--font-plate);
+  font-size: 9px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--alu-dark);
+}
+.q-label-main {
+  font-size: 10px; font-weight: 700; color: var(--alu);
+}
+.q-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber-dim);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+.q-dot.lit {
+  background: var(--amber);
+  box-shadow: 0 0 5px var(--amber), 0 0 10px rgba(255,182,74,0.4);
+}
+
+.q-body {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+  padding: 10px 14px;
+  gap: 8px;
+}
+
+/* ── SECTION 1 — THE RIG (top-left) ───────────────────────────────────── */
+.rig-q { grid-column: 1; grid-row: 1; }
+
+/* Track head */
+.track-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; flex-shrink: 0;
+}
+.track-title-block {}
+.track-title {
+  font-family: var(--font-plate);
+  font-size: 24px; font-weight: 700; letter-spacing: 4px;
+  color: var(--amber);
+  text-shadow: 0 0 12px rgba(255,182,74,0.4);
+  line-height: 1;
+}
+.track-meta {
+  font-size: 10px; letter-spacing: 2px; color: var(--cream-dim);
+  margin-top: 3px; text-transform: uppercase;
+}
+.track-meta span { color: var(--amber); }
+
+/* DJ status — illuminated indicator */
+.dj-status {
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, #1e1b18 0%, #252220 100%);
+  border: 1px solid rgba(0,0,0,0.6);
+  border-radius: 4px;
+  padding: 5px 10px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04);
+}
+.dj-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: var(--red-light);
+  box-shadow: 0 0 6px rgba(224,52,42,0.9), 0 0 12px rgba(224,52,42,0.4);
+  animation: rec-blink 1.4s ease-in-out infinite;
+}
+@keyframes rec-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+.dj-status-text {
+  font-family: var(--font-lcd);
+  font-size: 10px; letter-spacing: 1px; color: var(--amber);
+}
+
+/* Rig buttons */
+.rig-buttons {
+  display: flex; gap: 6px; flex-shrink: 0;
+}
+.hw-btn {
+  font-family: var(--font-plate);
+  font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  padding: 5px 12px;
+  border: none; cursor: pointer;
+  border-radius: 3px;
+  position: relative;
+  transition: filter 0.1s, transform 0.06s;
+}
+.hw-btn:active { transform: translateY(1px); filter: brightness(0.85); }
+
+/* Illuminated button — backlit ring around the edge */
+.hw-btn-start {
+  background: linear-gradient(180deg, #3a3530 0%, #2a2520 100%);
+  color: var(--amber);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.6),
+    0 0 8px rgba(255,182,74,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+.hw-btn-start::before {
+  content: '';
+  position: absolute; inset: -2px; border-radius: 5px;
+  box-shadow: 0 0 6px 1px rgba(255,182,74,0.3);
+  pointer-events: none;
+}
+.hw-btn-cut {
+  background: linear-gradient(180deg, #3a1a18 0%, #2a1210 100%);
+  color: #e06060;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.6),
+    0 0 6px rgba(224,52,42,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+.hw-btn-new {
+  background: linear-gradient(180deg, #2a2824 0%, #1e1c1a 100%);
+  color: var(--alu-dark);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+
+/* Chips / part markers */
+.chips-row {
+  display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0;
+}
+.chip {
+  font-family: var(--font-plate);
+  font-size: 9px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.5);
+  background: linear-gradient(180deg, #343028 0%, #28251f 100%);
+  color: var(--cream-dim);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.4);
+}
+.chip.active {
+  background: linear-gradient(180deg, #3a3220 0%, #2c2818 100%);
+  color: var(--amber);
+  border-color: rgba(255,182,74,0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 6px rgba(255,182,74,0.2),
+    0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* ── DECK RIG ──────────────────────────────────────────────────────────── */
+.deck-rig {
+  display: grid;
+  grid-template-columns: 1fr 80px 1fr;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Individual deck */
+.tdeck {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 10px 8px;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.01) 0px, transparent 1px, transparent 3px),
+    linear-gradient(180deg, #252220 0%, #1c1a18 100%);
+  border: 1px solid rgba(0,0,0,0.7);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 6px rgba(0,0,0,0.5);
+  height: 100%;
+}
+
+.tdeck-label {
+  font-family: var(--font-plate);
+  font-size: 9px; font-weight: 700; letter-spacing: 3px; color: var(--alu-dark);
+  text-transform: uppercase; align-self: flex-start;
+}
+
+/* Tape reel platter */
+.reel-wrap {
+  position: relative;
+  width: min(110px, 18vw); aspect-ratio: 1;
+}
+.reel-svg {
+  width: 100%; height: 100%;
+  animation: reel-spin 3s linear infinite;
+}
+@keyframes reel-spin { to { transform: rotate(360deg); } }
+.reel-hub {
+  position: absolute; inset: 35%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #6a6460 0%, #4a4640 50%, #2e2c2a 100%);
+  border: 1px solid rgba(0,0,0,0.6);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.tdeck-name {
+  font-family: var(--font-lcd);
+  font-size: 9px; letter-spacing: 1px;
+  color: var(--amber); text-align: center;
+  background: rgba(0,0,0,0.3);
+  padding: 2px 6px; border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.4);
+  width: 100%; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Approve/skip card on Deck B */
+.pitch-card {
+  width: 100%;
+  background: linear-gradient(135deg, #221f1c 0%, #1a1816 100%);
+  border: 1px solid rgba(255,182,74,0.2);
+  border-radius: 3px;
+  padding: 6px 7px;
+  box-shadow: 0 0 8px rgba(255,182,74,0.08);
+}
+.pitch-verb {
+  font-size: 8px; letter-spacing: 2px; color: var(--amber);
+  text-transform: uppercase; margin-bottom: 3px;
+  font-family: var(--font-plate); font-weight: 600;
+}
+.pitch-desc {
+  font-size: 9px; color: var(--cream); line-height: 1.35; margin-bottom: 5px;
+  font-family: var(--font-plate);
+}
+.pitch-btns { display: flex; gap: 4px; }
+.pitch-skip {
+  flex: 1;
+  font-family: var(--font-plate); font-size: 9px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 4px 0; border: 1px solid rgba(200,194,182,0.2);
+  background: linear-gradient(180deg, #2e2b28 0%, #242220 100%);
+  color: var(--alu-dark); border-radius: 2px; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.pitch-approve {
+  flex: 1;
+  font-family: var(--font-plate); font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 4px 0; border: 1px solid rgba(78,203,90,0.3);
+  background: linear-gradient(180deg, #1e3020 0%, #162218 100%);
+  color: #6ed878; border-radius: 2px; cursor: pointer;
+  box-shadow: 0 0 6px rgba(78,203,90,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Crossfader column */
+.xfader-col {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.xfader-label {
+  font-family: var(--font-plate);
+  font-size: 8px; font-weight: 700; letter-spacing: 2.5px; color: var(--alu-deep);
+  text-transform: uppercase;
+}
+.xfader-slot {
+  width: 16px; height: 110px;
+  background: linear-gradient(180deg, #161412 0%, #1c1a18 50%, #161412 100%);
+  border: 1px solid rgba(0,0,0,0.8);
+  border-radius: 3px;
+  position: relative;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.7), inset 0 -2px 4px rgba(0,0,0,0.5);
+}
+.xfader-slot::before {
+  /* machined slot channel */
+  content: '';
+  position: absolute; top: 8px; bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  background: linear-gradient(180deg, #0a0906 0%, #141210 100%);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9);
+}
+.xfader-cap {
+  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
+  width: 28px; height: 14px;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px,
+      transparent 1px, transparent 3px),
+    linear-gradient(180deg, #c4beb4 0%, #a8a29a 50%, #b8b2a8 100%);
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.5);
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.6),
+    0 -1px 0 rgba(255,255,255,0.1),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+  cursor: grab;
+}
+.xfader-a, .xfader-b {
+  font-family: var(--font-plate);
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+}
+.xfader-a { color: var(--amber); }
+.xfader-b { color: #e06060; }
+
+
+/* ── SECTION 2 — THE CONSOLE (top-right) ─────────────────────────────── */
+.console-q { grid-column: 2; grid-row: 1; }
+
+/* Genre pills */
+.genre-row {
+  display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0;
+}
+.genre-pill {
+  font-family: var(--font-plate);
+  font-size: 9px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 2px;
+  background: linear-gradient(180deg, #302c29 0%, #252220 100%);
+  border: 1px solid rgba(0,0,0,0.5);
+  color: var(--cream-dim);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.genre-pill.selected {
+  background: linear-gradient(180deg, #3a3220 0%, #2c2818 100%);
+  color: var(--amber);
+  border-color: rgba(255,182,74,0.35);
+  box-shadow: 0 0 8px rgba(255,182,74,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* Density slider */
+.density-row {
+  display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;
+}
+.density-label-row {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.density-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2.5px; color: var(--alu-dark);
+  text-transform: uppercase;
+}
+.density-value {
+  font-family: var(--font-lcd); font-size: 9px; color: var(--amber); letter-spacing: 1px;
+}
+.density-track {
+  height: 8px;
+  background: linear-gradient(180deg, #0e0c0a 0%, #161412 100%);
+  border: 1px solid rgba(0,0,0,0.7);
+  border-radius: 2px;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+}
+.density-fill {
+  position: absolute; top: 1px; left: 1px; bottom: 1px;
+  width: 60%;
+  background: linear-gradient(90deg, var(--amber-dim) 0%, var(--amber) 100%);
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(255,182,74,0.3);
+}
+.density-thumb {
+  position: absolute; top: 50%; right: 40%;
+  transform: translate(50%, -50%);
+  width: 6px; height: 14px;
+  background: linear-gradient(180deg, #c4beb4 0%, #9e9890 100%);
+  border-radius: 1px; border: 1px solid rgba(0,0,0,0.5);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  cursor: grab;
+}
+.density-ends {
+  display: flex; justify-content: space-between;
+  font-size: 8px; letter-spacing: 1px; color: var(--alu-deep); text-transform: uppercase;
+}
+
+/* Channel strips */
+.strips-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2.5px; color: var(--alu-dark);
+  text-transform: uppercase; flex-shrink: 0;
+}
+
+.strips-wrap {
+  flex: 1; overflow: hidden;
+  display: flex; gap: 4px;
+  align-items: stretch;
+}
+.strip {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.012) 0px, transparent 1px, transparent 3px),
+    linear-gradient(180deg, #252220 0%, #1c1a18 100%);
+  border: 1px solid rgba(0,0,0,0.6);
+  border-radius: 3px;
+  padding: 6px 3px 5px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  min-width: 0;
+}
+.strip-name {
+  font-family: var(--font-plate);
+  font-size: 7.5px; font-weight: 700; letter-spacing: 1.5px;
+  color: var(--alu-dark); text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Mini VU meter in each strip */
+.vu-mini {
+  width: 100%; display: flex; flex-direction: column; gap: 1px;
+  align-items: center;
+}
+.vu-bar {
+  width: 80%; height: 3px; border-radius: 1px;
+  background: #0e0c0a;
+  overflow: hidden;
+}
+.vu-bar .vu-fill { height: 100%; border-radius: 1px; }
+.vu-bar.g .vu-fill { background: var(--green-vu); box-shadow: 0 0 3px rgba(78,203,90,0.5); }
+.vu-bar.y .vu-fill { background: var(--yellow-vu); box-shadow: 0 0 3px rgba(230,200,67,0.5); }
+.vu-bar.o .vu-fill { background: var(--orange-vu); box-shadow: 0 0 3px rgba(224,120,50,0.5); }
+
+/* Knob */
+.knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.knob {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5a5650 0%, #3a3630 40%, #222020 100%);
+  border: 1px solid rgba(0,0,0,0.7);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.08),
+    0 2px 4px rgba(0,0,0,0.6),
+    0 0 0 1px rgba(255,255,255,0.04);
+  position: relative;
+}
+.knob::after {
+  content: '';
+  position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+  width: 2px; height: 5px;
+  background: var(--amber);
+  border-radius: 1px;
+  box-shadow: 0 0 3px rgba(255,182,74,0.6);
+}
+.knob-label {
+  font-size: 6.5px; letter-spacing: 1px; color: var(--alu-deep);
+  text-transform: uppercase; text-align: center;
+}
+
+/* Mode LEDs — drop / auto / feature */
+.strip-modes {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 0 2px;
+}
+.mode-row {
+  display: flex; align-items: center; gap: 3px;
+}
+.mode-led {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--face-dark);
+  border: 1px solid rgba(0,0,0,0.6);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+.mode-led.on-amber { background: var(--amber); box-shadow: 0 0 4px rgba(255,182,74,0.7); }
+.mode-led.on-green { background: var(--green-vu); box-shadow: 0 0 4px rgba(78,203,90,0.7); }
+.mode-led.on-red   { background: var(--red-light); box-shadow: 0 0 4px rgba(224,52,42,0.7); }
+.mode-text {
+  font-size: 6px; letter-spacing: 1px; color: var(--alu-deep); text-transform: uppercase;
+}
+
+
+/* ── SECTION 3 — THE FLOOR (bottom-left) ─────────────────────────────── */
+.floor-q { grid-column: 1; grid-row: 2; }
+
+.floor-inner {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 10px;
+  flex: 1; min-height: 0;
+}
+
+/* Pianoroll — amber scope display */
+.roll-wrap {
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 0;
+}
+.roll-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2.5px; color: var(--alu-dark);
+  text-transform: uppercase; flex-shrink: 0;
+}
+.roll-display {
+  flex: 1;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,182,74,0.04) 0px, rgba(255,182,74,0.04) 1px,
+      transparent 1px, transparent 12px),
+    repeating-linear-gradient(90deg,
+      rgba(255,182,74,0.04) 0px, rgba(255,182,74,0.04) 1px,
+      transparent 1px, transparent 24px),
+    linear-gradient(180deg, #0e0c0a 0%, #121008 100%);
+  border: 1px solid rgba(0,0,0,0.7);
+  border-radius: 3px;
+  position: relative; overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.7), 0 0 15px rgba(0,0,0,0.3);
+  min-height: 80px;
+}
+/* CRT screen glow */
+.roll-display::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255,182,74,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+/* Scanline overlay */
+.roll-display::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 4px
+  );
+  pointer-events: none;
+}
+
+/* Individual roll notes — drawn as amber bars */
+.roll-note {
+  position: absolute;
+  background: var(--amber);
+  border-radius: 1px;
+  opacity: 0.85;
+  box-shadow: 0 0 4px rgba(255,182,74,0.5);
+}
+.roll-note.dim { opacity: 0.4; background: var(--amber-dim); }
+.roll-note.bright { opacity: 1; box-shadow: 0 0 6px rgba(255,182,74,0.8); }
+
+/* Right column: history + log */
+.history-log {
+  display: flex; flex-direction: column; gap: 8px;
+  min-width: 0;
+}
+.log-section {
+  display: flex; flex-direction: column; gap: 4px;
+  flex: 1; min-height: 0;
+}
+.log-section-label {
+  font-size: 8px; font-weight: 700; letter-spacing: 2.5px; color: var(--alu-dark);
+  text-transform: uppercase; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 3px;
+}
+.log-list {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.log-entry {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-family: var(--font-lcd);
+  font-size: 8.5px; line-height: 1.3;
+  color: var(--cream-dim);
+}
+.log-entry .le-icon {
+  font-size: 8px; flex-shrink: 0; margin-top: 1px;
+}
+.log-entry.kept .le-icon { color: var(--green-vu); }
+.log-entry.skipped .le-icon { color: var(--alu-deep); }
+.log-entry .le-text { color: var(--cream-dim); }
+.log-entry.kept .le-text { color: var(--cream); }
+
+.move-entry {
+  font-family: var(--font-lcd);
+  font-size: 8px; color: var(--cream-dim); line-height: 1.3;
+  padding-left: 4px; border-left: 1px solid rgba(255,182,74,0.2);
+}
+.move-entry.active { color: var(--amber); border-left-color: var(--amber); }
+
+
+/* ── SECTION 4 — THE CODE (bottom-right) ─────────────────────────────── */
+.code-q { grid-column: 2; grid-row: 2; }
+
+.code-display {
+  flex: 1;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,182,74,0.025) 0px, rgba(255,182,74,0.025) 1px,
+      transparent 1px, transparent 16px),
+    linear-gradient(180deg, #080604 0%, #0e0c08 100%);
+  border: 1px solid rgba(0,0,0,0.8);
+  border-radius: 3px;
+  padding: 10px 12px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 3px 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.4);
+  min-height: 0;
+}
+/* CRT phosphor bloom */
+.code-display::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255,182,74,0.05) 0%, transparent 65%);
+  pointer-events: none;
+}
+/* Scanlines */
+.code-display::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px
+  );
+  pointer-events: none;
+}
+
+.code-pre {
+  font-family: var(--font-code);
+  font-size: 10.5px; line-height: 1.65;
+  position: relative; z-index: 1;
+  white-space: pre;
+}
+
+/* Syntax colours — warm amber tones, not neon */
+.c-fn    { color: var(--amber); font-weight: 700; }
+.c-str   { color: #c8a86a; }
+.c-num   { color: #e8c878; }
+.c-meth  { color: #d4aa5a; font-style: italic; }
+.c-punc  { color: var(--alu-deep); }
+.c-cmt   { color: #5a5040; font-style: italic; }
+.c-cur   { background: rgba(255,182,74,0.12); border-radius: 1px; }
+
+
+/* ── VU METER — large arc dial ────────────────────────────────────────── */
+.vu-arc-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.vu-arc-label {
+  font-size: 7px; font-weight: 700; letter-spacing: 2px; color: var(--alu-deep);
+  text-transform: uppercase;
+}
+
+
+/* ── MASTER VU METERS (flanking the crossfader) ───────────────────────── */
+.xfader-vu {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+
+/* ── BOTTOM STATUS BAR ─────────────────────────────────────────────────── */
+/* none in this spike — all content fits the grid */
+
+/* ── HORIZONTAL DIVIDERS (between quadrants) ───────────────────────────── */
+.hdiv {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.8) 20%, rgba(0,0,0,0.8) 80%, transparent);
+}
+.vdiv {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(0,0,0,0.8) 20%, rgba(0,0,0,0.8) 80%, transparent);
+}
+
+/* Inset screw at quadrant corners — decorative detail */
+.screw {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #7a7468 0%, #4a4640 50%, #2a2824 100%);
+  border: 1px solid rgba(0,0,0,0.6);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.5);
+  position: absolute;
+  z-index: 10;
+}
+
+/* Engrave / silk-screen text helper */
+.engrave {
+  font-family: var(--font-plate);
+  font-size: 8px; font-weight: 600; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--alu-deep);
+}
+
+</style>
+</head>
+<body>
+
+<!-- ── SPIKE LEGEND STRIP ──────────────────────────────────────────────── -->
+<div class="spike-legend">
+  <div class="spike-dot"></div>
+  <span class="spike-name">Tape Console</span>
+  <span class="spike-sub">Cassette-Futurism · Analogue Studio · Studer &middot; Roland &middot; Moog</span>
+</div>
+
+<!-- ── CONSOLE BODY ────────────────────────────────────────────────────── -->
+<div class="console-body">
+
+  <!-- Left walnut cheek -->
+  <div class="cheek left"></div>
+
+  <!-- ── PANEL AREA (4-quadrant grid) ─────────────────────────────────── -->
+  <div class="panel-area faceplate">
+
+    <!-- ══ QUADRANT 1 — THE RIG (top-left) ══════════════════════════════ -->
+    <div class="quadrant rig-q">
+      <div class="q-header">
+        <div class="q-dot lit"></div>
+        <span class="q-label-main">The Rig</span>
+        <span class="q-label">&nbsp;· deck &amp; transport</span>
+      </div>
+
+      <div class="q-body">
+
+        <!-- Track head -->
+        <div class="track-head">
+          <div class="track-title-block">
+            <div class="track-title">NEON MELT</div>
+            <div class="track-meta">
+              Drill &nbsp;·&nbsp; <span>140 BPM</span> &nbsp;·&nbsp; F minor &nbsp;·&nbsp; <span>5 parts</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+            <div class="dj-status">
+              <div class="dj-status-dot"></div>
+              <span class="dj-status-text">cutting a lead line&hellip;</span>
+            </div>
+            <div class="rig-buttons">
+              <button class="hw-btn hw-btn-start">&#9654; Start</button>
+              <button class="hw-btn hw-btn-cut">&#9632; Cut a dubplate</button>
+              <button class="hw-btn hw-btn-new">&#8635; New</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrangement chips -->
+        <div class="chips-row">
+          <div class="chip active">kick</div>
+          <div class="chip active">hats</div>
+          <div class="chip active">808</div>
+          <div class="chip active">clap</div>
+          <div class="chip active">chords</div>
+          <div class="chip" style="border-color:rgba(255,182,74,0.4); color:var(--amber); animation: chip-pulse 1.2s ease-in-out infinite;">lead</div>
+        </div>
+        <style>
+          @keyframes chip-pulse {
+            0%,100% { box-shadow: 0 0 4px rgba(255,182,74,0.2); }
+            50%      { box-shadow: 0 0 10px rgba(255,182,74,0.5); }
+          }
+        </style>
+
+        <!-- Deck rig -->
+        <div class="deck-rig" style="flex:1; min-height:0;">
+
+          <!-- Deck A -->
+          <div class="tdeck">
+            <div class="tdeck-label">Deck A &mdash; Committed</div>
+
+            <!-- Tape reel SVG -->
+            <div class="reel-wrap">
+              <svg class="reel-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <!-- Outer ring -->
+                <circle cx="50" cy="50" r="48" fill="none" stroke="#1a1816" stroke-width="2"/>
+                <!-- Tape wound on reel — concentric arcs -->
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#2e2a26" stroke-width="1.5"/>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#342e28" stroke-width="1.5"/>
+                <circle cx="50" cy="50" r="36" fill="none" stroke="#3a342c" stroke-width="1.5"/>
+                <circle cx="50" cy="50" r="32" fill="none" stroke="#342e28" stroke-width="1.5"/>
+                <!-- Tape edge highlight -->
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,182,74,0.12)" stroke-width="0.5"/>
+                <!-- Reel spokes -->
+                <line x1="50" y1="50" x2="50" y2="6" stroke="#3a3630" stroke-width="3" stroke-linecap="round"/>
+                <line x1="50" y1="50" x2="84" y2="72" stroke="#3a3630" stroke-width="3" stroke-linecap="round"/>
+                <line x1="50" y1="50" x2="16" y2="72" stroke="#3a3630" stroke-width="3" stroke-linecap="round"/>
+                <!-- Hub detail -->
+                <circle cx="50" cy="50" r="14" fill="#2a2622" stroke="#1a1614" stroke-width="1"/>
+                <circle cx="50" cy="50" r="10" fill="none" stroke="rgba(255,182,74,0.15)" stroke-width="0.5"/>
+              </svg>
+              <div class="reel-hub"></div>
+            </div>
+
+            <div class="tdeck-name">NEON MELT · 5 PARTS</div>
+
+            <!-- Mini VU meter for Deck A -->
+            <svg width="60" height="32" viewBox="0 0 60 32" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <filter id="vuA-glow">
+                  <feGaussianBlur stdDeviation="1" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <!-- VU arc background -->
+              <path d="M5,28 A25,25 0 0,1 55,28" fill="none" stroke="#1a1614" stroke-width="5" stroke-linecap="round"/>
+              <!-- VU scale marks -->
+              <path d="M5,28 A25,25 0 0,1 30,3" fill="none" stroke="#4ecb5a" stroke-width="5" stroke-linecap="round" filter="url(#vuA-glow)" stroke-dasharray="34 100"/>
+              <path d="M30,3 A25,25 0 0,1 47,11" fill="none" stroke="#e6c843" stroke-width="5" stroke-linecap="round" filter="url(#vuA-glow)" stroke-dasharray="15 100"/>
+              <!-- Needle -->
+              <g id="needleA" transform="rotate(-20, 30, 28)">
+                <line x1="30" y1="28" x2="30" y2="6" stroke="#f2e6c8" stroke-width="1.2" stroke-linecap="round"/>
+                <circle cx="30" cy="28" r="2.5" fill="#c8c2b6"/>
+              </g>
+            </svg>
+          </div>
+
+          <!-- Crossfader column -->
+          <div class="xfader-col">
+            <div class="xfader-a">A</div>
+            <div class="xfader-label">Blend</div>
+            <div class="xfader-slot">
+              <div class="xfader-cap" id="xfader-cap"></div>
+            </div>
+            <div class="xfader-label">A&nbsp;&#x21C4;&nbsp;B</div>
+            <div class="xfader-b">B</div>
+          </div>
+
+          <!-- Deck B -->
+          <div class="tdeck">
+            <div class="tdeck-label">Deck B &mdash; Pitch</div>
+
+            <!-- Tape reel SVG (slightly different — less wound = new acetate) -->
+            <div class="reel-wrap">
+              <svg class="reel-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="animation-duration: 4s; animation-direction: reverse;">
+                <circle cx="50" cy="50" r="48" fill="none" stroke="#1a1816" stroke-width="2"/>
+                <!-- Less tape — sparser rings -->
+                <circle cx="50" cy="50" r="22" fill="none" stroke="#342e28" stroke-width="1.5"/>
+                <circle cx="50" cy="50" r="18" fill="none" stroke="#3a342c" stroke-width="1.5"/>
+                <!-- Amber tape edge — the new lead cut -->
+                <circle cx="50" cy="50" r="22" fill="none" stroke="rgba(255,182,74,0.3)" stroke-width="0.8"/>
+                <!-- Reel spokes -->
+                <line x1="50" y1="50" x2="50" y2="6" stroke="#3a3630" stroke-width="3" stroke-linecap="round"/>
+                <line x1="50" y1="50" x2="84" y2="72" stroke="#3a3630" stroke-width="3" stroke-linecap="round"/>
+                <line x1="50" y1="50" x2="16" y2="72" stroke="#3a3630" stroke-width="3" stroke-linecap="round"/>
+                <!-- Hub -->
+                <circle cx="50" cy="50" r="14" fill="#2a2622" stroke="#1a1614" stroke-width="1"/>
+                <circle cx="50" cy="50" r="10" fill="none" stroke="rgba(255,182,74,0.3)" stroke-width="0.8"/>
+              </svg>
+              <div class="reel-hub"></div>
+            </div>
+
+            <!-- Pitch card -->
+            <div class="pitch-card">
+              <div class="pitch-verb">&#9650; Proposed cut</div>
+              <div class="pitch-desc">add a lead line &mdash; dotted, call-and-response</div>
+              <div class="pitch-btns">
+                <button class="pitch-skip">&#10005; Skip</button>
+                <button class="pitch-approve">&#10003; Approve</button>
+              </div>
+            </div>
+
+            <!-- Mini VU for Deck B -->
+            <svg width="60" height="32" viewBox="0 0 60 32" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5,28 A25,25 0 0,1 55,28" fill="none" stroke="#1a1614" stroke-width="5" stroke-linecap="round"/>
+              <path d="M5,28 A25,25 0 0,1 22,7" fill="none" stroke="#4ecb5a" stroke-width="5" stroke-linecap="round" stroke-dasharray="18 100"/>
+              <g id="needleB" transform="rotate(-40, 30, 28)">
+                <line x1="30" y1="28" x2="30" y2="6" stroke="#f2e6c8" stroke-width="1.2" stroke-linecap="round"/>
+                <circle cx="30" cy="28" r="2.5" fill="#c8c2b6"/>
+              </g>
+            </svg>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ QUADRANT 2 — THE CONSOLE (top-right) ══════════════════════════ -->
+    <div class="quadrant console-q">
+      <div class="q-header">
+        <div class="q-dot"></div>
+        <span class="q-label-main">The Console</span>
+        <span class="q-label">&nbsp;· channel strips</span>
+      </div>
+
+      <div class="q-body">
+
+        <!-- Genre pills -->
+        <div class="genre-row">
+          <div class="genre-pill">Lo-fi</div>
+          <div class="genre-pill">Boom-bap</div>
+          <div class="genre-pill selected">Drill</div>
+          <div class="genre-pill">Trap</div>
+          <div class="genre-pill">Ambient</div>
+        </div>
+
+        <!-- Density slider -->
+        <div class="density-row">
+          <div class="density-label-row">
+            <span class="density-label">Density</span>
+            <span class="density-value">HOLD</span>
+          </div>
+          <div class="density-track">
+            <div class="density-fill"></div>
+            <div class="density-thumb"></div>
+          </div>
+          <div class="density-ends">
+            <span>Strip</span>
+            <span>Hold</span>
+            <span>Pile on</span>
+          </div>
+        </div>
+
+        <!-- Channel strips -->
+        <div class="strips-label">The Parts</div>
+        <div class="strips-wrap">
+
+          <!-- Kick -->
+          <div class="strip">
+            <div class="strip-name">Kick</div>
+            <div class="vu-mini">
+              <div class="vu-bar g"><div class="vu-fill" style="width:90%"></div></div>
+              <div class="vu-bar g"><div class="vu-fill" style="width:85%"></div></div>
+              <div class="vu-bar y"><div class="vu-fill" style="width:40%"></div></div>
+              <div class="vu-bar o"><div class="vu-fill" style="width:5%"></div></div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob" style="transform: rotate(-10deg);"></div>
+              <div class="knob-label">Gain</div>
+            </div>
+            <div class="strip-modes">
+              <div class="mode-row"><div class="mode-led on-amber"></div><span class="mode-text">auto</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">feat</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">drop</span></div>
+            </div>
+          </div>
+
+          <!-- Hats -->
+          <div class="strip">
+            <div class="strip-name">Hats</div>
+            <div class="vu-mini">
+              <div class="vu-bar g"><div class="vu-fill" style="width:65%"></div></div>
+              <div class="vu-bar g"><div class="vu-fill" style="width:60%"></div></div>
+              <div class="vu-bar y"><div class="vu-fill" style="width:20%"></div></div>
+              <div class="vu-bar o"><div class="vu-fill" style="width:0%"></div></div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob" style="transform: rotate(-25deg);"></div>
+              <div class="knob-label">Gain</div>
+            </div>
+            <div class="strip-modes">
+              <div class="mode-row"><div class="mode-led on-amber"></div><span class="mode-text">auto</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">feat</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">drop</span></div>
+            </div>
+          </div>
+
+          <!-- 808 -->
+          <div class="strip">
+            <div class="strip-name">808</div>
+            <div class="vu-mini">
+              <div class="vu-bar g"><div class="vu-fill" style="width:80%"></div></div>
+              <div class="vu-bar g"><div class="vu-fill" style="width:75%"></div></div>
+              <div class="vu-bar y"><div class="vu-fill" style="width:55%"></div></div>
+              <div class="vu-bar o"><div class="vu-fill" style="width:20%"></div></div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob" style="transform: rotate(5deg);"></div>
+              <div class="knob-label">Gain</div>
+            </div>
+            <div class="strip-modes">
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">auto</span></div>
+              <div class="mode-row"><div class="mode-led on-green"></div><span class="mode-text">feat</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">drop</span></div>
+            </div>
+          </div>
+
+          <!-- Clap -->
+          <div class="strip">
+            <div class="strip-name">Clap</div>
+            <div class="vu-mini">
+              <div class="vu-bar g"><div class="vu-fill" style="width:70%"></div></div>
+              <div class="vu-bar g"><div class="vu-fill" style="width:65%"></div></div>
+              <div class="vu-bar y"><div class="vu-fill" style="width:30%"></div></div>
+              <div class="vu-bar o"><div class="vu-fill" style="width:0%"></div></div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob" style="transform: rotate(-15deg);"></div>
+              <div class="knob-label">Gain</div>
+            </div>
+            <div class="strip-modes">
+              <div class="mode-row"><div class="mode-led on-amber"></div><span class="mode-text">auto</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">feat</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">drop</span></div>
+            </div>
+          </div>
+
+          <!-- Chords -->
+          <div class="strip">
+            <div class="strip-name">Chords</div>
+            <div class="vu-mini">
+              <div class="vu-bar g"><div class="vu-fill" style="width:55%"></div></div>
+              <div class="vu-bar g"><div class="vu-fill" style="width:50%"></div></div>
+              <div class="vu-bar y"><div class="vu-fill" style="width:15%"></div></div>
+              <div class="vu-bar o"><div class="vu-fill" style="width:0%"></div></div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob" style="transform: rotate(-30deg);"></div>
+              <div class="knob-label">Gain</div>
+            </div>
+            <div class="strip-modes">
+              <div class="mode-row"><div class="mode-led on-amber"></div><span class="mode-text">auto</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">feat</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">drop</span></div>
+            </div>
+          </div>
+
+          <!-- Lead — currently being pitched (amber active state) -->
+          <div class="strip" style="border-color: rgba(255,182,74,0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 0 8px rgba(255,182,74,0.1);">
+            <div class="strip-name" style="color: var(--amber);">Lead</div>
+            <div class="vu-mini">
+              <div class="vu-bar g"><div class="vu-fill" style="width:0%"></div></div>
+              <div class="vu-bar g"><div class="vu-fill" style="width:0%"></div></div>
+              <div class="vu-bar y"><div class="vu-fill" style="width:0%"></div></div>
+              <div class="vu-bar o"><div class="vu-fill" style="width:0%"></div></div>
+            </div>
+            <div class="knob-wrap">
+              <div class="knob" style="transform: rotate(-45deg); box-shadow: inset 0 2px 3px rgba(255,255,255,0.08), 0 2px 4px rgba(0,0,0,0.6), 0 0 6px rgba(255,182,74,0.2);"></div>
+              <div class="knob-label">Gain</div>
+            </div>
+            <div class="strip-modes">
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">auto</span></div>
+              <div class="mode-row"><div class="mode-led"></div><span class="mode-text">feat</span></div>
+              <div class="mode-row"><div class="mode-led on-amber" style="animation: led-blink 0.8s ease-in-out infinite;"></div><span class="mode-text">cue</span></div>
+            </div>
+            <style>@keyframes led-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }</style>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ QUADRANT 3 — THE FLOOR (bottom-left) ══════════════════════════ -->
+    <div class="quadrant floor-q">
+      <div class="q-header">
+        <div class="q-dot"></div>
+        <span class="q-label-main">The Floor</span>
+        <span class="q-label">&nbsp;· roll · history · moves</span>
+      </div>
+
+      <div class="q-body" style="flex-direction: row; gap: 12px;">
+
+        <!-- Pianoroll -->
+        <div class="roll-wrap" style="flex: 1; min-width: 0;">
+          <div class="roll-label">The Roll</div>
+          <div class="roll-display" style="flex: 1;">
+
+            <!-- Static representative pianoroll notes -->
+            <!-- Kick pattern (bottom, high energy) -->
+            <div class="roll-note" style="bottom:8%; left:0%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:12%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:25%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:37%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:50%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:62%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:75%; width:3%; height:6%; background:#e07832;"></div>
+            <div class="roll-note" style="bottom:8%; left:87%; width:3%; height:6%; background:#e07832;"></div>
+
+            <!-- 808 bass slides (low-mid) -->
+            <div class="roll-note" style="bottom:18%; left:0%; width:12%; height:4%; background:#c8902a;"></div>
+            <div class="roll-note" style="bottom:18%; left:25%; width:12%; height:4%; background:#c8902a;"></div>
+            <div class="roll-note" style="bottom:22%; left:37%; width:8%; height:4%; background:#c8902a;"></div>
+            <div class="roll-note" style="bottom:18%; left:50%; width:12%; height:4%; background:#c8902a;"></div>
+            <div class="roll-note" style="bottom:24%; left:62%; width:8%; height:4%; background:#c8902a;"></div>
+            <div class="roll-note" style="bottom:18%; left:75%; width:25%; height:4%; background:#c8902a;"></div>
+
+            <!-- Chords (mid) -->
+            <div class="roll-note dim" style="bottom:35%; left:0%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:40%; left:0%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:45%; left:0%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:35%; left:25%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:42%; left:25%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:50%; left:25%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:38%; left:50%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:44%; left:50%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:48%; left:50%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:35%; left:75%; width:25%; height:5%;"></div>
+            <div class="roll-note dim" style="bottom:41%; left:75%; width:25%; height:5%;"></div>
+
+            <!-- Lead (top, dotted/short — the incoming pitch) -->
+            <div class="roll-note bright" style="top:18%; left:3%; width:4%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:14%; left:10%; width:4%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:20%; left:16%; width:2%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:12%; left:30%; width:6%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:18%; left:40%; width:3%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:10%; left:53%; width:5%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:16%; left:62%; width:3%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:22%; left:68%; width:4%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:8%;  left:78%; width:7%; height:3%; opacity:0.5;"></div>
+            <div class="roll-note bright" style="top:18%; left:90%; width:4%; height:3%; opacity:0.5;"></div>
+
+            <!-- Playhead line -->
+            <div style="position:absolute; top:0; bottom:0; left:62%; width:1px; background: rgba(255,182,74,0.4); box-shadow: 0 0 4px rgba(255,182,74,0.3);"></div>
+
+            <!-- Lane labels -->
+            <div style="position:absolute; right:4px; bottom:6%; font-family:var(--font-lcd); font-size:7px; color:rgba(224,120,50,0.6); letter-spacing:1px;">KICK</div>
+            <div style="position:absolute; right:4px; bottom:17%; font-family:var(--font-lcd); font-size:7px; color:rgba(200,144,42,0.6); letter-spacing:1px;">808</div>
+            <div style="position:absolute; right:4px; bottom:34%; font-family:var(--font-lcd); font-size:7px; color:rgba(255,182,74,0.4); letter-spacing:1px;">CHDS</div>
+            <div style="position:absolute; right:4px; top:6%; font-family:var(--font-lcd); font-size:7px; color:rgba(255,182,74,0.5); letter-spacing:1px;">LEAD</div>
+
+          </div>
+        </div>
+
+        <!-- History + DJ moves log -->
+        <div class="history-log" style="width: 175px; flex-shrink: 0;">
+
+          <div class="log-section" style="flex: 0 0 auto; max-height: 50%;">
+            <div class="log-section-label">Set History</div>
+            <div class="log-list">
+              <div class="log-entry kept">
+                <span class="le-icon">&#x2713;</span>
+                <span class="le-text">add kick · RolandTR808</span>
+              </div>
+              <div class="log-entry kept">
+                <span class="le-icon">&#x2713;</span>
+                <span class="le-text">add hi-hats · fast roll</span>
+              </div>
+              <div class="log-entry kept">
+                <span class="le-icon">&#x2713;</span>
+                <span class="le-text">add 808 · sliding</span>
+              </div>
+              <div class="log-entry skipped">
+                <span class="le-icon">&mdash;</span>
+                <span class="le-text">add snare · skipped</span>
+              </div>
+              <div class="log-entry kept">
+                <span class="le-icon">&#x2713;</span>
+                <span class="le-text">add clap · backbeat</span>
+              </div>
+              <div class="log-entry kept">
+                <span class="le-icon">&#x2713;</span>
+                <span class="le-text">add chords · stacked</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="log-section">
+            <div class="log-section-label">DJ Moves</div>
+            <div class="log-list">
+              <div class="move-entry active">&#9654; cutting a lead line&hellip;</div>
+              <div class="move-entry">opened F minor · drill</div>
+              <div class="move-entry">laid the 808 foundation</div>
+              <div class="move-entry">locked the groove w/ clap</div>
+              <div class="move-entry">voiced chords over bass</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ QUADRANT 4 — THE CODE (bottom-right) ══════════════════════════ -->
+    <div class="quadrant code-q">
+      <div class="q-header">
+        <div class="q-dot"></div>
+        <span class="q-label-main">The Live Code</span>
+        <span class="q-label">&nbsp;· strudel output</span>
+      </div>
+
+      <div class="q-body">
+        <div class="code-display">
+          <pre class="code-pre"><span class="c-fn">stack</span><span class="c-punc">(</span>
+  <span class="c-fn">s</span><span class="c-punc">(</span><span class="c-str">"bd*4"</span><span class="c-punc">)</span>
+    <span class="c-meth">.bank</span><span class="c-punc">(</span><span class="c-str">"RolandTR808"</span><span class="c-punc">)</span>
+    <span class="c-meth">.gain</span><span class="c-punc">(</span><span class="c-num">0.9</span><span class="c-punc">),</span>
+  <span class="c-fn">s</span><span class="c-punc">(</span><span class="c-str">"~ hh ~ hh"</span><span class="c-punc">)</span>
+    <span class="c-meth">.gain</span><span class="c-punc">(</span><span class="c-num">.6</span><span class="c-punc">),</span>
+  <span class="c-fn">note</span><span class="c-punc">(</span><span class="c-str">"&lt;f2 f2 ab2 c3&gt;"</span><span class="c-punc">)</span>
+    <span class="c-meth">.s</span><span class="c-punc">(</span><span class="c-str">"sawtooth"</span><span class="c-punc">)</span>
+    <span class="c-meth">.lpf</span><span class="c-punc">(</span><span class="c-num">700</span><span class="c-punc">)</span>
+    <span class="c-meth">.penv</span><span class="c-punc">(</span><span class="c-num">4</span><span class="c-punc">),</span>
+  <span class="c-cur"><span class="c-fn">note</span><span class="c-punc">(</span><span class="c-str">"&lt;f4 ab4 c5 eb5&gt;"</span><span class="c-punc">)</span>
+    <span class="c-meth">.s</span><span class="c-punc">(</span><span class="c-str">"square"</span><span class="c-punc">)</span>
+    <span class="c-meth">.room</span><span class="c-punc">(</span><span class="c-num">.3</span><span class="c-punc">)</span></span>
+<span class="c-punc">)</span><span class="c-meth">.slow</span><span class="c-punc">(</span><span class="c-num">2</span><span class="c-punc">)</span>
+
+<span class="c-cmt">// ↑ proposed: lead · dotted call-response</span>
+<span class="c-cmt">// awaiting approval on Deck B</span></pre>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end panel-area -->
+
+  <!-- Right walnut cheek -->
+  <div class="cheek right"></div>
+
+</div><!-- end console-body -->
+
+<script>
+// Gentle needle animation — VU meters swing to simulate audio levels
+(function() {
+  var needleA = document.getElementById('needleA');
+  var needleB = document.getElementById('needleB');
+  var t = 0;
+
+  function tick() {
+    t += 0.018;
+    // Deck A — playing steadily, moderate swing
+    var aAngle = -20 + Math.sin(t * 1.3) * 18 + Math.sin(t * 2.7) * 6;
+    aAngle = Math.max(-55, Math.min(55, aAngle));
+    if (needleA) needleA.setAttribute('transform', 'rotate(' + aAngle + ', 30, 28)');
+
+    // Deck B — quieter, proposal level
+    var bAngle = -42 + Math.sin(t * 0.9 + 1.2) * 12 + Math.sin(t * 1.8) * 4;
+    bAngle = Math.max(-55, Math.min(10, bAngle));
+    if (needleB) needleB.setAttribute('transform', 'rotate(' + bAngle + ', 30, 28)');
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  // Crossfader subtle drag feel (visual only)
+  var cap = document.getElementById('xfader-cap');
+  var slot = cap && cap.parentElement;
+  if (cap && slot) {
+    var dragging = false, startY, startTop;
+    cap.addEventListener('mousedown', function(e) {
+      dragging = true; startY = e.clientY;
+      startTop = parseInt(cap.style.top || '40');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var dy = e.clientY - startY;
+      var slotH = slot.offsetHeight - 14;
+      var newTop = Math.max(8, Math.min(slotH, startTop + dy / slot.offsetHeight * 100));
+      cap.style.top = newTop + '%';
+    });
+    document.addEventListener('mouseup', function() { dragging = false; });
+  }
+})();
+</script>
+
+</body>
+</html>

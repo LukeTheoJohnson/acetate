@@ -1,0 +1,1444 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acetate · Live · Tracklist Spike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@300;400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Paper palette */
+  --paper:      #f5f2eb;
+  --paper-warm: #ede9df;
+  --paper-aged: #e6e0d3;
+  --rule:       #c8c2b6;
+  --rule-light: #ddd8cc;
+  --ink:        #1a1a1a;
+  --ink-mid:    #3d3a35;
+  --ink-muted:  #7a7469;
+  --ink-faint:  #a09890;
+
+  /* Accents */
+  --green:      #2d6a4f;
+  --green-pale: #e8f2ec;
+  --red:        #c0392b;
+  --red-pale:   #faeae8;
+  --amber:      #8b5a00;
+  --amber-pale: #fdf3e0;
+
+  /* Type */
+  --font-serif:  'Playfair Display', 'Libre Baskerville', Georgia, serif;
+  --font-body:   'Libre Baskerville', Georgia, serif;
+  --font-mono:   'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-ui:     'Helvetica Neue', 'Arial', system-ui, sans-serif;
+
+  /* Sizes */
+  --caption-h: 22px;
+  --header-h:  36px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Caption strip ───────────────────────────────────────────────────────── */
+.caption-strip {
+  height: var(--caption-h);
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.caption-strip .spike-name {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--paper);
+}
+.caption-strip .spike-desc {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .07em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--caption-h));
+  overflow: hidden;
+}
+
+/* Masthead */
+.masthead {
+  height: var(--header-h);
+  background: var(--paper);
+  border-bottom: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.masthead-logo {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--ink);
+  padding-right: 18px;
+  border-right: 1.5px solid var(--rule);
+}
+.masthead-title {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--ink);
+  letter-spacing: .01em;
+}
+.masthead-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.meta-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 1px 5px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper-warm);
+}
+.meta-tag.live {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-pale);
+}
+.masthead-spacer { flex: 1; }
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  background: none;
+  text-decoration: none;
+  display: inline-block;
+}
+.nav-link.active {
+  border-color: var(--rule);
+  background: var(--paper-warm);
+  color: var(--ink);
+}
+
+/* ── Main grid ───────────────────────────────────────────────────────────── */
+.main-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+/* Column dividers via borders */
+.col-left  { border-right: 1.5px solid var(--ink); overflow: hidden; display: flex; flex-direction: column; }
+.col-right { overflow: hidden; display: flex; flex-direction: column; background: var(--paper-warm); }
+.row-top    { border-bottom: 1.5px solid var(--ink); }
+.row-bottom { flex: 1; min-height: 0; }
+
+/* ── Section headers (editorial) ─────────────────────────────────────────── */
+.section-head {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-aged);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  font-variant: small-caps;
+}
+.section-label-accent { color: var(--ink); }
+.section-actions { margin-left: auto; display: flex; gap: 5px; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink-mid);
+  cursor: pointer;
+}
+.btn:hover { background: var(--paper-warm); border-color: var(--ink-mid); }
+.btn-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.btn-primary:hover { background: var(--ink-mid); }
+.btn-approve {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-pale);
+}
+.btn-approve:hover { background: #d4ede0; }
+.btn-skip {
+  border-color: var(--red);
+  color: var(--red);
+  background: var(--red-pale);
+}
+.btn-skip:hover { background: #f5d6d3; }
+
+/* ── REGION 1 · The Rig ──────────────────────────────────────────────────── */
+.rig-panel {
+  grid-column: 1;
+  grid-row: 1;
+}
+.rig-body {
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Status line */
+.dj-status {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-mid);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+  animation: blink 1.8s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* Chips row */
+.chips-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.chip-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-right: 2px;
+  font-variant: small-caps;
+}
+.chip {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--ink-mid);
+  background: var(--paper-warm);
+}
+.chip.active {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-pale);
+}
+.chip.pending {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: var(--amber-pale);
+  border-style: dashed;
+}
+
+/* Deck rig: two record sleeves + blend ruler */
+.deck-rig {
+  display: grid;
+  grid-template-columns: 1fr 80px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.sleeve {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper-warm);
+  overflow: hidden;
+}
+.sleeve-header {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper-aged);
+}
+.sleeve-deck-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.sleeve-a .sleeve-deck-label { color: var(--green); }
+.sleeve-b .sleeve-deck-label { color: var(--amber); }
+.sleeve-subtitle {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--ink-faint);
+  letter-spacing: .04em;
+}
+
+/* The flat sleeve art — typographic disc */
+.sleeve-art {
+  padding: 8px;
+}
+.sleeve-art svg {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+}
+
+/* Waveform strip under sleeve */
+.sleeve-waveform {
+  border-top: 1px solid var(--rule);
+  height: 24px;
+  overflow: hidden;
+  padding: 2px 0;
+  background: var(--paper);
+}
+.sleeve-waveform svg { width: 100%; height: 100%; }
+
+/* Pitch card */
+.pitch-card {
+  margin: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 6px 8px;
+  background: var(--amber-pale);
+}
+.pitch-headline {
+  font-family: var(--font-serif);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.pitch-sub {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-style: italic;
+  color: var(--ink-muted);
+  margin-top: 1px;
+}
+.pitch-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+/* Crossfader / blend ruler */
+.blend-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 28px;
+}
+.blend-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-variant: small-caps;
+}
+.blend-ruler {
+  width: 28px;
+  height: 100px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.blend-track {
+  width: 3px;
+  height: 100%;
+  background: var(--rule);
+  border-radius: 1.5px;
+  position: relative;
+}
+.blend-fill {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 40%;
+  background: var(--ink);
+  border-radius: 1.5px 1.5px 0 0;
+}
+.blend-thumb {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 6px;
+  background: var(--paper-aged);
+  border: 1px solid var(--ink-mid);
+  border-radius: 1px;
+  cursor: ns-resize;
+}
+/* Ruler tick marks */
+.blend-ticks {
+  position: absolute;
+  top: 0;
+  right: -10px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.blend-tick {
+  width: 6px;
+  height: 1px;
+  background: var(--rule);
+}
+.blend-deck-a {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--green);
+}
+.blend-deck-b {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--amber);
+}
+
+/* ── REGION 2 · The Console (right sidebar) ──────────────────────────────── */
+.console-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  border-left: 1.5px solid var(--ink);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.console-panel::-webkit-scrollbar { width: 4px; }
+.console-panel::-webkit-scrollbar-thumb { background: var(--rule); }
+
+.console-block {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.console-block-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  font-variant: small-caps;
+  margin-bottom: 5px;
+}
+
+/* Genre tag cloud */
+.genre-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.genre-tag {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  background: none;
+}
+.genre-tag.selected {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-pale);
+  font-weight: 600;
+}
+
+/* Density ruler */
+.density-ruler {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.density-label-sm {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.density-track {
+  flex: 1;
+  height: 3px;
+  background: var(--rule-light);
+  border: 1px solid var(--rule);
+  border-radius: 1.5px;
+  position: relative;
+  cursor: ew-resize;
+}
+.density-fill {
+  height: 100%;
+  width: 50%;
+  background: var(--ink);
+  border-radius: 1.5px;
+}
+.density-thumb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+
+/* Channel table (parts) */
+.parts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.parts-table th {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 2px 4px 3px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+.parts-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--rule-light);
+  vertical-align: middle;
+}
+.parts-table tr:last-child td { border-bottom: none; }
+.parts-table .part-name {
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.part-fader {
+  width: 54px;
+  height: 3px;
+  background: var(--rule-light);
+  border: 1px solid var(--rule);
+  border-radius: 1px;
+  position: relative;
+}
+.part-fader-fill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 1px;
+}
+.part-mode {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 0px 3px;
+  border: 1px solid var(--rule);
+  border-radius: 1px;
+  color: var(--ink-muted);
+  background: none;
+  cursor: pointer;
+}
+.part-mode.sel {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-pale);
+}
+.part-row-pending td { background: var(--amber-pale); }
+.part-row-pending .part-name { color: var(--amber); }
+
+/* ── REGION 3 · The Floor ────────────────────────────────────────────────── */
+.floor-panel {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.floor-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  overflow: hidden;
+}
+
+/* Tracklist / roll area */
+.roll-area {
+  border-right: 1px solid var(--rule);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.roll-sub-head {
+  padding: 3px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-aged);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.roll-sub-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-variant: small-caps;
+}
+
+/* Pianoroll — printed style */
+.pianoroll-wrap {
+  flex: 1;
+  overflow: hidden;
+  padding: 4px 0;
+}
+.pianoroll-wrap svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Side: history + moves */
+.floor-side {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.floor-side-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.floor-side-section + .floor-side-section {
+  border-top: 1px solid var(--rule);
+}
+
+/* Log entries */
+.log-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+.log-scroll::-webkit-scrollbar { width: 3px; }
+.log-scroll::-webkit-scrollbar-thumb { background: var(--rule); }
+.log-row {
+  display: flex;
+  align-items: baseline;
+  padding: 3px 8px;
+  gap: 5px;
+  border-bottom: 1px solid var(--rule-light);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--ink-mid);
+}
+.log-row:last-child { border-bottom: none; }
+.log-marker {
+  font-size: 8px;
+  width: 10px;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.log-marker-keep { color: var(--green); }
+.log-marker-skip { color: var(--red); }
+.log-marker-info { color: var(--ink-faint); }
+.log-text { flex: 1; letter-spacing: .02em; }
+.log-status {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-variant: small-caps;
+}
+.log-status-keep { color: var(--green); }
+.log-status-skip { color: var(--red); }
+
+/* ── REGION 4 · Code / Session Notes ────────────────────────────────────── */
+.code-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The code panel is embedded inside the floor-body as a third column */
+/* We achieve this via the floor body having 3 cols */
+
+.code-pane {
+  background: #f9f7f2;
+  border-left: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.code-pane-head {
+  padding: 3px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-aged);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.code-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.7;
+  color: var(--ink-mid);
+}
+.code-body::-webkit-scrollbar { width: 3px; }
+.code-body::-webkit-scrollbar-thumb { background: var(--rule); }
+
+/* Typewriter feel: subtle left border like session notes */
+.code-body { border-left: 3px solid var(--rule-light); margin-left: 0; padding-left: 10px; }
+
+/* Syntax tokens — muted, editorial */
+.tok-kw   { color: var(--green); font-weight: 600; }
+.tok-fn   { color: #1a4a7a; font-weight: 500; }
+.tok-str  { color: #5a3e1b; }
+.tok-num  { color: var(--red); }
+.tok-punc { color: var(--ink-muted); }
+.tok-note { color: var(--green); font-weight: 500; }
+.tok-cm   { color: var(--ink-faint); font-style: italic; }
+
+/* ── Utility ─────────────────────────────────────────────────────────────── */
+.row { display: flex; align-items: center; }
+.gap4 { gap: 4px; }
+.gap6 { gap: 6px; }
+.mono { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- Caption strip -->
+<div class="caption-strip">
+  <span class="spike-name">TRACKLIST</span>
+  <span class="spike-desc">Record shop / collector database (Discogs / RA / 1001Tracklists)</span>
+</div>
+
+<div class="app-shell">
+
+  <!-- Masthead -->
+  <div class="masthead">
+    <span class="masthead-logo">Acetate</span>
+    <span class="masthead-title">Neon Melt</span>
+    <div class="masthead-meta row gap4">
+      <span class="meta-tag">Drill</span>
+      <span class="meta-tag mono">140 BPM</span>
+      <span class="meta-tag">F Minor</span>
+      <span class="meta-tag">5 Parts</span>
+      <span class="meta-tag live">● Live</span>
+    </div>
+    <div class="masthead-spacer"></div>
+    <span class="nav-link active">Live</span>
+    <span class="nav-link">Crate</span>
+    <span class="nav-link">Remix</span>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- ── REGION 1 · The Rig ──────────────────────────────────────────── -->
+    <div class="col-left row-top rig-panel">
+      <div class="section-head">
+        <span class="section-label section-label-accent">The Rig</span>
+        <span class="section-label">· decks · crossfader</span>
+        <div class="section-actions">
+          <button class="btn btn-primary">▶ Start</button>
+          <button class="btn">Cut a dubplate</button>
+          <button class="btn">New</button>
+        </div>
+      </div>
+      <div class="rig-body">
+
+        <!-- Status -->
+        <div class="dj-status">
+          <span class="live-dot"></span>
+          The DJ is cutting a lead line — dotted, call-and-response
+        </div>
+
+        <!-- Arrangement chips -->
+        <div class="chips-row">
+          <span class="chip-label">Parts</span>
+          <span class="chip active">kick</span>
+          <span class="chip active">hats</span>
+          <span class="chip active">808</span>
+          <span class="chip active">clap</span>
+          <span class="chip active">chords</span>
+          <span class="chip pending">+ lead</span>
+        </div>
+
+        <!-- Deck rig -->
+        <div class="deck-rig">
+
+          <!-- Deck A: committed track sleeve -->
+          <div class="sleeve sleeve-a">
+            <div class="sleeve-header">
+              <span class="sleeve-deck-label">A</span>
+              <span class="sleeve-subtitle">committed</span>
+            </div>
+            <div class="sleeve-art">
+              <svg viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Record sleeve — flat art, printed feel -->
+                <rect width="110" height="110" fill="#e6e0d3"/>
+                <!-- Concentric ring motif — like a printed record label -->
+                <circle cx="55" cy="55" r="50" stroke="#c8c2b6" stroke-width=".8" fill="none"/>
+                <circle cx="55" cy="55" r="44" stroke="#c8c2b6" stroke-width=".8" fill="none"/>
+                <circle cx="55" cy="55" r="38" stroke="#c8c2b6" stroke-width=".8" fill="none"/>
+                <circle cx="55" cy="55" r="32" stroke="#c8c2b6" stroke-width=".8" fill="none"/>
+                <circle cx="55" cy="55" r="26" stroke="#c8c2b6" stroke-width=".8" fill="none"/>
+                <circle cx="55" cy="55" r="20" stroke="#c8c2b6" stroke-width=".8" fill="none"/>
+                <!-- Label area -->
+                <circle cx="55" cy="55" r="16" fill="#f5f2eb" stroke="#c8c2b6" stroke-width="1"/>
+                <!-- Approved rings — each part presses a ring -->
+                <circle cx="55" cy="55" r="48" stroke="#2d6a4f" stroke-width="2.5" stroke-opacity=".7" fill="none"/>
+                <circle cx="55" cy="55" r="42" stroke="#2d6a4f" stroke-width="1.8" stroke-opacity=".6" fill="none"/>
+                <circle cx="55" cy="55" r="36" stroke="#2d6a4f" stroke-width="2" stroke-opacity=".65" fill="none"/>
+                <circle cx="55" cy="55" r="30" stroke="#2d6a4f" stroke-width="1.5" stroke-opacity=".55" fill="none"/>
+                <circle cx="55" cy="55" r="24" stroke="#2d6a4f" stroke-width="1.2" stroke-opacity=".5" fill="none"/>
+                <!-- Centre dot -->
+                <circle cx="55" cy="55" r="2" fill="#2d6a4f"/>
+                <!-- Label text -->
+                <text x="55" y="53" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-size="5" fill="#3d3a35" letter-spacing=".04em" font-weight="700">NEON MELT</text>
+                <text x="55" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="3.5" fill="#7a7469" letter-spacing=".08em">DRILL · F MIN · 140</text>
+              </svg>
+            </div>
+            <!-- Inline waveform strip — printed frequency graph -->
+            <div class="sleeve-waveform">
+              <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="200" height="20" fill="#f0ece4"/>
+                <!-- Bass bars -->
+                <g fill="#2d6a4f" opacity=".6">
+                  <rect x="0"  y="6"  width="3" height="8"/>
+                  <rect x="5"  y="4"  width="3" height="12"/>
+                  <rect x="10" y="7"  width="3" height="7"/>
+                  <rect x="15" y="3"  width="3" height="14"/>
+                  <rect x="20" y="6"  width="3" height="8"/>
+                  <rect x="25" y="5"  width="3" height="10"/>
+                  <rect x="30" y="7"  width="3" height="7"/>
+                  <rect x="35" y="3"  width="3" height="14"/>
+                  <rect x="40" y="6"  width="3" height="8"/>
+                  <rect x="45" y="4"  width="3" height="12"/>
+                  <rect x="50" y="7"  width="3" height="7"/>
+                  <rect x="55" y="3"  width="3" height="14"/>
+                  <rect x="60" y="6"  width="3" height="8"/>
+                  <rect x="65" y="5"  width="3" height="10"/>
+                  <rect x="70" y="7"  width="3" height="7"/>
+                  <rect x="75" y="3"  width="3" height="14"/>
+                  <rect x="80" y="6"  width="3" height="8"/>
+                  <rect x="85" y="4"  width="3" height="12"/>
+                  <rect x="90" y="7"  width="3" height="7"/>
+                  <rect x="95" y="3"  width="3" height="14"/>
+                </g>
+                <!-- Mid ticks -->
+                <g fill="#7a7469" opacity=".4">
+                  <rect x="0"  y="8"  width="3" height="4"/>
+                  <rect x="5"  y="7"  width="3" height="6"/>
+                  <rect x="10" y="8"  width="3" height="4"/>
+                  <rect x="15" y="6"  width="3" height="8"/>
+                  <rect x="20" y="8"  width="3" height="4"/>
+                  <rect x="25" y="7"  width="3" height="6"/>
+                  <rect x="30" y="8"  width="3" height="4"/>
+                  <rect x="35" y="6"  width="3" height="8"/>
+                  <rect x="40" y="8"  width="3" height="4"/>
+                  <rect x="45" y="7"  width="3" height="6"/>
+                  <rect x="50" y="8"  width="3" height="4"/>
+                  <rect x="55" y="6"  width="3" height="8"/>
+                  <rect x="60" y="8"  width="3" height="4"/>
+                  <rect x="65" y="7"  width="3" height="6"/>
+                  <rect x="70" y="8"  width="3" height="4"/>
+                  <rect x="75" y="6"  width="3" height="8"/>
+                  <rect x="80" y="8"  width="3" height="4"/>
+                  <rect x="85" y="7"  width="3" height="6"/>
+                  <rect x="90" y="8"  width="3" height="4"/>
+                  <rect x="95" y="6"  width="3" height="8"/>
+                </g>
+                <!-- Playhead -->
+                <line x1="100" y1="0" x2="100" y2="20" stroke="#1a1a1a" stroke-width="1" opacity=".7"/>
+                <!-- Right half (future) lighter -->
+                <g fill="#2d6a4f" opacity=".25">
+                  <rect x="105" y="6"  width="3" height="8"/>
+                  <rect x="110" y="4"  width="3" height="12"/>
+                  <rect x="115" y="7"  width="3" height="7"/>
+                  <rect x="120" y="3"  width="3" height="14"/>
+                  <rect x="125" y="6"  width="3" height="8"/>
+                  <rect x="130" y="5"  width="3" height="10"/>
+                  <rect x="135" y="7"  width="3" height="7"/>
+                  <rect x="140" y="3"  width="3" height="14"/>
+                  <rect x="145" y="6"  width="3" height="8"/>
+                  <rect x="150" y="4"  width="3" height="12"/>
+                  <rect x="155" y="7"  width="3" height="7"/>
+                  <rect x="160" y="3"  width="3" height="14"/>
+                  <rect x="165" y="6"  width="3" height="8"/>
+                  <rect x="170" y="5"  width="3" height="10"/>
+                  <rect x="175" y="7"  width="3" height="7"/>
+                  <rect x="180" y="3"  width="3" height="14"/>
+                  <rect x="185" y="6"  width="3" height="8"/>
+                  <rect x="190" y="4"  width="3" height="12"/>
+                  <rect x="195" y="7"  width="3" height="7"/>
+                </g>
+                <!-- Beatgrid marks -->
+                <g stroke="#a09890" stroke-width=".5" opacity=".5">
+                  <line x1="0"   y1="18" x2="0"   y2="20"/>
+                  <line x1="25"  y1="18" x2="25"  y2="20"/>
+                  <line x1="50"  y1="17" x2="50"  y2="20"/>
+                  <line x1="75"  y1="18" x2="75"  y2="20"/>
+                  <line x1="100" y1="17" x2="100" y2="20"/>
+                  <line x1="125" y1="18" x2="125" y2="20"/>
+                  <line x1="150" y1="17" x2="150" y2="20"/>
+                  <line x1="175" y1="18" x2="175" y2="20"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Blend ruler -->
+          <div class="blend-col">
+            <span class="blend-deck-a">A</span>
+            <div class="blend-ruler">
+              <div class="blend-track">
+                <div class="blend-fill"></div>
+                <div class="blend-thumb" id="blend-thumb"></div>
+              </div>
+              <div class="blend-ticks">
+                <div class="blend-tick"></div>
+                <div class="blend-tick"></div>
+                <div class="blend-tick"></div>
+                <div class="blend-tick"></div>
+                <div class="blend-tick"></div>
+              </div>
+            </div>
+            <span class="blend-deck-b">B</span>
+            <span class="blend-label" style="margin-top:3px;">blend</span>
+          </div>
+
+          <!-- Deck B: pitched change sleeve -->
+          <div class="sleeve sleeve-b">
+            <div class="sleeve-header">
+              <span class="sleeve-deck-label">B</span>
+              <span class="sleeve-subtitle">acetate · pitched change</span>
+            </div>
+            <div class="sleeve-art">
+              <svg viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Acetate sleeve — mostly blank, translucent feel -->
+                <rect width="110" height="110" fill="#f0ece4"/>
+                <!-- Sparse concentric rings -->
+                <circle cx="55" cy="55" r="50" stroke="#c8c2b6" stroke-width=".5" fill="none"/>
+                <circle cx="55" cy="55" r="38" stroke="#c8c2b6" stroke-width=".5" fill="none"/>
+                <circle cx="55" cy="55" r="26" stroke="#c8c2b6" stroke-width=".5" fill="none"/>
+                <!-- Label area -->
+                <circle cx="55" cy="55" r="16" fill="#f5f2eb" stroke="#c8c2b6" stroke-width="1"/>
+                <!-- Delta mark — the proposed lead line arc, amber/dashed -->
+                <path d="M55 7 A48 48 0 0 1 96 72" stroke="#8b5a00" stroke-width="2.5" fill="none" opacity=".65" stroke-linecap="round" stroke-dasharray="6 3"/>
+                <!-- Centre dot -->
+                <circle cx="55" cy="55" r="2" fill="#8b5a00"/>
+                <!-- Label text -->
+                <text x="55" y="53" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-size="5" fill="#8b5a00" letter-spacing=".04em" font-weight="600" font-style="italic">lead line</text>
+                <text x="55" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="3.5" fill="#7a7469" letter-spacing=".08em">proposed</text>
+              </svg>
+            </div>
+            <!-- Pitch card -->
+            <div class="pitch-card">
+              <div class="pitch-headline">add a lead line</div>
+              <div class="pitch-sub">dotted, call-and-response</div>
+              <div class="pitch-actions">
+                <button class="btn btn-skip" id="btn-skip">✕ Skip</button>
+                <button class="btn btn-approve" id="btn-approve">✓ Approve</button>
+              </div>
+            </div>
+            <!-- Amber waveform (proposed addition) -->
+            <div class="sleeve-waveform">
+              <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="200" height="20" fill="#fdf3e0"/>
+                <!-- Sparse melodic hits in amber -->
+                <g fill="#8b5a00" opacity=".5">
+                  <rect x="0"  y="9"  width="2" height="3"/>
+                  <rect x="25" y="6"  width="2" height="8"/>
+                  <rect x="30" y="8"  width="2" height="5"/>
+                  <rect x="50" y="5"  width="2" height="10"/>
+                  <rect x="55" y="8"  width="2" height="5"/>
+                  <rect x="75" y="9"  width="2" height="4"/>
+                  <rect x="100" y="6" width="2" height="9"/>
+                  <rect x="105" y="8" width="2" height="5"/>
+                  <rect x="125" y="7" width="2" height="7"/>
+                  <rect x="150" y="5" width="2" height="11"/>
+                  <rect x="155" y="8" width="2" height="6"/>
+                </g>
+                <line x1="100" y1="0" x2="100" y2="20" stroke="#8b5a00" stroke-width="1" opacity=".5"/>
+              </svg>
+            </div>
+          </div>
+
+        </div><!-- /deck-rig -->
+      </div><!-- /rig-body -->
+    </div><!-- /rig-panel -->
+
+    <!-- ── REGION 2 · The Console ──────────────────────────────────────── -->
+    <div class="col-right console-panel">
+      <div class="section-head">
+        <span class="section-label section-label-accent">Metadata</span>
+      </div>
+
+      <!-- Genre -->
+      <div class="console-block">
+        <div class="console-block-label">Genre</div>
+        <div class="genre-cloud">
+          <button class="genre-tag">lo-fi</button>
+          <button class="genre-tag selected">drill</button>
+          <button class="genre-tag">trap</button>
+          <button class="genre-tag">house</button>
+          <button class="genre-tag">dnb</button>
+          <button class="genre-tag">garage</button>
+          <button class="genre-tag">techno</button>
+          <button class="genre-tag">boom bap</button>
+        </div>
+      </div>
+
+      <!-- Density -->
+      <div class="console-block">
+        <div class="console-block-label">Density</div>
+        <div class="density-ruler">
+          <span class="density-label-sm">strip</span>
+          <div class="density-track" id="density-track">
+            <div class="density-fill" id="density-fill"></div>
+            <div class="density-thumb" id="density-thumb"></div>
+          </div>
+          <span class="density-label-sm">pile on</span>
+        </div>
+      </div>
+
+      <!-- Parts table -->
+      <div class="console-block" style="padding:0;">
+        <div class="console-block-label" style="padding:6px 10px 4px;">The Parts</div>
+        <table class="parts-table">
+          <thead>
+            <tr>
+              <th>Part</th>
+              <th>Level</th>
+              <th>Mode</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="part-name">kick</td>
+              <td><div class="part-fader"><div class="part-fader-fill" style="width:82%"></div></div></td>
+              <td><button class="part-mode sel">auto</button></td>
+            </tr>
+            <tr>
+              <td class="part-name">hats</td>
+              <td><div class="part-fader"><div class="part-fader-fill" style="width:58%"></div></div></td>
+              <td><button class="part-mode sel">auto</button></td>
+            </tr>
+            <tr>
+              <td class="part-name">808</td>
+              <td><div class="part-fader"><div class="part-fader-fill" style="width:75%"></div></div></td>
+              <td><button class="part-mode">drop</button></td>
+            </tr>
+            <tr>
+              <td class="part-name">clap</td>
+              <td><div class="part-fader"><div class="part-fader-fill" style="width:66%"></div></div></td>
+              <td><button class="part-mode sel">auto</button></td>
+            </tr>
+            <tr>
+              <td class="part-name">chords</td>
+              <td><div class="part-fader"><div class="part-fader-fill" style="width:50%"></div></div></td>
+              <td><button class="part-mode">feat</button></td>
+            </tr>
+            <tr class="part-row-pending">
+              <td class="part-name">lead ·</td>
+              <td><div class="part-fader"><div class="part-fader-fill" style="width:0%; background:var(--amber);"></div></div></td>
+              <td><button class="part-mode" style="border-color:var(--amber); color:var(--amber);">—</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Release info block — Discogs flavour -->
+      <div class="console-block" style="margin-top:auto;">
+        <div class="console-block-label">Session</div>
+        <div style="font-family:var(--font-mono); font-size:8px; color:var(--ink-muted); line-height:1.8; letter-spacing:.03em;">
+          <div><span style="color:var(--ink-faint);">Started</span> &nbsp;07:42 UTC</div>
+          <div><span style="color:var(--ink-faint);">Pitches</span> &nbsp;7 total · 5 kept</div>
+          <div><span style="color:var(--ink-faint);">Approve</span> &nbsp;71%</div>
+          <div><span style="color:var(--ink-faint);">Stage</span> &nbsp;&nbsp;&nbsp;5 / 8 parts</div>
+          <div><span style="color:var(--ink-faint);">Format</span> &nbsp;&nbsp;Arranged · 36 bars</div>
+        </div>
+      </div>
+
+    </div><!-- /console-panel -->
+
+    <!-- ── REGION 3 + 4 · Floor + Code ────────────────────────────────── -->
+    <div class="col-left row-bottom floor-panel">
+      <div class="section-head">
+        <span class="section-label section-label-accent">The Floor</span>
+        <span class="section-label">· roll · set history · moves</span>
+        <span class="section-label" style="margin-left:auto; border-left:1px solid var(--rule); padding-left:10px;">
+          <span class="section-label-accent">Session Notes</span>
+          <span> · live code</span>
+        </span>
+      </div>
+      <div class="floor-body" style="grid-template-columns: 1fr 200px 220px;">
+
+        <!-- Pianoroll / tracklist grid -->
+        <div class="roll-area">
+          <div class="roll-sub-head">
+            <span class="roll-sub-label">The Roll</span>
+            <span style="font-family:var(--font-mono); font-size:7px; color:var(--ink-faint); margin-left:auto; letter-spacing:.05em;">4 bars · 140 BPM · F minor</span>
+          </div>
+          <div class="pianoroll-wrap">
+            <svg width="100%" height="100%" viewBox="0 0 500 130" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Paper background -->
+              <rect width="500" height="130" fill="#f5f2eb"/>
+              <!-- Horizontal rule lines — like printed staff -->
+              <g stroke="#e6e0d3" stroke-width=".8">
+                <line x1="0" y1="20"  x2="500" y2="20"/>
+                <line x1="0" y1="38"  x2="500" y2="38"/>
+                <line x1="0" y1="54"  x2="500" y2="54"/>
+                <line x1="0" y1="70"  x2="500" y2="70"/>
+                <line x1="0" y1="88"  x2="500" y2="88"/>
+                <line x1="0" y1="105" x2="500" y2="105"/>
+                <line x1="0" y1="120" x2="500" y2="120"/>
+              </g>
+              <!-- Bar lines -->
+              <g stroke="#c8c2b6" stroke-width="1">
+                <line x1="0"   y1="0" x2="0"   y2="130"/>
+                <line x1="125" y1="0" x2="125" y2="130"/>
+                <line x1="250" y1="0" x2="250" y2="130"/>
+                <line x1="375" y1="0" x2="375" y2="130"/>
+                <line x1="500" y1="0" x2="500" y2="130"/>
+              </g>
+              <!-- Beat marks -->
+              <g stroke="#ddd8cc" stroke-width=".5">
+                <line x1="31"  y1="120" x2="31"  y2="130"/>
+                <line x1="63"  y1="120" x2="63"  y2="130"/>
+                <line x1="94"  y1="120" x2="94"  y2="130"/>
+                <line x1="156" y1="120" x2="156" y2="130"/>
+                <line x1="188" y1="120" x2="188" y2="130"/>
+                <line x1="219" y1="120" x2="219" y2="130"/>
+                <line x1="281" y1="120" x2="281" y2="130"/>
+                <line x1="313" y1="120" x2="313" y2="130"/>
+                <line x1="344" y1="120" x2="344" y2="130"/>
+                <line x1="406" y1="120" x2="406" y2="130"/>
+                <line x1="438" y1="120" x2="438" y2="130"/>
+                <line x1="469" y1="120" x2="469" y2="130"/>
+              </g>
+              <!-- Row labels (left margin) -->
+              <text x="3" y="119" font-family="JetBrains Mono, monospace" font-size="7" fill="#a09890" letter-spacing=".06em">KICK</text>
+              <text x="3" y="103" font-family="JetBrains Mono, monospace" font-size="7" fill="#a09890" letter-spacing=".06em">HATS</text>
+              <text x="3" y="87"  font-family="JetBrains Mono, monospace" font-size="7" fill="#a09890" letter-spacing=".06em">808</text>
+              <text x="3" y="69"  font-family="JetBrains Mono, monospace" font-size="7" fill="#a09890" letter-spacing=".06em">CLAP</text>
+              <text x="3" y="52"  font-family="JetBrains Mono, monospace" font-size="7" fill="#a09890" letter-spacing=".06em">CHD</text>
+
+              <!-- Kick notes — dark ink blocks -->
+              <rect x="35"  y="109" width="20" height="8" rx="1" fill="#1a1a1a" opacity=".85"/>
+              <rect x="160" y="109" width="20" height="8" rx="1" fill="#1a1a1a" opacity=".85"/>
+              <rect x="285" y="109" width="20" height="8" rx="1" fill="#1a1a1a" opacity=".85"/>
+              <rect x="410" y="109" width="20" height="8" rx="1" fill="#1a1a1a" opacity=".85"/>
+
+              <!-- Hat pattern — small ink dashes -->
+              <rect x="35"  y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="66"  y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="98"  y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="129" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="160" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="191" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="223" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="254" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="285" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="316" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="348" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="379" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="410" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="441" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+              <rect x="473" y="93" width="8" height="6" rx=".5" fill="#3d3a35" opacity=".7"/>
+
+              <!-- 808 notes — long bars, ink with opacity -->
+              <rect x="35"  y="75" width="108" height="9" rx="1" fill="#2d6a4f" opacity=".7"/>
+              <rect x="160" y="75" width="52"  height="9" rx="1" fill="#2d6a4f" opacity=".7"/>
+              <rect x="222" y="79" width="52"  height="5" rx="1" fill="#2d6a4f" opacity=".5"/>
+              <rect x="285" y="75" width="108" height="9" rx="1" fill="#2d6a4f" opacity=".7"/>
+              <rect x="410" y="75" width="52"  height="9" rx="1" fill="#2d6a4f" opacity=".7"/>
+
+              <!-- Clap — backbeat -->
+              <rect x="98"  y="60" width="16" height="7" rx="1" fill="#7a7469" opacity=".8"/>
+              <rect x="222" y="60" width="16" height="7" rx="1" fill="#7a7469" opacity=".8"/>
+              <rect x="348" y="60" width="16" height="7" rx="1" fill="#7a7469" opacity=".8"/>
+              <rect x="473" y="60" width="16" height="7" rx="1" fill="#7a7469" opacity=".8"/>
+
+              <!-- Chords — stacked voicings -->
+              <rect x="35"  y="22" width="110" height="5" rx="1" fill="#1a4a7a" opacity=".45"/>
+              <rect x="35"  y="28" width="110" height="5" rx="1" fill="#1a4a7a" opacity=".35"/>
+              <rect x="35"  y="34" width="110" height="3" rx="1" fill="#1a4a7a" opacity=".25"/>
+              <rect x="160" y="24" width="110" height="5" rx="1" fill="#1a4a7a" opacity=".45"/>
+              <rect x="160" y="30" width="110" height="5" rx="1" fill="#1a4a7a" opacity=".35"/>
+              <rect x="285" y="22" width="110" height="5" rx="1" fill="#1a4a7a" opacity=".45"/>
+              <rect x="285" y="28" width="110" height="5" rx="1" fill="#1a4a7a" opacity=".35"/>
+              <rect x="285" y="34" width="110" height="3" rx="1" fill="#1a4a7a" opacity=".25"/>
+              <rect x="410" y="26" width="85"  height="5" rx="1" fill="#1a4a7a" opacity=".45"/>
+              <rect x="410" y="32" width="85"  height="5" rx="1" fill="#1a4a7a" opacity=".35"/>
+
+              <!-- Playhead -->
+              <line x1="200" y1="0" x2="200" y2="130" stroke="#1a1a1a" stroke-width="1" opacity=".4"/>
+
+              <!-- Bar numbers -->
+              <text x="3"   y="10" font-family="JetBrains Mono, monospace" font-size="7" fill="#c8c2b6" letter-spacing=".06em">1</text>
+              <text x="128" y="10" font-family="JetBrains Mono, monospace" font-size="7" fill="#c8c2b6" letter-spacing=".06em">2</text>
+              <text x="253" y="10" font-family="JetBrains Mono, monospace" font-size="7" fill="#c8c2b6" letter-spacing=".06em">3</text>
+              <text x="378" y="10" font-family="JetBrains Mono, monospace" font-size="7" fill="#c8c2b6" letter-spacing=".06em">4</text>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Set history + DJ moves -->
+        <div class="floor-side">
+          <div class="floor-side-section" style="flex:0 0 50%; max-height:50%;">
+            <div class="roll-sub-head">
+              <span class="roll-sub-label">Set History</span>
+            </div>
+            <div class="log-scroll">
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">kick · 4-on-floor</span>
+                <span class="log-status log-status-keep">kept</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">hats · 16th swing</span>
+                <span class="log-status log-status-keep">kept</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-skip">✕</span>
+                <span class="log-text">open hat · offbeat</span>
+                <span class="log-status log-status-skip">skip</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">808 slide · F min</span>
+                <span class="log-status log-status-keep">kept</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">clap · bars 2 &amp; 4</span>
+                <span class="log-status log-status-keep">kept</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">chords · minor stab</span>
+                <span class="log-status log-status-keep">kept</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-skip">✕</span>
+                <span class="log-text">reverb · plate 0.4</span>
+                <span class="log-status log-status-skip">skip</span>
+              </div>
+            </div>
+          </div>
+          <div class="floor-side-section">
+            <div class="roll-sub-head">
+              <span class="roll-sub-label">DJ Moves</span>
+            </div>
+            <div class="log-scroll">
+              <div class="log-row" style="background:var(--amber-pale);">
+                <span class="log-marker" style="color:var(--amber);">→</span>
+                <span class="log-text" style="color:var(--amber);">pitching lead line</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-info">·</span>
+                <span class="log-text">opened chords B</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">approved: chords</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-skip">✕</span>
+                <span class="log-text">skipped: reverb</span>
+              </div>
+              <div class="log-row">
+                <span class="log-marker log-marker-keep">✓</span>
+                <span class="log-text">approved: 808</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Code / session notes pane -->
+        <div class="code-pane">
+          <div class="code-pane-head">
+            <span class="roll-sub-label">Session Notes</span>
+            <span style="font-family:var(--font-mono); font-size:7px; color:var(--ink-faint); margin-left:auto; letter-spacing:.05em; text-transform:uppercase; font-variant:small-caps;">Strudel · live</span>
+          </div>
+          <div class="code-body">
+<span class="tok-cm">— Neon Melt · drill · 140 BPM</span><br>
+<span class="tok-cm">— F minor · 5 parts · stage 5/8</span><br>
+<br>
+<span class="tok-kw">stack</span><span class="tok-punc">(</span><br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"bd*4"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">bank</span><span class="tok-punc">(</span><span class="tok-str">"RolandTR808"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">0.9</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"~ hh ~ hh"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">gain</span><span class="tok-punc">(</span><span class="tok-num">.6</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f2 f2 ab2 c3&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"sawtooth"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">lpf</span><span class="tok-punc">(</span><span class="tok-num">700</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">penv</span><span class="tok-punc">(</span><span class="tok-num">4</span><span class="tok-punc">)</span><span class="tok-punc">,</span><br>
+<br>
+&nbsp;&nbsp;<span class="tok-fn">note</span><span class="tok-punc">(</span><span class="tok-str">"&lt;f4 ab4 c5 eb5&gt;"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">s</span><span class="tok-punc">(</span><span class="tok-str">"square"</span><span class="tok-punc">)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tok-punc">.</span><span class="tok-fn">room</span><span class="tok-punc">(</span><span class="tok-num">.3</span><span class="tok-punc">)</span><br>
+<span class="tok-punc">)</span><span class="tok-punc">.</span><span class="tok-fn">slow</span><span class="tok-punc">(</span><span class="tok-num">2</span><span class="tok-punc">)</span>
+          </div>
+        </div>
+
+      </div><!-- /floor-body -->
+    </div><!-- /floor-panel -->
+
+  </div><!-- /main-grid -->
+</div><!-- /app-shell -->
+
+<script>
+(function () {
+  'use strict';
+
+  // Blend ruler drag
+  const thumb = document.getElementById('blend-thumb');
+  const track = thumb && thumb.closest('.blend-track');
+  let dragging = false;
+  if (thumb) {
+    thumb.addEventListener('mousedown', function (e) { dragging = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging || !track) return;
+      const rect = track.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      thumb.style.top = (pct * 100) + '%';
+      track.querySelector('.blend-fill').style.height = (pct * 100) + '%';
+    });
+    document.addEventListener('mouseup', function () { dragging = false; });
+  }
+
+  // Density drag
+  const dTrack = document.getElementById('density-track');
+  const dFill  = document.getElementById('density-fill');
+  const dThumb = document.getElementById('density-thumb');
+  let dActive = false;
+  if (dTrack) {
+    dTrack.addEventListener('mousedown', function (e) { dActive = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dActive) return;
+      const rect = dTrack.getBoundingClientRect();
+      const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      dFill.style.width  = (pct * 100) + '%';
+      dThumb.style.left  = (pct * 100) + '%';
+    });
+    document.addEventListener('mouseup', function () { dActive = false; });
+  }
+
+  // Approve / skip
+  const approve = document.getElementById('btn-approve');
+  const skip    = document.getElementById('btn-skip');
+  if (approve) {
+    approve.addEventListener('click', function () {
+      this.textContent = '✓ Approved';
+      setTimeout(() => { this.textContent = '✓ Approve'; }, 900);
+    });
+  }
+  if (skip) {
+    skip.addEventListener('click', function () {
+      this.textContent = '✕ Skipped';
+      setTimeout(() => { this.textContent = '✕ Skip'; }, 700);
+    });
+  }
+
+  // Genre pill toggle
+  document.querySelectorAll('.genre-tag').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      document.querySelectorAll('.genre-tag').forEach(function (p) { p.classList.remove('selected'); });
+      this.classList.add('selected');
+    });
+  });
+})();
+</script>
+</body>
+</html>
