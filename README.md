@@ -66,16 +66,18 @@ Export/Import JSON. Spin (the disc rotates while previewing), re-imprint the lab
 to Remix, **export to MP3** (⬇ — a real-time render captured and encoded in-browser), or
 delete. Because every track is seeded, a record's code is fully reproducible.
 
-![The crate — pressed records with their coloured rings, key, tempo and hype](screenshots/04-crate.png)
+![The crate — pressed records with their coloured rings, key, tempo and keep-rate](screenshots/04-crate.png)
 
 ### 🎚 Remix — DJ your own records
 
-Pull a **sleeve** from the shelf and its **disc drops onto the platter**. The record loops
-as a bed while you fire one-shot vocal stabs from the vox pads, latch FX overlays
-(topline / sweep / stutter / riser), ride the transition fader, and press the result as a
-new record.
+Pull two **sleeves** from the shelf onto **Deck A** and **Deck B** and the discs drop onto
+the platters. A **32-bar phrase timeline** is the clock: **ARM** a transition and it fires
+quantised on the next 8/16/32-bar line (slam or auto-fade). Each deck splits into **stems**
+(drums · bass · chords · lead · air) you can mute, solo or **swap** across decks, each with
+its own filter sweep; three **hold-to-fire paddles** (stutter / gate / echo) ride the master
+over an equal-power crossfader. Press the blend and it banks as a new dubplate.
 
-![The remix console — vox pads on Deck A, the record spinning on Deck B](screenshots/05-remix.png)
+![The remix deck — two records on the phrase clock, per-deck stems and filters, hold-to-fire paddles on the master](screenshots/05-remix.png)
 
 ---
 

@@ -112,7 +112,7 @@
     // motion-blur: fade the previous frame toward the background instead of a
     // hard clear — gives the scope + particles a real oscilloscope after-image.
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(6, 4, 13, 0.26)';
+    ctx.fillStyle = 'rgba(23, 25, 29, 0.26)';
     ctx.fillRect(0, 0, W, H);
 
     ctx.globalCompositeOperation = 'lighter';
@@ -120,9 +120,9 @@
     // hot radial core, left third (the "bloom")
     const cx = W * 0.34, cy = H * 0.52, cr = Math.min(W, H) * (0.13 + beat * 0.015);
     const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
-    core.addColorStop(0, 'rgba(255,61,129,' + (0.28 + beat * 0.1).toFixed(3) + ')');
-    core.addColorStop(0.5, 'rgba(122,92,255,0.12)');
-    core.addColorStop(1, 'rgba(122,92,255,0)');
+    core.addColorStop(0, 'rgba(40,200,224,' + (0.28 + beat * 0.1).toFixed(3) + ')');
+    core.addColorStop(0.5, 'rgba(40,200,224,0.12)');
+    core.addColorStop(1, 'rgba(40,200,224,0)');
     ctx.fillStyle = core;
     ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
 
@@ -132,13 +132,13 @@
       const x = i * bw;
       const h = Math.max(2, bins[i] * maxH);
       const g = ctx.createLinearGradient(0, baseY - h, 0, baseY);
-      g.addColorStop(0, 'rgba(34,211,238,0.85)');
-      g.addColorStop(1, 'rgba(122,92,255,0.10)');
+      g.addColorStop(0, 'rgba(40,200,224,0.85)');
+      g.addColorStop(1, 'rgba(40,200,224,0.10)');
       ctx.fillStyle = g;
       ctx.fillRect(x + 1, baseY - h, bw - 2, h);
       // peak-hold cap
       const ph = Math.max(2, peaks[i] * maxH);
-      ctx.fillStyle = 'rgba(255,61,129,0.5)';
+      ctx.fillStyle = 'rgba(255,155,47,0.5)';
       ctx.fillRect(x + 1, baseY - ph - 2, bw - 2, 2);
       // mirrored shimmer
       ctx.globalAlpha = 0.14;
@@ -150,12 +150,12 @@
     // the oscilloscope trace — a real time-domain waveform across the middle
     const midY = H * 0.46, amp = H * 0.10;
     const grad = ctx.createLinearGradient(0, 0, W, 0);
-    grad.addColorStop(0, '#22d3ee');
-    grad.addColorStop(0.5, '#7a5cff');
-    grad.addColorStop(1, '#ff3d81');
+    grad.addColorStop(0, '#28c8e0');
+    grad.addColorStop(0.5, '#28c8e0');
+    grad.addColorStop(1, '#ff9b2f');
     ctx.strokeStyle = grad;
     ctx.lineWidth = 2.2;
-    ctx.shadowColor = 'rgba(122,92,255,0.9)';
+    ctx.shadowColor = 'rgba(40,200,224,0.9)';
     ctx.shadowBlur = 14;
     ctx.beginPath();
     const N = Math.max(64, Math.floor(W / 3));
@@ -172,7 +172,7 @@
     for (let i = 0; i < 34; i++) {
       const px = (i * 97.3 + t * (12 + (i % 5) * 6)) % W;
       const py = (i * 53.7 + Math.sin(t + i) * 24) % H;
-      ctx.fillStyle = 'rgba(255,61,129,' + (0.05 + (i % 4) * 0.03).toFixed(3) + ')';
+      ctx.fillStyle = 'rgba(40,200,224,' + (0.05 + (i % 4) * 0.03).toFixed(3) + ')';
       ctx.beginPath(); ctx.arc(px, py, 1 + (i % 3), 0, Math.PI * 2); ctx.fill();
     }
 
