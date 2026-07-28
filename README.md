@@ -8,9 +8,6 @@ while you steer, turn by turn. Built on [Strudel](https://strudel.cc)
 **[▶ Play it live](https://luketheojohnson.github.io/acetate/)** &nbsp;·&nbsp;
 No backend · no framework · no bundler · no build step &nbsp;·&nbsp; MIT-licensed
 
-> *Named for the **acetate** — the one off disc a DJ cuts to test a track before it’s
-> pressed. 
-
 
 ![The Live set — two turntables and a crossfader on the left, the console on the right, the roll and set history below](screenshots/02-live.png)
 
