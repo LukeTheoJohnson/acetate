@@ -226,13 +226,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     check('mid-fader carries the touched lane at half gain', mid.includes('.gain(0.5)'), mid);
     check('the fader ends are audibly different programs', a !== b);
   }
-  doc.getElementById('abFader').value = '40';
-  doc.getElementById('abFader').dispatchEvent(new window.Event('input'));
-  await sleep(200); // past the fader throttle
-  const blended = evalCalls[evalCalls.length - 1];
-  check('dragging the fader auditions a blended program',
-    blended.includes('.gain(0.4)') || blended.includes('.gain(0.6)'), blended);
-  check('blended programs stay balanced', balanced(blended));
+  // the A/B switch is an on/off flip (no blend): OFF = the current track only,
+  // ON = the full pitched change — two audibly different, balanced programs.
+  const abSwitch = doc.getElementById('abSwitch');
+  abSwitch.checked = false; abSwitch.dispatchEvent(new window.Event('change'));
+  await sleep(30);
+  const trackOnly = evalCalls[evalCalls.length - 1];
+  abSwitch.checked = true; abSwitch.dispatchEvent(new window.Event('change'));
+  await sleep(30);
+  const withChange = evalCalls[evalCalls.length - 1];
+  check('the A/B switch flips between two different programs', trackOnly !== withChange, trackOnly);
+  check('both switch positions stay balanced', balanced(trackOnly) && balanced(withChange));
 
   // the part mixer biases the DJ: marking an active part "drop" makes the DJ pitch
   // removing it (proposeChange now reads laneMood).
@@ -414,6 +418,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     pressedFull.code.includes('arrange(') && balanced(pressedFull.code));
   check('records carry an approve-rate, not the dead hype stat',
     typeof pressedFull.approval === 'number' && pressedFull.approval >= 0 && pressedFull.approval <= 100);
+  check('arranged save carries loopCode for remix stem splitting',
+    !!pressedFull.loopCode && pressedFull.loopCode.includes('stack(') &&
+    pressedFull.loopCode.includes('.color(') && balanced(pressedFull.loopCode));
   check('live evaluations stayed balanced', evalCalls.every(balanced));
 
   // ---- highlight escapes mini-notation < > ----

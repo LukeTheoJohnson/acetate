@@ -24,9 +24,10 @@
 
   let crateSort = 'new'; // crate page ordering: 'new' | 'hype' | 'name'
 
-  // ---- A/B blend + press-modal state -------------------------------------
-  let abMix = 1;          // crossfader: 0 = Deck A (committed) only, 1 = full pitch
-  let abTimer = 0;        // throttle so dragging the fader doesn't thrash evaluate
+  // ---- A/B switch + press-modal state ------------------------------------
+  let abMix = 1;          // A/B switch: 0 = Deck A (committed) only, 1 = full pitch
+  let playerVizInst = null; // the top-bar reactive strip player (shared visualiser)
+  let visualInst = null;    // the full-screen pure-visual overlay (shared visualiser)
   let pressOrigin = null; // 'button' | 'prompt' while the pressing modal is open
   let pressFormat = 'arranged'; // what a press banks: 'arranged' (36-bar track) | 'loop'
 
@@ -68,7 +69,9 @@
       'djNow', 'djVerb', 'djMove', 'djFeed',
       // the deck rig: two platters + the A/B crossfader
       'deckRig', 'deckAPlatter', 'deckADisc', 'deckACap', 'deckBPlatter', 'deckBDisc',
-      'abWrap', 'abFader', 'abA', 'abB',
+      'abWrap', 'abSwitch',
+      // the top-bar live player + the full-screen pure-visual overlay
+      'playerViz', 'visualStage', 'visualCanvas',
       // the pressing modal (the save moment)
       'pressModal', 'pressDisc', 'pressName', 'pressMeta', 'pressVersion',
       'pressConfirm', 'pressCancel', 'pressLoop', 'pressFull', 'pressFormatHint',
@@ -100,10 +103,12 @@
     if (el.tpStop) el.tpStop.addEventListener('click', stopPlayback);
     if (el.sgApprove) el.sgApprove.addEventListener('click', () => liveDecide(true));
     if (el.sgSkip) el.sgSkip.addEventListener('click', () => liveDecide(false));
-    // the A/B crossfader: blend the pitched change against the committed track
-    if (el.abFader) el.abFader.addEventListener('input', onAbInput);
-    if (el.abA) el.abA.addEventListener('click', () => setAbMix(0));
-    if (el.abB) el.abB.addEventListener('click', () => setAbMix(1));
+    // the A/B switch: flip the pitched change on/off against the committed track
+    if (el.abSwitch) el.abSwitch.addEventListener('change', onAbSwitch);
+    // the full-screen pure-visual overlay closes on a click anywhere
+    if (el.visualStage) el.visualStage.addEventListener('click', closeVisuals);
+    // the top-bar live player — the shared reactive visualiser as a compact strip
+    playerVizInst = SDJ.Visualiser ? SDJ.Visualiser.mount(el.playerViz, { mode: 'strip' }) : null;
     // the pressing modal
     if (el.pressConfirm) el.pressConfirm.addEventListener('click', confirmPress);
     if (el.pressCancel) el.pressCancel.addEventListener('click', cancelPress);
@@ -357,39 +362,32 @@
     livePitch();
   }
 
-  // ---- the A/B crossfader: hear the pitch against the committed track ----
-  // Deck A is the committed track, Deck B the pitched change. The fader drives
-  // engine.renderAB(mix) — one balanced program with the touched lane at
-  // complementary gains — so the change can be blended in and out live.
+  // ---- the A/B switch: hear the pitch against the committed track ----
+  // Deck A is the committed track, Deck B the pitched change. The switch flips
+  // engine.renderAB(mix) between the two ends — 0 = track only, 1 = full change.
+  // It's an on/off flip, not a blend: you either hear the change or you don't.
 
   function resetAb() {
     abMix = 1;
-    if (el.abFader) el.abFader.value = '100';
     reflectAb();
   }
 
   function reflectAb() {
-    if (el.abA) el.abA.classList.toggle('on', abMix <= 0.05);
-    if (el.abB) el.abB.classList.toggle('on', abMix >= 0.95);
+    if (el.abSwitch) el.abSwitch.checked = abMix >= 0.5;
     if (el.deckAPlatter) el.deckAPlatter.classList.toggle('hot', abMix < 0.5);
     if (el.deckBPlatter) el.deckBPlatter.classList.toggle('hot', abMix >= 0.5);
   }
 
   function setAbMix(v) {
     abMix = clamp(v, 0, 1);
-    if (el.abFader) el.abFader.value = String(Math.round(abMix * 100));
     reflectAb();
     evaluateAb();
   }
 
-  // Drag → blend. Throttled to ~130ms so a fast drag doesn't re-evaluate the
-  // audio on every input event.
-  function onAbInput() {
-    if (!el.abFader) return;
-    abMix = (+el.abFader.value || 0) / 100;
-    reflectAb();
-    if (abTimer) return;
-    abTimer = setTimeout(() => { abTimer = 0; evaluateAb(); }, 130);
+  // Flip → hear it or don't. Snaps to Deck A (0) or Deck B (1), no partial blend.
+  function onAbSwitch() {
+    if (!el.abSwitch) return;
+    setAbMix(el.abSwitch.checked ? 1 : 0);
   }
 
   function evaluateAb() {
@@ -620,8 +618,11 @@
 
   function refreshTransport() {
     if (!el.transport) return;
-    if (!nowPlaying.kind) { el.transport.hidden = true; return; }
+    if (!nowPlaying.kind) { el.transport.hidden = true; if (playerVizInst) playerVizInst.stop(); return; }
     el.transport.hidden = false;
+    // the top-bar player's reactive strip runs while something's playing (never
+    // on the menu, whose own full-screen canvas owns the picture there)
+    if (playerVizInst && currentRoute() !== 'menu') playerVizInst.start();
     const token = nowPlaying.kind === 'preview' ? 'preview'
       : nowPlaying.kind === 'remix' ? 'remix'
       : nowPlaying.kind === 'menu' ? 'ambient'
@@ -678,11 +679,13 @@
     const typed = el.pressName && el.pressName.value.trim();
     const name = typed || engine.song.name;
     engine.song.name = name;
+    const loopCode = engine.renderCommitted ? engine.renderCommitted() : engine.render();
     const code = (pressFormat === 'arranged' && engine.renderArrangedCommitted)
       ? engine.renderArrangedCommitted()
-      : (engine.renderCommitted ? engine.renderCommitted() : engine.render());
+      : loopCode;
     saveToCrate('◉ cut “' + name + '” as a dubplate' +
-      (pressFormat === 'arranged' ? ' (arranged)' : ' (loop)'), 'saved', code);
+      (pressFormat === 'arranged' ? ' (arranged)' : ' (loop)'), 'saved', code,
+      pressFormat === 'arranged' ? loopCode : null);
     setStatus('Cut “' + name + '” — it’s in your crate.');
     const fromPrompt = pressOrigin === 'prompt';
     pressOrigin = null;
@@ -767,7 +770,7 @@
     return SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : coverFor(entry);
   }
 
-  function saveToCrate(logMsg, source, codeOverride) {
+  function saveToCrate(logMsg, source, codeOverride, loopCodeOverride) {
     const s = engine.song;
     if (!s) return;
     // Bank the COMMITTED genome: an un-judged pitch is Deck B's business, not
@@ -794,6 +797,7 @@
       genre: st.genre,
       genreLabel: st.genreLabel,
       code: code,
+      loopCode: loopCodeOverride || null,
       genome: JSON.parse(JSON.stringify(g)), // snapshot: re-loadable / remixable
       art: { seed: s.seed >>> 0, layer: artLayer, variant: g.variant[artLayer] || 0 },
       // approve-rate, not the old crowd-EMA (which never moves in turn-based
@@ -947,12 +951,40 @@
         if (dest && dest.context && dest === dest.context.destination) {
           audioTap.masters.add(this);
           if (audioTap.node) orig.call(this, audioTap.node); // also feed a live capture
+          if (sharedAnalyser) { try { orig.call(this, sharedAnalyser); } catch (e) { /* ignore */ } }
         }
       } catch (e) { /* ignore */ }
       return ret;
     };
     AudioNode.prototype.__sdjTap = orig;
   }
+
+  // A shared AnalyserNode tees off the master bus so the visualiser can react to
+  // the REAL audio (menu ambience, a live set, a remix). It's fed by the same
+  // connect() tap that collects the masters (above), plus any masters that already
+  // exist when it's first created. Passive — it never routes onward to the
+  // destination, so it can't change what you hear. Read via SDJ.Visualiser.read().
+  let sharedAnalyser = null;
+  function analyserContext() {
+    if (audioTap.masters.size) {
+      for (const m of audioTap.masters) { if (m && m.context) return m.context; }
+    }
+    return (typeof window.getAudioContext === 'function') ? window.getAudioContext() : null;
+  }
+  function getAnalyser() {
+    const ctx = analyserContext();
+    if (!ctx || typeof ctx.createAnalyser !== 'function') return sharedAnalyser;
+    if (!sharedAnalyser || sharedAnalyser.context !== ctx) {
+      try {
+        sharedAnalyser = ctx.createAnalyser();
+        sharedAnalyser.fftSize = 2048;
+        sharedAnalyser.smoothingTimeConstant = 0.82;
+        audioTap.masters.forEach((m) => { try { m.connect(sharedAnalyser); } catch (e) { /* ignore */ } });
+      } catch (e) { sharedAnalyser = null; }
+    }
+    return sharedAnalyser;
+  }
+  SDJ.getAnalyser = getAnalyser;
 
   function exportCps(entry) {
     const m = /setcps\(([0-9.]+)\)/.exec((entry.code || '').split('\n')[0] || '');
@@ -1213,7 +1245,7 @@
   // no top-level coloured stack, so it falls back to a single FULL mute toggle.
   function buildStems(rec) {
     if (!rec || !rec.code) return null;
-    const parts = splitStack(rec.code);
+    const parts = splitStack(rec.loopCode || rec.code);
     if (!parts || !parts.length) return { splittable: false, muted: false };
     const tagged = parts.filter((p) => p.colour && REMIX_COLOUR_GROUP[p.colour]);
     if (tagged.length < 2) return { splittable: false, muted: false };
@@ -1259,11 +1291,11 @@
       let bed;
       if (!st.splittable) {
         if (st.muted) return;
-        bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+        bed = '(' + stripCps(String(d.rec.loopCode || d.rec.code)).trim() + ')';
       } else {
         const audible = audibleLayers(which);
         if (!audible || !audible.length) return;
-        if (audible[0] === '__FULL__') bed = '(' + stripCps(String(d.rec.code)).trim() + ')';
+        if (audible[0] === '__FULL__') bed = '(' + stripCps(String(d.rec.loopCode || d.rec.code)).trim() + ')';
         else if (audible.length === 1) bed = '(' + audible[0] + ')';
         else bed = '(stack(\n    ' + audible.join(',\n    ') + '\n  ))';
       }
@@ -1498,7 +1530,7 @@
     if (!st.splittable) {
       html += '<div class="rx-stem-chip"><span class="rx-stem-label" style="color:var(--rx-muted)">FULL</span>' +
         '<button class="rx-mute' + (st.muted ? ' on' : '') + '" data-deck="' + which + '" data-action="mutefull">MUTE</button></div>' +
-        '<div class="rx-stem-note">arranged / remix — not splittable</div>';
+        '<div class="rx-stem-note">single track — not splittable</div>';
     } else {
       Object.keys(st.groups).forEach((grp) => {
         const col = REMIX_GROUP_COLOUR[grp] || '#9d8fc7';
@@ -2003,6 +2035,7 @@
   }
 
   function showView(name) {
+    closeVisuals(); // any navigation drops the full-screen pure-visual overlay
     document.body.dataset.view = name; // CSS hides the top bar on the full-screen menu
     document.querySelectorAll('[data-view]').forEach((v) => {
       v.hidden = v.getAttribute('data-view') !== name;
@@ -2017,7 +2050,40 @@
     if (name === 'menu') { updateMenu(); maybeStartMenuAmbient(); } else { stopMenuAmbient(); }
     // the signal-bloom menu canvas only animates while the menu is on screen
     if (SDJ.Menu) { if (name === 'menu') SDJ.Menu.enter(); else SDJ.Menu.leave(); }
+    // the top-bar player's strip only runs off the menu, and only while playing
+    if (playerVizInst) { if (name !== 'menu' && nowPlaying.kind) playerVizInst.start(); else playerVizInst.stop(); }
   }
+
+  // ---- pure-visual mode: the shared visualiser, full-screen over the menu ----
+  // Opened from the menu's "Visuals" channel. Keeps the menu ambience playing and
+  // reacts to it; a click anywhere or Esc drops back to the menu. The overlay owns
+  // the RAF while it's up, so the menu's background canvas is paused underneath.
+  function openVisuals() {
+    if (!el.visualStage) return;
+    if (!visualInst && SDJ.Visualiser) visualInst = SDJ.Visualiser.mount(el.visualCanvas, { mode: 'full' });
+    el.visualStage.hidden = false;
+    el.visualStage.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('visuals-open');
+    if (SDJ.Menu) SDJ.Menu.leave();
+    if (visualInst) { visualInst.resize(); visualInst.start(); }
+    document.addEventListener('keydown', onVisualsKey);
+    // make sure there's something to look at: unlock audio + start the ambience
+    ensureAudio().then(() => { maybeStartMenuAmbient(); }).catch(() => {});
+  }
+  function closeVisuals() {
+    if (!el.visualStage || el.visualStage.hidden) return;
+    el.visualStage.hidden = true;
+    el.visualStage.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('visuals-open');
+    if (visualInst) visualInst.stop();
+    document.removeEventListener('keydown', onVisualsKey);
+    if (currentRoute() === 'menu' && SDJ.Menu) SDJ.Menu.enter();
+  }
+  function onVisualsKey(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') { closeVisuals(); e.preventDefault(); }
+  }
+  SDJ.openVisuals = openVisuals;
+  SDJ.closeVisuals = closeVisuals;
 
   function onRoute() {
     showView(currentRoute());
