@@ -239,7 +239,7 @@
     saveCooldown = 0;
     // typed directions persist across tracks — re-stamp them on the fresh song
     // (must run AFTER resetControls(), which zeroes the opinions it re-sets)
-    if (curDirectives) applyCurationToSong(curDirectives);
+    if (curDirectives) renderCurateChips(curDirectives, applyCurationToSong(curDirectives));
     if (SDJ.SetLog) {
       SDJ.SetLog.mark(reason === 'set' ? 'set' : 'song', {
         reason: reason, name: engine.song.name, key: engine.song.key,
@@ -1899,12 +1899,15 @@
 
   // ---- curation: the free-text direction box ------------------------------
   // "no hihats, darker, slower" typed above the live code becomes deterministic
-  // directives (SDJ.Curate.parse) that steer WHAT the DJ pitches — lane bans
-  // ride the engine's own per-song ban set, emphasis rides the part-mixer
-  // opinions, density rides the dial, genre re-uses setGenre, and mood/tempo
-  // recolour the live song the way setGenre does. Steer-only: the song's seed
-  // never changes, and a pitch already mid-audition (even on a now-banned lane)
-  // is left on the card for the user to judge normally.
+  // directives (SDJ.Curate.parse) that act on the record NOW — the direction
+  // box is the producer's word, not a hint. A ban takes the lane off the
+  // committed track immediately (a pitch mid-audition on it is overruled and
+  // the DJ re-pitches); a feature brings an absent lane straight in. The same
+  // directives keep steering future pitches — bans ride the engine's per-song
+  // ban set, emphasis rides the part-mixer opinions, density rides the dial,
+  // genre re-uses setGenre, and mood/tempo recolour the live song the way
+  // setGenre does. The chips are a receipt of what actually happened.
+  // Steer-only on the seed: it never changes.
 
   let curBanKeys = [];       // ban keys curation holds ('add:i') — lifted on re-parse
   let curDirectives = null;  // the last parsed directives (SDJ.curate.state reads this)
@@ -1918,16 +1921,16 @@
     if (!SDJ.Curate) return;
     const d = SDJ.Curate.parse(el.curateInput ? el.curateInput.value : '');
     curDirectives = d;
-    renderCurateChips(d.chips);
 
     // lift what the previous directives held: curation bans come off (skip-earned
     // bans keep their keys) and curation-set opinions go back to auto — a
-    // hand-set mixer choice is never touched.
+    // hand-set mixer choice is never touched. A lane a ban dropped stays out
+    // (cutting it was the instruction); it just becomes pitchable again.
     if (engine.song && engine.song.banned) curBanKeys.forEach((k) => { delete engine.song.banned[k]; });
     curBanKeys = [];
     Object.keys(curOpinionSet).forEach((k) => SDJ.setOpinion(+k, 0));
 
-    applyCurationToSong(d);
+    const acted = applyCurationToSong(d);
 
     // mood/tempo steer future tracks via the engine hook…
     engine.setCuration({ scaleFilter: d.mood ? SDJ.Curate.MOOD_SCALES[d.mood] : null, tempo: d.tempo });
@@ -1945,16 +1948,30 @@
     }
 
     // …and mood/tempo recolour the live song straight away.
-    applyCurationLive(d);
+    applyCurationLive(d, acted);
+
+    // ONE re-render carries every change; an overruled pitch needs a fresh card.
+    if (running && engine.song) {
+      if (acted.repitch) livePitch();
+      else if (acted.changed) evaluateCurrent(false);
+      if (acted.repitch || acted.changed) updateUI();
+    }
+    renderCurateChips(d, acted);
     curateStatus(d);
   }
 
-  // Stamp bans / features / density from the directives onto the live song.
-  // Extracted so freshTrack() can re-apply after resetControls() zeroes the
+  // Stamp the directives onto the live song, acting on the arrangement NOW:
+  //   ban     -> the lane comes off the committed track (a pitch mid-audition
+  //              on it is overruled) and its add is banned for the song,
+  //   feature -> an absent lane comes straight in; a present one is featured
+  //              (opinion +1: sits forward in the mix, the DJ thickens it).
+  // Extracted so freshTrack() can re-stamp after resetControls() zeroes the
   // board — typed directions persist across tracks until the text changes.
+  // Returns { changed, repitch, notes } — notes feed the receipt chips.
   function applyCurationToSong(d) {
     curBanKeys = [];
     const set = {};
+    const acted = { changed: false, repitch: false, notes: { ban: {}, feature: {} } };
     if (engine.song && d) {
       const s = engine.song;
       if (!s.banned) s.banned = {};
@@ -1962,57 +1979,103 @@
         const key = 'add:' + i;
         s.banned[key] = true;
         curBanKeys.push(key);
-        // an active banned lane gets a "drop" opinion so the DJ pitches removing it
-        if (s.genome.active[i]) { SDJ.setOpinion(i, -1); set[i] = true; }
+        if (i === 0) { acted.notes.ban[i] = 'the kick is the floor'; return; } // never droppable
+        // a pitch mid-audition on the banned lane is overruled on the spot
+        if (s.pending && pitching && pitching !== 'save' && s.pending.layer === i) {
+          const p = engine.rejectChange();
+          if (p) pushFeed('↩', p.desc, 'overruled by direction', 'down');
+          pitching = false;
+          acted.repitch = true;
+        }
+        // …and the lane comes off the record NOW — the live genome AND the
+        // pre-pitch snapshot, so judging an unrelated pitch can't revive it.
+        let dropped = false;
+        if (s.pending && s.pending.snapshot && s.pending.snapshot.active[i]) { s.pending.snapshot.active[i] = false; dropped = true; }
+        if (s.genome.active[i]) { s.genome.active[i] = false; dropped = true; }
+        acted.notes.ban[i] = dropped ? 'dropped' : 'kept out';
+        acted.changed = true;
+        SDJ.setOpinion(i, -1); set[i] = true; // the mixer shows the call
       });
-      (d.features || []).forEach((i) => { SDJ.setOpinion(i, 1); set[i] = true; });
+      (d.features || []).forEach((i) => {
+        // an absent lane comes straight in — pressed into both versions so an
+        // un-judged pitch can't undo it
+        const wasOut = !s.genome.active[i];
+        if (wasOut) {
+          const v = SDJ.Rng.int(s.rng, 0, 5);
+          s.genome.active[i] = true; s.genome.variant[i] = v;
+          if (s.pending && s.pending.snapshot && !s.pending.snapshot.active[i]) {
+            s.pending.snapshot.active[i] = true;
+            s.pending.snapshot.variant[i] = v;
+          }
+        }
+        acted.notes.feature[i] = wasOut ? 'brought in' : 'featured';
+        acted.changed = true; // at least the opinion's gain tint must re-render
+        SDJ.setOpinion(i, 1); set[i] = true;
+      });
     }
     curOpinionSet = set;
     if (d && d.density != null) { SDJ.setDensity(d.density * 0.7); curDensitySet = true; }
     else if (curDensitySet) { SDJ.setDensity(0); curDensitySet = false; }
+    return acted;
   }
 
   // Recolour the LIVE song with a mood/tempo direction, the way setGenre
   // re-skins in place: re-pick an off-mood scale inside the genre palette, skew
-  // the BPM. Only applies when the direction actually changed, so a debounced
-  // re-parse never compounds a ±12% tempo trim.
-  function applyCurationLive(d) {
+  // the BPM. Mutations only fire when the direction actually changed, so a
+  // debounced re-parse never compounds a ±12% tempo trim; the receipt notes
+  // refresh every parse regardless.
+  function applyCurationLive(d, acted) {
     const moodChanged = curLiveApplied.mood !== d.mood;
     const tempoChanged = curLiveApplied.tempo !== d.tempo;
     curLiveApplied = { mood: d.mood, tempo: d.tempo };
     const s = engine.song;
-    if (!s) return false;
+    if (!s) {
+      if (d.mood) acted.notes.mood = 'next track';
+      if (d.tempo != null) acted.notes.tempo = 'next track';
+      return;
+    }
     let changed = false;
-    if (d.mood && moodChanged) {
+    if (d.mood) {
       const pal = SDJ.Theory.scalesFor(s.genre);
       const filtered = pal.filter((x) => SDJ.Curate.MOOD_SCALES[d.mood].indexOf(x) >= 0);
-      if (filtered.length && filtered.indexOf(s.scaleType) < 0) {
+      if (moodChanged && filtered.length && filtered.indexOf(s.scaleType) < 0) {
         s.scaleType = SDJ.Rng.pick(s.rng, filtered);
         changed = true;
       }
+      acted.notes.mood = filtered.indexOf(s.scaleType) >= 0 ? 'now ' + s.scaleType : 'next track';
     }
-    if (d.tempo != null && tempoChanged) {
-      const g = s.genre || { bpmLo: 60, bpmHi: 200 };
-      let bpm = s.bpm;
-      if (d.tempo === 'slow') bpm = clamp(Math.round(s.bpm * 0.88), g.bpmLo, g.bpmHi);
-      else if (d.tempo === 'fast') bpm = clamp(Math.round(s.bpm * 1.12), g.bpmLo, g.bpmHi);
-      else if (typeof d.tempo === 'number') bpm = clamp(Math.round(d.tempo), 60, 200);
-      if (bpm !== s.bpm) { s.bpm = bpm; s.cps = s.bpm / 240; changed = true; }
+    if (d.tempo != null) {
+      if (tempoChanged) {
+        const g = s.genre || { bpmLo: 60, bpmHi: 200 };
+        let bpm = s.bpm;
+        if (d.tempo === 'slow') bpm = clamp(Math.round(s.bpm * 0.88), g.bpmLo, g.bpmHi);
+        else if (d.tempo === 'fast') bpm = clamp(Math.round(s.bpm * 1.12), g.bpmLo, g.bpmHi);
+        else if (typeof d.tempo === 'number') bpm = clamp(Math.round(d.tempo), 60, 200);
+        if (bpm !== s.bpm) { s.bpm = bpm; s.cps = s.bpm / 240; changed = true; }
+      }
+      acted.notes.tempo = 'now ' + s.bpm + ' bpm';
     }
     if (changed) {
       s.rev += 1; // song-level musical change → re-renders via _signature()
-      if (running) { evaluateCurrent(false); updateUI(); }
+      acted.changed = true;
     }
-    return changed;
   }
 
-  function renderCurateChips(chips) {
+  // The chips are the direction box's receipt: every understood directive plus
+  // what actually happened to it ("no hi-hats — dropped", "darker — now phrygian").
+  function renderCurateChips(d, acted) {
     if (!el.curateChips) return;
     el.curateChips.innerHTML = '';
-    (chips || []).forEach((c) => {
+    const notes = (acted && acted.notes) || { ban: {}, feature: {} };
+    ((d && d.chips) || []).forEach((c) => {
       const span = document.createElement('span');
       span.className = 'curate-chip ' + (c.kind || '');
-      span.textContent = c.label;
+      let note = null;
+      if (c.kind === 'ban' && c.lane != null) note = notes.ban[c.lane];
+      else if (c.kind === 'feature' && c.lane != null) note = notes.feature[c.lane];
+      else if (c.kind === 'mood') note = notes.mood;
+      else if (c.kind === 'tempo') note = notes.tempo;
+      span.textContent = c.label + (note ? ' — ' + note : '');
       el.curateChips.appendChild(span);
     });
   }
@@ -2028,7 +2091,7 @@
     }
     const labels = d.chips.map((c) => c.label).join(' · ');
     setStatus('Understood: ' + labels +
-      (running ? ' — steering the set.' : ' — steering the next track.'));
+      (running ? ' — applied to the set.' : ' — for the next track.'));
   }
 
   // ---- UI updates --------------------------------------------------------

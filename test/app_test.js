@@ -441,13 +441,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     !cd4.bans.length && !cd4.features.length && cd4.mood === null && cd4.tempo === null &&
     cd4.density === null && cd4.genre === null && !cd4.chips.length, JSON.stringify(cd4));
 
-  // wiring: "no hihats" typed mid-set keeps the DJ off the hats from then on
+  // wiring: "no hihats" typed mid-set acts NOW — the hats come off the record,
+  // the chip receipts what happened, and the DJ stays off the lane from then on
   window.SDJ.curate.set('no hihats');
-  check('the direction renders an understood chip',
+  const hatChip = doc.querySelector('#curateChips .curate-chip');
+  check('the direction renders a receipt chip (what happened, not just what was heard)',
     doc.querySelectorAll('#curateChips .curate-chip').length === 1 &&
-    doc.querySelector('#curateChips .curate-chip').textContent === 'no hi-hats');
-  window.SDJ.live.approve(); // judge away the pitch that predates the direction
-  await sleep(10);
+    /^no hi-hats — (dropped|kept out)$/.test(hatChip ? hatChip.textContent : ''),
+    hatChip && hatChip.textContent);
+  const curSong = window.SDJ.engine.song;
+  check('"no hihats" takes the hats off the record immediately (both versions)',
+    curSong.genome.active[1] === false &&
+    (!curSong.pending || !curSong.pending.snapshot || curSong.pending.snapshot.active[1] === false));
+  if (window.SDJ.live.pitching()) { window.SDJ.live.approve(); await sleep(10); } // judge the card on offer
   let hatAdd = false;
   for (let k = 0; k < 40; k++) {
     if (window.SDJ.live.pitching() === 'save') { window.SDJ.live.skip(); await sleep(6); continue; }
@@ -458,6 +464,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(6);
   }
   check('a typed "no hihats" keeps the DJ off the hi-hats', !hatAdd);
+  // imperative round-trip: a ban cuts a playing lane, a feature brings one in
+  window.SDJ.curate.set('no air');
+  const airSong = window.SDJ.engine.song;
+  check('"no air" cuts the atmosphere from the record now',
+    airSong.genome.active[6] === false && airSong.banned['add:6'] === true);
+  window.SDJ.curate.set('more air');
+  check('"more air" lifts the ban and brings the atmosphere straight in',
+    airSong.genome.active[6] === true && !airSong.banned['add:6'] &&
+    /— brought in$/.test((doc.querySelector('#curateChips .curate-chip') || {}).textContent || ''),
+    (doc.querySelector('#curateChips .curate-chip') || {}).textContent);
   window.SDJ.curate.clear(); // neutral board for the remaining checks
   check('clearing the direction lifts the curation ban (chips gone too)',
     !window.SDJ.engine.song.banned['add:1'] &&

@@ -95,10 +95,15 @@ Windows).
 - `src/curate.js` — the direction box's parser: free text → deterministic directives
   (`SDJ.Curate.parse`): lane bans/features ("no hihats", "more bass"), mood → a
   `MOOD_SCALES` palette the app intersects with the genre's own, tempo, density, genre
-  words (lexicon built live from `Theory.GENRES`). Steer-only — never touches a seed.
-  app.js applies bans through the same `s.banned['add:i']` mechanism a skipped pitch
-  uses (curation-sourced keys tracked separately so clearing the box lifts only them),
-  re-applies directives to every fresh track (after `resetControls()`), and exposes
+  words (lexicon built live from `Theory.GENRES`). Directives act on the record
+  **immediately** (reworked 2026-07-28 — steer-only felt dead): a ban drops an active
+  lane from the committed track now and overrules a pending pitch on it (the DJ
+  re-pitches); a feature brings an absent lane straight in; both also keep steering
+  future pitches via `s.banned['add:i']` + the part-mixer opinions. The chips are a
+  receipt of what happened ("no hi-hats — dropped", "slower — now 138 bpm") — don't
+  route feedback through `setStatus`, `#status` is `sr-only` (visually hidden). The
+  seed is never touched. Curation ban keys are tracked separately so clearing the box
+  lifts only them; directives re-stamp every fresh track (after `resetControls()`).
   `SDJ.curate = { set, clear, state }`.
 - `src/visualiser.js` — the shared reactive visualiser, now an **evolving scene
   system**: four scenes (bloom, orbits, ridge terrain, lissajous threads) held ~90 s

@@ -84,7 +84,8 @@
   function parse(text) {
     const out = { bans: [], features: [], mood: null, tempo: null, density: null, genre: null, chips: [] };
     const genres = genreLexicon();
-    const chip = (label, kind) => out.chips.push({ label: label, kind: kind });
+    const chip = (label, kind, lane) => out.chips.push(
+      lane == null ? { label: label, kind: kind } : { label: label, kind: kind, lane: lane });
 
     tokenise(text).forEach((toks) => {
       let pending = null; // 'ban' | 'feature', carried until a lane word lands
@@ -108,12 +109,12 @@
               out.bans.push(lane);
               const fi = out.features.indexOf(lane);
               if (fi >= 0) out.features.splice(fi, 1); // a ban outranks a feature
-              chip('no ' + LANE_NAMES[lane], 'ban');
+              chip('no ' + LANE_NAMES[lane], 'ban', lane);
             }
           } else if (pending === 'feature') {
             if (out.features.indexOf(lane) < 0 && out.bans.indexOf(lane) < 0) {
               out.features.push(lane);
-              chip('more ' + LANE_NAMES[lane], 'feature');
+              chip('more ' + LANE_NAMES[lane], 'feature', lane);
             }
           }
           pending = null; // a bare lane mention is not a directive
