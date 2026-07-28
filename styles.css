@@ -765,6 +765,13 @@ body[data-view="live"] #abB.on { border-color:var(--sr-b); color:var(--sr-b); }
 body[data-view="live"] .sg-kind { border-radius:2px; font-size:9px; letter-spacing:.06em; }
 body[data-view="live"] .sg-desc { color:var(--sr-bright); font-size:12px; }
 body[data-view="live"] .sg-actions .btn { border-radius:2px; border:1px solid var(--sr-border); }
+
+/* ── mini visualiser: the Live floor's calm scene tile (sidebar) ────────── */
+.mini-viz {
+  height:140px; overflow:hidden; margin-top:8px;
+  background:var(--sr-raised, #23262c); border:1px solid var(--sr-border, #33363e); border-radius:3px;
+}
+.mini-viz canvas { width:100%; height:100%; display:block; }
 body[data-view="live"] .vote-down { background:transparent; border-color:var(--sr-red); color:var(--sr-red); }
 body[data-view="live"] .vote-down:hover { background:rgba(232,69,69,.12); }
 body[data-view="live"] .vote-up { background:transparent; border-color:var(--sr-green); color:var(--sr-green); }
