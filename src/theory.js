@@ -1,4 +1,5 @@
-// theory.js — music theory for the DJ engine, tuned for elite modern hip-hop.
+// theory.js — music theory for the DJ engine, tuned for elite modern hip-hop
+// and widened with band and club colours (rock, metal, house, synthwave).
 // Covers trap, boom bap, drill, R&B and lo-fi. Roots, scales, progressions and
 // voicings are all chosen from the palette of working producers, not textbooks.
 (function (SDJ) {
@@ -40,6 +41,11 @@
     boomBap: ['dorian', 'minor pentatonic', 'blues', 'mixolydian', 'minor'],
     loFi:    ['dorian', 'minor pentatonic', 'mixolydian', 'major', 'major pentatonic', 'minor'],
     rb:      ['dorian', 'mixolydian', 'major', 'minor pentatonic', 'melodic minor'],
+    // — beyond hip-hop: band and club palettes —
+    rock:      ['minor pentatonic', 'mixolydian', 'blues', 'major', 'dorian'],
+    metal:     ['phrygian', 'harmonic minor', 'minor', 'phrygian dominant'],
+    house:     ['minor', 'dorian', 'minor pentatonic', 'mixolydian'],
+    synthwave: ['dorian', 'minor', 'harmonic minor', 'major'],
   };
 
   // Hip-hop chord progressions — expressed as scale-degree roots. Read as minor
@@ -160,6 +166,10 @@
     { id: 'drill',   bpmLo: 138, bpmHi: 148, label: 'Drill',    scales: GENRE_SCALES.drill   },
     { id: 'loFi',    bpmLo: 70,  bpmHi: 90,  label: 'Lo-Fi',    scales: GENRE_SCALES.loFi    },
     { id: 'rb',      bpmLo: 95,  bpmHi: 115, label: 'R&B',      scales: GENRE_SCALES.rb      },
+    { id: 'rock',      bpmLo: 110, bpmHi: 140, label: 'Rock',      scales: GENRE_SCALES.rock      },
+    { id: 'metal',     bpmLo: 140, bpmHi: 175, label: 'Metal',     scales: GENRE_SCALES.metal     },
+    { id: 'house',     bpmLo: 120, bpmHi: 128, label: 'House',     scales: GENRE_SCALES.house     },
+    { id: 'synthwave', bpmLo: 84,  bpmHi: 108, label: 'Synthwave', scales: GENRE_SCALES.synthwave },
   ];
 
   const Theory = {
@@ -197,7 +207,9 @@
     // (stacked fourths) and shell (3rd + 7th, no 5th) are the neo-soul / modern
     // colours; sixth and ninth add extension depth; sus4 and spread open it up.
     // All stay inside the scale, so they never fight the mood palette.
-    VOICINGS: ['triad', 'seventh', 'sixth', 'ninth', 'quartal', 'shell', 'sus4', 'spread'],
+    // The power chord — root, fifth, octave in degree space — is the rock and
+    // metal wall of sound: no third, so it reads neither major nor minor.
+    VOICINGS: ['triad', 'seventh', 'sixth', 'ninth', 'quartal', 'shell', 'sus4', 'spread', 'power'],
     voicing(kind, d) {
       switch (kind) {
         case 'seventh': return [d, d + 2, d + 4, d + 6];
@@ -207,6 +219,7 @@
         case 'shell':   return [d, d + 2, d + 6];        // 3rd + 7th, drop the 5th
         case 'sus4':    return [d, d + 3, d + 4];        // suspended 4th
         case 'spread':  return [d, d + 4, d + 9];        // open: root, 5th, 9th up top
+        case 'power':   return [d, d + 4, d + 7];        // root–fifth–octave — rock/metal
         default:        return [d, d + 2, d + 4];        // triad
       }
     },

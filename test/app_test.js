@@ -468,6 +468,38 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.SDJ.menuAmbient.stop();
   check('stopping menu ambience clears it', !window.SDJ.menuAmbient.playing());
 
+  // ---- new genres: rock / metal / house / synthwave render clean sets ----
+  // Each genre gets a fresh engine on a fixed seed and ~15 accepted pitches;
+  // the loop render, the mid-fader A/B blend (while the pitch is pending) and
+  // the arranged render must stay paren/quote balanced throughout the build.
+  for (const gnr of ['rock', 'metal', 'house', 'synthwave']) {
+    const ge = new window.SDJ.DJEngine();
+    ge.masterSeed = 0xBADD1E; ge.genrePref = gnr; ge.newSong(); ge.voteReset();
+    let loopBal = true, abMidBal = true, arrGBal = true, pitched = 0;
+    for (let k = 0; k < 15; k++) {
+      const pg = ge.proposeChange();
+      if (!pg) break;
+      pitched++;
+      if (!balanced(ge.renderAB(0.5))) abMidBal = false; // pitch pending: both versions blended
+      ge.acceptChange();
+      if (!balanced(ge.render())) loopBal = false;
+      if (!balanced(ge.renderArranged())) arrGBal = false;
+    }
+    check(gnr + ': every loop render stays balanced across the build', loopBal && pitched > 0, 'pitches=' + pitched);
+    check(gnr + ': mid-fader A/B blends stay balanced', abMidBal);
+    check(gnr + ': arranged renders stay balanced', arrGBal);
+  }
+  // riff genres must never open bass-less; house must sit in the club pocket
+  for (const gnr of ['rock', 'metal']) {
+    const fe = new window.SDJ.DJEngine();
+    fe.masterSeed = 0xBADD1E; fe.genrePref = gnr; fe.newSong();
+    check(gnr + ' opens with the bass riff seeded in', fe.song.genome.active[2] === true);
+  }
+  const he = new window.SDJ.DJEngine();
+  he.masterSeed = 0xBADD1E; he.genrePref = 'house'; he.newSong();
+  check('house bpm sits in the 120-128 pocket', he.song.bpm >= 120 && he.song.bpm <= 128,
+    'bpm=' + he.song.bpm);
+
   // report
   let pass = 0;
   for (const r of results) {
