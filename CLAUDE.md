@@ -36,8 +36,9 @@ user click (browser policy) — that's why there's a Start button.
 ## Architecture
 
 Plain classic scripts sharing a `window.SDJ` namespace, loaded in dependency order in
-`index.html`: `rng → theory → names → dj → viz → log → art → vinyl → menu → app`. No ES
-modules (keeps it serverless-simple and robust on Windows).
+`index.html`: `rng → theory → names → dj → curate → viz → log → art → vinyl →
+visualiser → menu → app`. No ES modules (keeps it serverless-simple and robust on
+Windows).
 
 - `src/dj.js` — **the brain**. `DJEngine` holds the track as a genome and exposes:
   - `newSong()` — fresh seeded track (key/scale/tempo/progression, stage 0 = just kick).
@@ -57,6 +58,15 @@ modules (keeps it serverless-simple and robust on Windows).
   - `tick(mood, dt)` — the original crowd-fader optimiser; still engine-resident and
     test-covered, no longer driven by the UI.
   - `state()` — snapshot for the UI.
+  - `setCuration(cur)` — stores pre-resolved direction-box constraints
+    (`{ scaleFilter, tempo }`); `newSong()` intersects the genre's scale palette with
+    the filter and biases the BPM pick ('slow'/'fast' = bottom/top third, a number is
+    used directly, clamped 60–200).
+  Nine genres (Theory.GENRES): trap, boom bap, drill, lo-fi, R&B + rock, metal, house,
+  synthwave (2026-07). Rock/metal open with the bass riff seeded in (like the trap/drill
+  808 rule), skip `.bank()` (the default dirt kit reads more acoustic), and stab `'power'`
+  voicings; house is four-on-the-floor with offbeat open hats; synthwave favours the pad
+  voice. `swingBy` stays boomBap/loFi only.
 - `src/vinyl.js` — **the record itself**: deterministic SVG discs (grooves, name
   imprinted on the label via textPath). Every lane owns a **home groove** (fixed radius,
   `radiusFor`) and a signature ring pattern that loosely draws the part (`laneRing`):
@@ -75,10 +85,29 @@ modules (keeps it serverless-simple and robust on Windows).
   entries. Same seed → same disc everywhere.
 - `src/app.js` — Strudel init, the deck rig (Deck A committed record / Deck B acetate /
   A/B crossfader), the pressing modal, the live code panel (single-pass highlighter,
-  bottom-right of the Live stage), the
-  compact set history, the `localStorage` crate and the remix console. Agent-native
-  surface: `SDJ.live.*`, `SDJ.ab.*`, `SDJ.press.*`, `SDJ.remix.*`, `SDJ.setGenre/
-  setDensity/setOpinion`.
+  bottom-right of the Live stage) with the **direction box** above it, the
+  compact set history, the `localStorage` crate and the remix console. The Live verdict
+  buttons read **"Press it" / "Bin it"**; the old on-screen "DJ moves" event log is gone
+  (`logEvent` is a `console.debug` shim — `SDJ.SetLog` recording + the ⬇ Log export
+  survive; keep them, they're the diagnostic tuning loop). Agent-native surface:
+  `SDJ.live.*`, `SDJ.ab.*`, `SDJ.press.*`, `SDJ.remix.*`, `SDJ.curate.*`,
+  `SDJ.setGenre/setDensity/setOpinion`.
+- `src/curate.js` — the direction box's parser: free text → deterministic directives
+  (`SDJ.Curate.parse`): lane bans/features ("no hihats", "more bass"), mood → a
+  `MOOD_SCALES` palette the app intersects with the genre's own, tempo, density, genre
+  words (lexicon built live from `Theory.GENRES`). Steer-only — never touches a seed.
+  app.js applies bans through the same `s.banned['add:i']` mechanism a skipped pitch
+  uses (curation-sourced keys tracked separately so clearing the box lifts only them),
+  re-applies directives to every fresh track (after `resetControls()`), and exposes
+  `SDJ.curate = { set, clear, state }`.
+- `src/visualiser.js` — the shared reactive visualiser, now an **evolving scene
+  system**: four scenes (bloom, orbits, ridge terrain, lissajous threads) held ~90 s
+  each with ~8 s crossfades, parameters drifting from `t` + audio (level/bass); no
+  `Math.random` in the frame loop (resume-safe drift from `t`, one-off layouts via
+  `SDJ.Rng`). Three mounts: 'full' (the Visuals overlay), 'strip' (top-bar player,
+  unchanged), 'mini' (the calm Live-floor tile in the set-history sidebar). While a
+  set is live the palette comes from the active lanes' `LANE_COLORS` — approved parts
+  literally colour the picture.
 - `src/art.js` — square generative covers; now the remix shelf's sleeves + fallback.
 - `src/viz.js` — the retired crowd canvas (dormant); `src/menu.js` — the menu bloom.
 - `src/theory.js`, `src/names.js`, `src/rng.js`, `src/log.js` — supporting data/helpers.
