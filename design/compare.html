@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acetate · Design Spike Comparison</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d0d;
+  --bar:       #141414;
+  --border:    #222;
+  --text:      #888;
+  --text-hi:   #ccc;
+  --ctrl-bg:   #1a1a1a;
+  --ctrl-border: #2a2a2a;
+
+  --accent-serato:    #28c8e0;
+  --accent-tracklist: #2d6a4f;
+  --accent-cassette:  #ff6b35;
+  --accent-modular:   #ff7b2f;
+
+  --toolbar-h: 36px;
+  --label-h:   24px;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.toolbar {
+  height: var(--toolbar-h);
+  background: var(--bar);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.tb-logo {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--text-hi);
+  padding-right: 14px;
+  border-right: 1px solid var(--border);
+}
+.tb-label {
+  font-size: 9px;
+  letter-spacing: .08em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+.tb-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Zoom controls */
+.tb-btn {
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  padding: 2px 7px;
+  background: var(--ctrl-bg);
+  border: 1px solid var(--ctrl-border);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 2px;
+}
+.tb-btn:hover { color: var(--text-hi); border-color: #444; }
+.tb-btn.active { color: #fff; border-color: #555; background: #222; }
+
+.zoom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 3px;
+  background: var(--ctrl-border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--text-hi);
+  border: 1px solid #555;
+  cursor: ew-resize;
+}
+.zoom-val {
+  font-size: 9px;
+  color: var(--text-hi);
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sync toggle */
+.sync-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+.sync-toggle input[type=checkbox] { display: none; }
+.sync-box {
+  width: 28px; height: 14px;
+  background: var(--ctrl-bg);
+  border: 1px solid var(--ctrl-border);
+  border-radius: 7px;
+  position: relative;
+  transition: background .15s;
+}
+.sync-box::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform .15s, background .15s;
+}
+.sync-toggle input:checked + .sync-box { background: #1a3a1a; border-color: #2d6a4f; }
+.sync-toggle input:checked + .sync-box::after { transform: translateX(14px); background: #3cff6e; }
+
+.tb-spacer { flex: 1; }
+.tb-hint {
+  font-size: 8px;
+  letter-spacing: .06em;
+  color: #444;
+}
+
+/* ── Grid ────────────────────────────────────────────────────────────────── */
+.grid {
+  height: calc(100vh - var(--toolbar-h));
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  background: #000;
+  transition: none;
+}
+
+/* Each cell */
+.cell {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  transition: flex .2s ease;
+}
+.cell.collapsed {
+  flex: 0 0 0 !important;
+  min-width: 0; min-height: 0;
+  overflow: hidden;
+}
+/* Full-focus: single cell fills whole grid */
+.grid.focused {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+.grid.focused .cell.collapsed { display: none; }
+
+/* Label strip */
+.cell-label {
+  height: var(--label-h);
+  background: #111;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.cell-name {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.cell-desc {
+  font-size: 8px;
+  letter-spacing: .05em;
+  color: var(--text);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.focus-btn {
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  padding: 1px 6px;
+  background: var(--ctrl-bg);
+  border: 1px solid var(--ctrl-border);
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 2px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.focus-btn:hover { color: var(--text-hi); border-color: #444; }
+.focus-btn.focused { color: #fff; border-color: #555; background: #1e1e1e; }
+
+/* Iframe wrapper — handles scaling */
+.iframe-wrap {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+}
+.iframe-wrap iframe {
+  border: none;
+  transform-origin: top left;
+  /* width/height and transform set by JS */
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <span class="tb-logo">Acetate · Spike Comparison</span>
+
+  <div class="tb-ctrl">
+    <span class="tb-label">Zoom</span>
+    <button class="tb-btn" id="zoom-out">−</button>
+    <input class="zoom-slider" type="range" id="zoom-slider" min="25" max="100" value="50" step="5">
+    <button class="tb-btn" id="zoom-in">+</button>
+    <span class="zoom-val" id="zoom-val">0.50×</span>
+  </div>
+
+  <div class="tb-ctrl">
+    <label class="sync-toggle" title="Sync scroll across all iframes">
+      <input type="checkbox" id="sync-toggle">
+      <span class="sync-box"></span>
+      <span class="tb-label">Sync scroll</span>
+    </label>
+  </div>
+
+  <div class="tb-spacer"></div>
+  <span class="tb-hint">Click Focus to expand · ESC to collapse</span>
+</div>
+
+<div class="grid" id="grid">
+
+  <!-- Serato -->
+  <div class="cell" id="cell-0">
+    <div class="cell-label">
+      <span class="cell-name" style="color:var(--accent-serato);">Serato</span>
+      <span class="cell-desc">Pro-DJ workstation · Serato / Ableton / Rekordbox</span>
+      <button class="focus-btn" data-cell="0" id="focus-0">Focus</button>
+    </div>
+    <div class="iframe-wrap" id="wrap-0">
+      <iframe id="frame-0" src="live-serato.html" title="Serato spike"></iframe>
+    </div>
+  </div>
+
+  <!-- Tracklist -->
+  <div class="cell" id="cell-1">
+    <div class="cell-label">
+      <span class="cell-name" style="color:var(--accent-tracklist);">Tracklist</span>
+      <span class="cell-desc">Record shop / collector database · Discogs / RA / 1001Tracklists</span>
+      <button class="focus-btn" data-cell="1" id="focus-1">Focus</button>
+    </div>
+    <div class="iframe-wrap" id="wrap-1">
+      <iframe id="frame-1" src="live-tracklist.html" title="Tracklist spike"></iframe>
+    </div>
+  </div>
+
+  <!-- Cassette -->
+  <div class="cell" id="cell-2">
+    <div class="cell-label">
+      <span class="cell-name" style="color:var(--accent-cassette);">Cassette</span>
+      <span class="cell-desc">Lo-fi bedroom · Winamp / MP3 blog</span>
+      <button class="focus-btn" data-cell="2" id="focus-2">Focus</button>
+    </div>
+    <div class="iframe-wrap" id="wrap-2">
+      <iframe id="frame-2" src="live-cassette.html" title="Cassette spike"></iframe>
+    </div>
+  </div>
+
+  <!-- Modular -->
+  <div class="cell" id="cell-3">
+    <div class="cell-label">
+      <span class="cell-name" style="color:var(--accent-modular);">Modular</span>
+      <span class="cell-desc">Eurorack / Max MSP / VCV Rack</span>
+      <button class="focus-btn" data-cell="3" id="focus-3">Focus</button>
+    </div>
+    <div class="iframe-wrap" id="wrap-3">
+      <iframe id="frame-3" src="live-modular.html" title="Modular spike"></iframe>
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<script>
+(function () {
+  'use strict';
+
+  var LABEL_H   = 24;  // px — label strip height inside each cell
+  var TOOLBAR_H = 36;
+  var N = 4;
+
+  var frames  = [0,1,2,3].map(function(i){ return document.getElementById('frame-' + i); });
+  var wraps   = [0,1,2,3].map(function(i){ return document.getElementById('wrap-'  + i); });
+  var cells   = [0,1,2,3].map(function(i){ return document.getElementById('cell-'  + i); });
+  var focBtns = [0,1,2,3].map(function(i){ return document.getElementById('focus-' + i); });
+  var grid    = document.getElementById('grid');
+
+  var zoom       = 0.50;
+  var focusedCell = -1;  // -1 = 2×2 grid, 0-3 = that cell is expanded
+  var syncScroll = false;
+  var scrollBusy = false;
+
+  // ── Zoom ─────────────────────────────────────────────────────────────────
+  var slider  = document.getElementById('zoom-slider');
+  var zoomVal = document.getElementById('zoom-val');
+
+  function setZoom(z) {
+    zoom = Math.max(0.25, Math.min(1.0, z));
+    slider.value = Math.round(zoom * 100);
+    zoomVal.textContent = zoom.toFixed(2) + '×';
+    applyLayout();
+  }
+
+  slider.addEventListener('input', function () {
+    setZoom(parseInt(this.value, 10) / 100);
+  });
+  document.getElementById('zoom-in').addEventListener('click', function () {
+    setZoom(zoom + 0.05);
+  });
+  document.getElementById('zoom-out').addEventListener('click', function () {
+    setZoom(zoom - 0.05);
+  });
+
+  // ── Focus ─────────────────────────────────────────────────────────────────
+  focBtns.forEach(function (btn, i) {
+    btn.addEventListener('click', function () {
+      if (focusedCell === i) {
+        // Collapse back to 2×2
+        focusedCell = -1;
+      } else {
+        focusedCell = i;
+      }
+      applyFocus();
+      applyLayout();
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && focusedCell !== -1) {
+      focusedCell = -1;
+      applyFocus();
+      applyLayout();
+    }
+  });
+
+  function applyFocus() {
+    var isFocused = focusedCell !== -1;
+    cells.forEach(function (cell, i) {
+      cell.classList.toggle('collapsed', isFocused && i !== focusedCell);
+    });
+    focBtns.forEach(function (btn, i) {
+      btn.textContent = (i === focusedCell) ? 'Exit' : 'Focus';
+      btn.classList.toggle('focused', i === focusedCell);
+    });
+    if (isFocused) {
+      grid.classList.add('focused');
+    } else {
+      grid.classList.remove('focused');
+    }
+  }
+
+  // ── Layout: size iframes to fill their wrappers, then scale ──────────────
+  function applyLayout() {
+    var gridH = window.innerHeight - TOOLBAR_H;
+
+    if (focusedCell === -1) {
+      // 2×2 grid: each cell is half the grid width and half the grid height
+      var cellW = (window.innerWidth  - 2) / 2;  // subtract 2px gap
+      var cellH = (gridH - 2) / 2;               // subtract 2px gap
+      var wrapH = cellH - LABEL_H;
+
+      wraps.forEach(function (wrap, i) {
+        var frame = frames[i];
+        var naturalW = Math.round(cellW / zoom);
+        var naturalH = Math.round(wrapH / zoom);
+        frame.style.width  = naturalW + 'px';
+        frame.style.height = naturalH + 'px';
+        frame.style.transform = 'scale(' + zoom + ')';
+      });
+    } else {
+      // Single focused cell
+      var fw = window.innerWidth;
+      var fwrapH = gridH - LABEL_H;
+      var frame = frames[focusedCell];
+      var naturalW = Math.round(fw / zoom);
+      var naturalH = Math.round(fwrapH / zoom);
+      frame.style.width  = naturalW + 'px';
+      frame.style.height = naturalH + 'px';
+      frame.style.transform = 'scale(' + zoom + ')';
+    }
+  }
+
+  window.addEventListener('resize', applyLayout);
+
+  // ── Sync scroll ───────────────────────────────────────────────────────────
+  var syncChk = document.getElementById('sync-toggle');
+  syncChk.addEventListener('change', function () {
+    syncScroll = this.checked;
+    if (syncScroll) attachScrollListeners();
+    else detachScrollListeners();
+  });
+
+  var scrollHandlers = [];
+
+  function attachScrollListeners() {
+    detachScrollListeners();
+    frames.forEach(function (frame, srcIdx) {
+      try {
+        var win = frame.contentWindow;
+        if (!win) return;
+        var handler = function () {
+          if (scrollBusy) return;
+          scrollBusy = true;
+          var x = win.scrollX;
+          var y = win.scrollY;
+          frames.forEach(function (other, dstIdx) {
+            if (dstIdx === srcIdx) return;
+            try { other.contentWindow.scrollTo(x, y); } catch (e) {}
+          });
+          requestAnimationFrame(function () { scrollBusy = false; });
+        };
+        win.addEventListener('scroll', handler, { passive: true });
+        scrollHandlers.push({ win: win, handler: handler });
+      } catch (e) {}
+    });
+  }
+
+  function detachScrollListeners() {
+    scrollHandlers.forEach(function (item) {
+      try { item.win.removeEventListener('scroll', item.handler); } catch (e) {}
+    });
+    scrollHandlers = [];
+  }
+
+  // Attach scroll listeners after iframes load (in case they're already loaded)
+  var loadCount = 0;
+  frames.forEach(function (frame) {
+    frame.addEventListener('load', function () {
+      loadCount++;
+      if (syncScroll) attachScrollListeners();
+    });
+  });
+
+  // Initial layout
+  applyLayout();
+
+})();
+</script>
+</body>
+</html>

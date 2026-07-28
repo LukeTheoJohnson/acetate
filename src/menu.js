@@ -17,6 +17,7 @@
   let W = 0, H = 0, dpr = 1;
   let active = false, raf = 0, wired = false, lastTs = 0;
   let t = 0;
+  let aud = null; // shared audio read (real analyser data) while the ambience plays
 
   // ---- FFT-style spectrum: a few drifting partials, not noise --------------
   const NBINS = 72;
@@ -77,6 +78,10 @@
   // decaying harmonics + a slow vibrato/AM envelope, coupled to the beat, with a
   // touch of noise so it isn't a sterile sine. Returns roughly -1..1.
   function scope(u) {
+    if (aud && aud.live && aud.wave) {
+      const w = aud.wave, wi = Math.min(w.length - 1, (u * (w.length - 1)) | 0);
+      return ((w[wi] - 128) / 128) * (0.85 + 0.3 * beat);
+    }
     const k = u * Math.PI * 2 * CYCLES + t * 0.9;
     let y = Math.sin(k) + 0.5 * Math.sin(2 * k + 0.6) + 0.33 * Math.sin(3 * k + 1.2) + 0.16 * Math.sin(5 * k);
     y /= 1.99;
@@ -84,12 +89,26 @@
     return (y + (Math.random() - 0.5) * 0.02) * env * (0.78 + 0.22 * beat);
   }
 
+  // Map an FFT frame onto the NBINS display bins — the lower ~55% of the spectrum,
+  // where the music's energy sits — taking the peak per bin so transients read.
+  function realTarget(i) {
+    const f = aud.freq;
+    const lo = Math.floor((i / NBINS) * f.length * 0.55);
+    const hi = Math.max(lo + 1, Math.floor(((i + 1) / NBINS) * f.length * 0.55));
+    let m = 0;
+    for (let k = lo; k < hi; k++) if (f[k] > m) m = f[k];
+    return (m / 255) * 1.1;
+  }
+
   function step(dt) {
     t += dt;
-    // advance the beat clock and decay the pulse
+    // real audio read (analyser) while the menu ambience is actually playing
+    aud = (SDJ.Visualiser && SDJ.Visualiser.read) ? SDJ.Visualiser.read() : null;
+    // advance the beat clock and decay the pulse; a live low-end drives it harder
     beatPhase += dt * 2;
     if (beatPhase >= 1) { beatPhase -= 1; beat = 0.6; }
     beat = Math.max(0, beat - dt * 3);
+    if (aud && aud.live) beat = Math.max(beat, aud.bass * 0.9);
     // drift the partials slowly, bouncing inside 0..1
     for (let p = 0; p < parts.length; p++) {
       const pt = parts[p];
@@ -97,9 +116,11 @@
       if (pt.pos < 0) { pt.pos = 0; pt.vel = -pt.vel; }
       if (pt.pos > 1) { pt.pos = 1; pt.vel = -pt.vel; }
     }
-    // spectrum: gentle attack, slow release + falling peak-hold caps
+    // spectrum: real FFT when playing, synthetic partials otherwise; gentle
+    // attack, slow release + falling peak-hold caps either way
+    const live = aud && aud.live && aud.freq;
     for (let i = 0; i < NBINS; i++) {
-      const target = spectrumTarget(i);
+      const target = live ? realTarget(i) : spectrumTarget(i);
       const a = target > bins[i] ? 0.32 : 0.1;
       bins[i] += (target - bins[i]) * a;
       peaks[i] = Math.max(peaks[i] - dt * 0.6, bins[i]);
@@ -208,6 +229,11 @@
   function activate() {
     const c = channels[sel];
     if (!c) return;
+    // a channel can trigger an action (pure-visual mode) instead of a hash route
+    if (c.getAttribute('data-action') === 'visuals') {
+      if (SDJ.openVisuals) SDJ.openVisuals();
+      return;
+    }
     const href = c.getAttribute('href');
     if (href) location.hash = href;
   }
@@ -230,6 +256,10 @@
     channels.forEach((c, k) => {
       c.addEventListener('mouseenter', () => select(k));
       c.addEventListener('focus', () => select(k));
+      // channels that trigger an action (not a hash route) fire it on click
+      if (c.getAttribute('data-action')) {
+        c.addEventListener('click', (e) => { e.preventDefault(); select(k); activate(); });
+      }
     });
     window.addEventListener('keydown', onKey);
     window.addEventListener('resize', () => { if (active) resize(); });

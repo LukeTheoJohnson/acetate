@@ -415,6 +415,49 @@ body[data-view="menu"] .view-menu { height: 100%; }
   background: var(--panel-2);
 }
 
+/* accessibility: keep #status for screen readers / errors without showing it */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ── the live player: the shared reactive visualiser strip in the top bar ── */
+.player { gap: 10px; }
+.player-viz {
+  display: block; width: 120px; height: 26px; border-radius: 6px;
+  background: #07070d; flex: 0 0 auto;
+}
+
+/* ── pure-visual mode: the shared visualiser, full-screen over the menu ──── */
+.visual-stage { position: fixed; inset: 0; z-index: 120; background: #000; cursor: pointer; }
+.visual-stage[hidden] { display: none; }
+.visual-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.visual-exit {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  color: var(--muted); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  opacity: 0.55; pointer-events: none;
+}
+body.visuals-open { overflow: hidden; }
+
+/* ── the A/B on/off switch: hear the track (A, cyan) or the change (B, amber) ─ */
+.abswitch { flex-direction: row; align-items: center; justify-content: center; gap: 10px; }
+.abswitch-end { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.abswitch-end.a { color: var(--cool); }
+.abswitch-end.b { color: var(--warm); }
+.abswitch-toggle { position: relative; width: 52px; height: 26px; display: inline-block; cursor: pointer; flex: 0 0 auto; }
+.abswitch-toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.abswitch-slider {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line); transition: background .15s, border-color .15s;
+}
+.abswitch-slider::before {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--cool); transition: transform .18s, background .18s;
+}
+.abswitch-toggle input:checked ~ .abswitch-slider { border-color: var(--warm); }
+.abswitch-toggle input:checked ~ .abswitch-slider::before { transform: translateX(26px); background: var(--warm); }
+.abswitch-toggle input:focus-visible ~ .abswitch-slider { box-shadow: 0 0 0 2px var(--cool); }
+
 /* ── menu: signal-bloom hub (scoped palette — menu view only) ─────────── */
 .view-menu {
   --m-bg: #17191d; --m-ink: #e8ecf2; --m-muted: #8a9099;
@@ -771,3 +814,9 @@ body[data-view="live"] .code.flash { animation:sr-flash .6s ease; }
 body[data-view="live"] ::-webkit-scrollbar { width:5px; height:5px; }
 body[data-view="live"] ::-webkit-scrollbar-thumb { background:var(--sr-border); border-radius:2px; }
 body[data-view="live"] ::-webkit-scrollbar-track { background:transparent; }
+
+/* slightly larger right-hand interaction controls — the approve/skip verdict
+   buttons and the console (genre pills + part-mixer) read a touch bigger */
+body[data-view="live"] .sg-actions .btn { font-size:12px; padding:11px 12px; letter-spacing:.06em; }
+body[data-view="live"] .pill { font-size:10px; padding:4px 9px; }
+body[data-view="live"] .pm-btn { font-size:9px; }

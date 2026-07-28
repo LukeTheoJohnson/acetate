@@ -14,26 +14,20 @@
 </head>
 <body data-view="menu">
   <header class="topbar">
-    <div class="brand">
-      <span class="logo">◈</span>
-      <div>
-        <h1>Acetate</h1>
-        <p class="tagline">An AI DJ cuts tracks live in code. You keep the dubplates.</p>
-      </div>
-    </div>
     <nav class="topnav">
       <a data-nav="menu" href="#menu">Menu</a>
       <a data-nav="live" href="#live">Live</a>
       <a data-nav="crate" href="#crate">Crate</a>
       <a data-nav="remix" href="#remix">Remix</a>
     </nav>
-    <!-- unified now-playing transport: one source at a time, stop from anywhere -->
-    <div id="transport" class="transport" hidden>
-      <span class="tp-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <!-- the live player: a shared reactive visualiser + now-playing + one stop -->
+    <div id="transport" class="transport player" hidden>
+      <canvas id="playerViz" class="player-viz" aria-hidden="true"></canvas>
       <span class="tp-label"><span id="tpKind" class="tp-kind live">live</span><b id="tpName">—</b></span>
       <button id="tpStop" class="btn small" title="Stop playback">⏹</button>
     </div>
-    <p id="status" class="status">Loading…</p>
+    <!-- status kept for screen readers / errors; not shown (visually stripped) -->
+    <p id="status" class="status sr-only" aria-live="polite">Loading…</p>
   </header>
 
   <!-- ══ MENU: signal-bloom hub — a video-game channel select ════════════ -->
@@ -48,13 +42,14 @@
         <a class="channel" role="menuitem" href="#live">Live Set</a>
         <a class="channel" role="menuitem" href="#crate">Crate</a>
         <a class="channel" role="menuitem" href="#remix">Remix</a>
+        <a class="channel" role="menuitem" href="#" data-action="visuals">Visuals</a>
       </div>
     </div>
   </main>
 
   <!-- ══ LIVE: two turntables + a console — the track is a record being cut ══ -->
   <main class="view view-live stage" data-view="live" hidden>
-    <!-- ── THE RIG: Deck A (the track so far) · crossfader · Deck B (the pitch) ── -->
+    <!-- ── THE RIG: Deck A (the track so far) · switch · Deck B (the pitch) ── -->
     <section class="rig panel">
       <div class="rig-head">
         <div class="rig-title">
@@ -78,7 +73,7 @@
       <div id="stageChips" class="chips" aria-label="arrangement layers"></div>
 
       <div id="sgEmpty" class="sg-empty">Press ▶ Start. The DJ cuts one change at a time onto
-        Deck&nbsp;B — slide the crossfader to hear it blended against the record on Deck&nbsp;A,
+        Deck&nbsp;B — flip the switch to hear it against the record on Deck&nbsp;A,
         approve to press it onto the track, skip to bin it. Nothing changes until you say so.</div>
 
       <div id="deckRig" class="deck-rig" hidden>
@@ -88,15 +83,13 @@
           <div id="deckACap" class="tdeck-cap">—</div>
         </div>
 
-        <div id="abWrap" class="xfade">
-          <div class="xfade-caps">
-            <button id="abA" class="btn small ghost" title="Snap to the current track">A</button>
-            <span class="xfade-word">blend</span>
-            <button id="abB" class="btn small ghost" title="Snap to the pitched change">B</button>
-          </div>
-          <input id="abFader" class="xfader" type="range" min="0" max="100" value="100"
-                 aria-label="crossfade: the current track to the pitched change" />
-          <div class="xfade-hint">slide to hear the change in &amp; out</div>
+        <div id="abWrap" class="xfade abswitch">
+          <span class="abswitch-end a">Track</span>
+          <label class="abswitch-toggle" title="Flip to hear the pitched change against the current track">
+            <input id="abSwitch" type="checkbox" aria-label="switch: hear the current track or the pitched change" />
+            <span class="abswitch-slider" aria-hidden="true"></span>
+          </label>
+          <span class="abswitch-end b">Change</span>
         </div>
 
         <div class="tdeck tdeck-b">
@@ -305,6 +298,12 @@
     </section>
   </main>
 
+  <!-- ══ VISUALS: pure-visual mode — the shared reactive visualiser, full-screen ═══ -->
+  <div id="visualStage" class="visual-stage" hidden aria-hidden="true">
+    <canvas id="visualCanvas" class="visual-canvas" aria-hidden="true"></canvas>
+    <div class="visual-exit">tap · Esc to exit</div>
+  </div>
+
   <!-- ══ PRESS: the save moment — cut this track to a record ═════════════ -->
   <div id="pressModal" class="press-modal" hidden>
     <div class="press-sheet">
@@ -336,6 +335,7 @@
   <script src="src/log.js"></script>
   <script src="src/art.js"></script>
   <script src="src/vinyl.js"></script>
+  <script src="src/visualiser.js"></script>
   <script src="src/menu.js"></script>
   <script src="src/app.js"></script>
 </body>
