@@ -209,7 +209,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('approving re-pitches a fresh suggestion',
     window.SDJ.live.pitching() !== false && !doc.getElementById('sgCard').hidden);
   check('approving can grow the arrangement', window.SDJ.engine.state().activeCount >= partsBefore);
-  check('a decision logs a DJ move', doc.querySelectorAll('#log li').length >= 1);
+  check('a decision lands in the set log (the DJ-moves list is gone)',
+    typeof window.SDJ.SetLog.stats === 'function' && window.SDJ.SetLog.count() >= 1);
   check('the pitch history records the call', doc.querySelectorAll('#djFeed li').length >= 1);
   window.SDJ.live.skip();         // skip re-pitches without committing
   await sleep(20);

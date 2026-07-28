@@ -64,17 +64,16 @@
           </div>
         </div>
         <div class="deck-buttons">
-          <button id="startBtn" class="btn primary">▶ Start the set</button>
-          <button id="saveBtn" class="btn ghost" title="Cut this track as a dubplate in your crate" disabled>◉ Cut a dubplate</button>
-          <button id="skipBtn" class="btn ghost" title="Start a fresh track">⏭ New</button>
+          <button id="startBtn" class="btn primary">Start the set</button>
+          <button id="saveBtn" class="btn ghost" title="Cut this track as a dubplate in your crate" disabled>Cut a dubplate</button>
+          <button id="skipBtn" class="btn ghost" title="Start a fresh track">New track</button>
         </div>
       </div>
 
       <div id="stageChips" class="chips" aria-label="arrangement layers"></div>
 
-      <div id="sgEmpty" class="sg-empty">Press ▶ Start. The DJ cuts one change at a time onto
-        Deck&nbsp;B — flip the switch to hear it against the record on Deck&nbsp;A,
-        approve to press it onto the track, skip to bin it. Nothing changes until you say so.</div>
+      <div id="sgEmpty" class="sg-empty">Press Start. The DJ pitches one change at a time onto
+        Deck&nbsp;B — flip the switch to compare it with the record, press it on or bin it.</div>
 
       <div id="deckRig" class="deck-rig" hidden>
         <div class="tdeck tdeck-a">
@@ -100,8 +99,8 @@
             <div class="sg-desc" id="sgDesc">—</div>
           </div>
           <div id="sgActions" class="sg-actions" hidden>
-            <button id="sgSkip" class="btn vote-down">✗ Skip</button>
-            <button id="sgApprove" class="btn vote-up">✓ Approve</button>
+            <button id="sgSkip" class="btn vote-down">Bin it</button>
+            <button id="sgApprove" class="btn vote-up">Press it</button>
           </div>
         </div>
       </div>
@@ -145,14 +144,12 @@
           <h3>Set history</h3>
           <div class="log-tools">
             <span id="logStat" class="log-stat" title="live set-log summary">—</span>
-            <button id="logExport" class="btn small" title="Download the full set trace as JSON">⬇ Log</button>
+            <button id="logExport" class="btn small" title="Download the full set trace as JSON">Log</button>
             <button id="logClear" class="btn small ghost" title="Clear the captured trace">clear</button>
           </div>
         </div>
         <div class="feed-head">Kept · skipped</div>
         <ul id="djFeed" class="feed"></ul>
-        <div class="feed-head">DJ moves</div>
-        <ul id="log" class="log"></ul>
       </aside>
     </section>
 
@@ -321,7 +318,7 @@
       <p id="pressFormatHint" class="pf-hint">a 36-bar journey: intro → build → peak → strip → peak → outro</p>
       <div class="press-actions">
         <button id="pressCancel" class="btn ghost">Keep working</button>
-        <button id="pressConfirm" class="btn primary">◉ Cut to the crate</button>
+        <button id="pressConfirm" class="btn primary">Cut to the crate</button>
       </div>
     </div>
   </div>

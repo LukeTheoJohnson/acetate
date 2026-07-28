@@ -59,7 +59,7 @@
 
   function boot() {
     [
-      'startBtn', 'skipBtn', 'code', 'log',
+      'startBtn', 'skipBtn', 'code',
       'trackName', 'trackMeta', 'stageChips', 'roll', 'crate', 'status',
       // deck production controls + unified transport
       'saveBtn', 'transport', 'tpKind', 'tpName', 'tpStop',
@@ -188,7 +188,7 @@
     if (previewing >= 0) { previewing = -1; renderCrate(); } // live replaces any preview
     running = true;
     sizeRoll(); // make sure the pianoroll canvas is sized before the first draw
-    el.startBtn.textContent = '⏸ Stop the set';
+    el.startBtn.textContent = 'Stop the set';
     if (el.deckRig) el.deckRig.hidden = false;
     syncDeckButtons();
     clearLog();
@@ -201,7 +201,7 @@
   function stopSet() {
     running = false;
     hideSuggestion();
-    el.startBtn.textContent = '▶ Start the set';
+    el.startBtn.textContent = 'Start the set';
     if (el.deckRig) el.deckRig.hidden = true;
     syncDeckButtons();
     stopAll(); // hush + clear the transport
@@ -290,7 +290,7 @@
     pitchLayer = p.layer;
     const kind = PITCH_KINDS[p.kind] || PITCH_KINDS.reshape;
     showSuggestion(kind, p.desc ? p.desc.charAt(0).toUpperCase() + p.desc.slice(1) : '—',
-      '✓ Approve', '✗ Skip');
+      'Press it', 'Bin it');
     // the code drawer shows the pattern with the pitched lane's lines tinted
     if (el.code) el.code.innerHTML = pitchCodeHtml(code, p.layer, layerMap);
     renderDeckB(p);
@@ -308,7 +308,7 @@
     showSuggestion(PITCH_KINDS.save,
       settled ? 'That’s the whole track — cut it as a dubplate?'
               : 'This is sounding full — cut it as a dubplate?',
-      '◉ Cut it', 'Keep going');
+      'Cut it', 'Keep going');
     // Deck B shows the finished record, ready for the press
     if (el.deckBDisc) el.deckBDisc.innerHTML = committedDisc();
     showFader(false);
@@ -1980,15 +1980,12 @@
 
   // ---- event log ---------------------------------------------------------
 
+  // The on-screen DJ-moves list is gone — the narration now rides the console
+  // so the ~20 call sites (and their story) survive for debugging.
   function logEvent(text) {
-    const li = document.createElement('li');
-    li.textContent = text;
-    el.log.prepend(li);
-    while (el.log.childElementCount > 40) el.log.lastChild.remove();
+    console.debug('[acetate]', text);
   }
-  function clearLog() {
-    el.log.innerHTML = '';
-  }
+  function clearLog() { /* no list to wipe any more */ }
 
   // ---- set log: structured, exportable trace for diagnosis ---------------
   // One compact row per evolution tick. The verdict (kept/reverted/gambled) is
