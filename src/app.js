@@ -28,6 +28,7 @@
   let abMix = 1;          // A/B switch: 0 = Deck A (committed) only, 1 = full pitch
   let playerVizInst = null; // the top-bar reactive strip player (shared visualiser)
   let visualInst = null;    // the full-screen pure-visual overlay (shared visualiser)
+  let liveVizInst = null;   // the Live floor's compact scene tile (shared visualiser, 'mini')
   let pressOrigin = null; // 'button' | 'prompt' while the pressing modal is open
   let pressFormat = 'arranged'; // what a press banks: 'arranged' (36-bar track) | 'loop'
 
@@ -72,6 +73,8 @@
       'abWrap', 'abSwitch',
       // the top-bar live player + the full-screen pure-visual overlay
       'playerViz', 'visualStage', 'visualCanvas',
+      // the Live floor's mini visualiser tile
+      'liveViz',
       // the pressing modal (the save moment)
       'pressModal', 'pressDisc', 'pressName', 'pressMeta', 'pressVersion',
       'pressConfirm', 'pressCancel', 'pressLoop', 'pressFull', 'pressFormatHint',
@@ -109,6 +112,8 @@
     if (el.visualStage) el.visualStage.addEventListener('click', closeVisuals);
     // the top-bar live player — the shared reactive visualiser as a compact strip
     playerVizInst = SDJ.Visualiser ? SDJ.Visualiser.mount(el.playerViz, { mode: 'strip' }) : null;
+    // the Live floor's mini tile — the same scene system, calmer, tile-sized
+    liveVizInst = SDJ.Visualiser ? SDJ.Visualiser.mount(el.liveViz, { mode: 'mini' }) : null;
     // the pressing modal
     if (el.pressConfirm) el.pressConfirm.addEventListener('click', confirmPress);
     if (el.pressCancel) el.pressCancel.addEventListener('click', cancelPress);
@@ -618,6 +623,8 @@
 
   function refreshTransport() {
     if (!el.transport) return;
+    // the Live floor's mini tile runs only on the live page while audio plays
+    if (liveVizInst) { if (nowPlaying.kind && currentRoute() === 'live') liveVizInst.start(); else liveVizInst.stop(); }
     if (!nowPlaying.kind) { el.transport.hidden = true; if (playerVizInst) playerVizInst.stop(); return; }
     el.transport.hidden = false;
     // the top-bar player's reactive strip runs while something's playing (never
@@ -2052,6 +2059,8 @@
     if (SDJ.Menu) { if (name === 'menu') SDJ.Menu.enter(); else SDJ.Menu.leave(); }
     // the top-bar player's strip only runs off the menu, and only while playing
     if (playerVizInst) { if (name !== 'menu' && nowPlaying.kind) playerVizInst.start(); else playerVizInst.stop(); }
+    // the Live floor's mini tile only animates on the live page, while playing
+    if (liveVizInst) { if (name === 'live' && nowPlaying.kind) liveVizInst.start(); else liveVizInst.stop(); }
   }
 
   // ---- pure-visual mode: the shared visualiser, full-screen over the menu ----

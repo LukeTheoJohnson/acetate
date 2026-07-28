@@ -34,7 +34,7 @@ window.localStorage.setItem('sdj.crate', JSON.stringify([
 ]));
 
 // ---- load app modules in the window context ----
-for (const f of ['rng', 'theory', 'names', 'dj', 'viz', 'log', 'art', 'vinyl', 'app']) {
+for (const f of ['rng', 'theory', 'names', 'dj', 'viz', 'log', 'art', 'vinyl', 'visualiser', 'app']) {
   try {
     window.eval(fs.readFileSync(path.join(root, 'src', f + '.js'), 'utf8'));
   } catch (e) {
@@ -467,6 +467,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     balanced(ambCode) && ambCode.includes('.gain(0.3)'), ambCode);
   window.SDJ.menuAmbient.stop();
   check('stopping menu ambience clears it', !window.SDJ.menuAmbient.playing());
+
+  // ---- visualiser: the scene system mounts safely headless ----
+  check('visualiser exposes read + mount',
+    !!window.SDJ.Visualiser && typeof window.SDJ.Visualiser.read === 'function' &&
+    typeof window.SDJ.Visualiser.mount === 'function');
+  let vizOk = true, vizInst = null;
+  try {
+    vizInst = window.SDJ.Visualiser.mount(doc.createElement('canvas'), { mode: 'mini' });
+    vizInst.start(); vizInst.resize(); vizInst.stop(); vizInst.destroy();
+  } catch (e) { vizOk = false; }
+  check('mounting a scene visualiser on the stubbed canvas is start/stop-safe',
+    vizOk && !!vizInst && typeof vizInst.start === 'function' && typeof vizInst.stop === 'function');
+  const vizRead = window.SDJ.Visualiser.read();
+  check('read() degrades to a synthetic-idle signal without an analyser',
+    !!vizRead && typeof vizRead.live === 'boolean');
 
   // report
   let pass = 0;
