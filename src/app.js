@@ -67,6 +67,8 @@
       // the DJ's suggestion card + tuning (genre pills, density, part mixer) + status
       'sgEmpty', 'sgCard', 'sgKind', 'sgDesc', 'sgActions', 'sgApprove', 'sgSkip',
       'livePartMix', 'liveDensity', 'liveGenrePills',
+      // the direction box (free-text curation above the live code)
+      'curateInput', 'curateChips',
       'djNow', 'djVerb', 'djMove', 'djFeed',
       // the deck rig: two platters + the A/B crossfader
       'deckRig', 'deckAPlatter', 'deckADisc', 'deckACap', 'deckBPlatter', 'deckBDisc',
@@ -122,6 +124,11 @@
     if (el.pressLoop) el.pressLoop.addEventListener('click', () => setPressFormat('loop'));
     if (el.logExport) el.logExport.addEventListener('click', onExportLog);
     if (el.logClear) el.logClear.addEventListener('click', onClearLog);
+    // the direction box: parse typed directions (debounced) into steer directives
+    if (el.curateInput) el.curateInput.addEventListener('input', () => {
+      clearTimeout(curDebounce);
+      curDebounce = setTimeout(applyCuration, 300);
+    });
     // crate library tools
     if (el.crateSort) el.crateSort.addEventListener('change', () => { crateSort = el.crateSort.value; renderCrate(); });
     if (el.crateExport) el.crateExport.addEventListener('click', exportCrate);
@@ -230,6 +237,9 @@
     resetControls();         // neutral board — parts on auto, density held
     resetMind();
     saveCooldown = 0;
+    // typed directions persist across tracks — re-stamp them on the fresh song
+    // (must run AFTER resetControls(), which zeroes the opinions it re-sets)
+    if (curDirectives) applyCurationToSong(curDirectives);
     if (SDJ.SetLog) {
       SDJ.SetLog.mark(reason === 'set' ? 'set' : 'song', {
         reason: reason, name: engine.song.name, key: engine.song.key,
@@ -1887,6 +1897,140 @@
     if (el.liveDensity) el.liveDensity.value = '0';
   }
 
+  // ---- curation: the free-text direction box ------------------------------
+  // "no hihats, darker, slower" typed above the live code becomes deterministic
+  // directives (SDJ.Curate.parse) that steer WHAT the DJ pitches — lane bans
+  // ride the engine's own per-song ban set, emphasis rides the part-mixer
+  // opinions, density rides the dial, genre re-uses setGenre, and mood/tempo
+  // recolour the live song the way setGenre does. Steer-only: the song's seed
+  // never changes, and a pitch already mid-audition (even on a now-banned lane)
+  // is left on the card for the user to judge normally.
+
+  let curBanKeys = [];       // ban keys curation holds ('add:i') — lifted on re-parse
+  let curDirectives = null;  // the last parsed directives (SDJ.curate.state reads this)
+  let curOpinionSet = {};    // lane -> true where curation set the opinion (so clearing resets it)
+  let curDensitySet = false; // curation moved the density dial
+  let curGenrePin = null;    // genre id curation pinned (unpinned when the text drops it)
+  let curLiveApplied = { mood: null, tempo: null }; // last mood/tempo applied live
+  let curDebounce = 0;
+
+  function applyCuration() {
+    if (!SDJ.Curate) return;
+    const d = SDJ.Curate.parse(el.curateInput ? el.curateInput.value : '');
+    curDirectives = d;
+    renderCurateChips(d.chips);
+
+    // lift what the previous directives held: curation bans come off (skip-earned
+    // bans keep their keys) and curation-set opinions go back to auto — a
+    // hand-set mixer choice is never touched.
+    if (engine.song && engine.song.banned) curBanKeys.forEach((k) => { delete engine.song.banned[k]; });
+    curBanKeys = [];
+    Object.keys(curOpinionSet).forEach((k) => SDJ.setOpinion(+k, 0));
+
+    applyCurationToSong(d);
+
+    // mood/tempo steer future tracks via the engine hook…
+    engine.setCuration({ scaleFilter: d.mood ? SDJ.Curate.MOOD_SCALES[d.mood] : null, tempo: d.tempo });
+
+    // …genre pins re-use the pill flow (the live re-skin comes free); dropping
+    // the genre word unpins only what curation itself pinned.
+    if (d.genre) {
+      if (engine.genrePref !== d.genre) setGenre(d.genre);
+      curGenrePin = d.genre;
+    } else if (curGenrePin && engine.genrePref === curGenrePin) {
+      setGenre('');
+      curGenrePin = null;
+    } else {
+      curGenrePin = null;
+    }
+
+    // …and mood/tempo recolour the live song straight away.
+    applyCurationLive(d);
+    curateStatus(d);
+  }
+
+  // Stamp bans / features / density from the directives onto the live song.
+  // Extracted so freshTrack() can re-apply after resetControls() zeroes the
+  // board — typed directions persist across tracks until the text changes.
+  function applyCurationToSong(d) {
+    curBanKeys = [];
+    const set = {};
+    if (engine.song && d) {
+      const s = engine.song;
+      if (!s.banned) s.banned = {};
+      (d.bans || []).forEach((i) => {
+        const key = 'add:' + i;
+        s.banned[key] = true;
+        curBanKeys.push(key);
+        // an active banned lane gets a "drop" opinion so the DJ pitches removing it
+        if (s.genome.active[i]) { SDJ.setOpinion(i, -1); set[i] = true; }
+      });
+      (d.features || []).forEach((i) => { SDJ.setOpinion(i, 1); set[i] = true; });
+    }
+    curOpinionSet = set;
+    if (d && d.density != null) { SDJ.setDensity(d.density * 0.7); curDensitySet = true; }
+    else if (curDensitySet) { SDJ.setDensity(0); curDensitySet = false; }
+  }
+
+  // Recolour the LIVE song with a mood/tempo direction, the way setGenre
+  // re-skins in place: re-pick an off-mood scale inside the genre palette, skew
+  // the BPM. Only applies when the direction actually changed, so a debounced
+  // re-parse never compounds a ±12% tempo trim.
+  function applyCurationLive(d) {
+    const moodChanged = curLiveApplied.mood !== d.mood;
+    const tempoChanged = curLiveApplied.tempo !== d.tempo;
+    curLiveApplied = { mood: d.mood, tempo: d.tempo };
+    const s = engine.song;
+    if (!s) return false;
+    let changed = false;
+    if (d.mood && moodChanged) {
+      const pal = SDJ.Theory.scalesFor(s.genre);
+      const filtered = pal.filter((x) => SDJ.Curate.MOOD_SCALES[d.mood].indexOf(x) >= 0);
+      if (filtered.length && filtered.indexOf(s.scaleType) < 0) {
+        s.scaleType = SDJ.Rng.pick(s.rng, filtered);
+        changed = true;
+      }
+    }
+    if (d.tempo != null && tempoChanged) {
+      const g = s.genre || { bpmLo: 60, bpmHi: 200 };
+      let bpm = s.bpm;
+      if (d.tempo === 'slow') bpm = clamp(Math.round(s.bpm * 0.88), g.bpmLo, g.bpmHi);
+      else if (d.tempo === 'fast') bpm = clamp(Math.round(s.bpm * 1.12), g.bpmLo, g.bpmHi);
+      else if (typeof d.tempo === 'number') bpm = clamp(Math.round(d.tempo), 60, 200);
+      if (bpm !== s.bpm) { s.bpm = bpm; s.cps = s.bpm / 240; changed = true; }
+    }
+    if (changed) {
+      s.rev += 1; // song-level musical change → re-renders via _signature()
+      if (running) { evaluateCurrent(false); updateUI(); }
+    }
+    return changed;
+  }
+
+  function renderCurateChips(chips) {
+    if (!el.curateChips) return;
+    el.curateChips.innerHTML = '';
+    (chips || []).forEach((c) => {
+      const span = document.createElement('span');
+      span.className = 'curate-chip ' + (c.kind || '');
+      span.textContent = c.label;
+      el.curateChips.appendChild(span);
+    });
+  }
+
+  // One status line summarising what the direction box took effect on.
+  function curateStatus(d) {
+    if (!d.chips.length) {
+      const txt = el.curateInput ? el.curateInput.value.trim() : '';
+      setStatus(txt
+        ? 'No directions recognised — try e.g. “no hihats, darker, slower”.'
+        : 'Direction cleared — the DJ is back on its own instincts.');
+      return;
+    }
+    const labels = d.chips.map((c) => c.label).join(' · ');
+    setStatus('Understood: ' + labels +
+      (running ? ' — steering the set.' : ' — steering the next track.'));
+  }
+
   // ---- UI updates --------------------------------------------------------
 
   function updateUI() {
@@ -2204,6 +2348,22 @@
     applyControls();
   };
   SDJ.setGenre = setGenre; // pin the genre for new tracks (agent-native)
+  // the direction box (agent-native): free-text steer for what the DJ pitches
+  SDJ.curate = {
+    set: function (text) {
+      clearTimeout(curDebounce);
+      if (el.curateInput) el.curateInput.value = text == null ? '' : String(text);
+      applyCuration();
+    },
+    clear: function () { SDJ.curate.set(''); },
+    state: function () {
+      return {
+        text: el.curateInput ? el.curateInput.value : '',
+        directives: curDirectives,
+        chips: curDirectives ? curDirectives.chips.slice() : [],
+      };
+    },
+  };
   SDJ.exportMp3 = exportTrackMp3; // render a crate record to MP3 (agent-native)
   SDJ.menuAmbient = { start: maybeStartMenuAmbient, stop: stopMenuAmbient, playing: function () { return menuAmbient.on; } };
 

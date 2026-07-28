@@ -34,7 +34,7 @@ window.localStorage.setItem('sdj.crate', JSON.stringify([
 ]));
 
 // ---- load app modules in the window context ----
-for (const f of ['rng', 'theory', 'names', 'dj', 'viz', 'log', 'art', 'vinyl', 'visualiser', 'app']) {
+for (const f of ['rng', 'theory', 'names', 'dj', 'curate', 'viz', 'log', 'art', 'vinyl', 'visualiser', 'app']) {
   try {
     window.eval(fs.readFileSync(path.join(root, 'src', f + '.js'), 'utf8'));
   } catch (e) {
@@ -423,6 +423,60 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     !!pressedFull.loopCode && pressedFull.loopCode.includes('stack(') &&
     pressedFull.loopCode.includes('.color(') && balanced(pressedFull.loopCode));
   check('live evaluations stayed balanced', evalCalls.every(balanced));
+
+  // ---- curation: the direction box steers the DJ (parser + wiring + engine) --
+  const Cur = window.SDJ.Curate;
+  const cd1 = Cur.parse('no hihats');
+  check('curate: "no hihats" bans the hats lane',
+    cd1.bans.length === 1 && cd1.bans[0] === 1 &&
+    cd1.chips.length === 1 && cd1.chips[0].kind === 'ban', JSON.stringify(cd1));
+  const cd2 = Cur.parse('more bass, darker, 140 bpm, minimal');
+  check('curate: a compound direction parses every clause',
+    cd2.features.length === 1 && cd2.features[0] === 2 && cd2.mood === 'dark' &&
+    cd2.tempo === 140 && cd2.density === -1 && cd2.chips.length === 4, JSON.stringify(cd2));
+  const cd3 = Cur.parse('trap');
+  check('curate: a genre name pins the genre', cd3.genre === 'trap', JSON.stringify(cd3));
+  const cd4 = Cur.parse('please make it wonderful somehow');
+  check('curate: unknown words produce no directives',
+    !cd4.bans.length && !cd4.features.length && cd4.mood === null && cd4.tempo === null &&
+    cd4.density === null && cd4.genre === null && !cd4.chips.length, JSON.stringify(cd4));
+
+  // wiring: "no hihats" typed mid-set keeps the DJ off the hats from then on
+  window.SDJ.curate.set('no hihats');
+  check('the direction renders an understood chip',
+    doc.querySelectorAll('#curateChips .curate-chip').length === 1 &&
+    doc.querySelector('#curateChips .curate-chip').textContent === 'no hi-hats');
+  window.SDJ.live.approve(); // judge away the pitch that predates the direction
+  await sleep(10);
+  let hatAdd = false;
+  for (let k = 0; k < 40; k++) {
+    if (window.SDJ.live.pitching() === 'save') { window.SDJ.live.skip(); await sleep(6); continue; }
+    const pend = window.SDJ.engine.song.pending;
+    if (!pend) break;
+    if (pend.kind === 'add' && pend.layer === 1) { hatAdd = true; break; }
+    if (k % 2) window.SDJ.live.skip(); else window.SDJ.live.approve();
+    await sleep(6);
+  }
+  check('a typed "no hihats" keeps the DJ off the hi-hats', !hatAdd);
+  window.SDJ.curate.clear(); // neutral board for the remaining checks
+  check('clearing the direction lifts the curation ban (chips gone too)',
+    !window.SDJ.engine.song.banned['add:1'] &&
+    doc.querySelectorAll('#curateChips .curate-chip').length === 0);
+
+  // engine hook: mood narrows the scale palette, tempo skews the BPM — and the
+  // seed is never touched (steer-only, same song either way)
+  const cue = new window.SDJ.DJEngine();
+  cue.masterSeed = 4242;
+  cue.setCuration({ scaleFilter: Cur.MOOD_SCALES.dark, tempo: 'slow' });
+  cue.newSong();
+  const cg = cue.song.genre;
+  const cThird = Math.max(1, Math.round((cg.bpmHi - cg.bpmLo) / 3));
+  check('curation steers a fresh song dark and slow',
+    Cur.MOOD_SCALES.dark.indexOf(cue.song.scaleType) >= 0 && cue.song.bpm <= cg.bpmLo + cThird,
+    cue.song.scaleType + ' @ ' + cue.song.bpm + 'bpm [' + cg.bpmLo + '-' + cg.bpmHi + ']');
+  const cue2 = new window.SDJ.DJEngine();
+  cue2.masterSeed = 4242; cue2.newSong();
+  check('curation never touches the seed', cue.song.seed === cue2.song.seed);
 
   // ---- highlight escapes mini-notation < > ----
   engine.song.stage = 6; engine.song.variation = 6;

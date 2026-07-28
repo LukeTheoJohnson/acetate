@@ -151,6 +151,7 @@
     this.songCount = 0;
     this.banksLoaded = false; // flipped true by app.js once the kit map loads
     this.genrePref = null;    // null = surprise me; else a Theory.GENRES id to force
+    this.curation = null;     // direction-box steer: { scaleFilter, tempo } | null (see setCuration)
   }
 
   // ---- lifecycle ---------------------------------------------------------
@@ -165,12 +166,20 @@
     const genre = (this.genrePref && Theory.GENRES.find((x) => x.id === this.genrePref))
       || Rng.pick(rng, Theory.GENRES);
 
+    // The direction box can narrow the mood: keep only the palette scales the
+    // curation's filter also names, when any survive (steer, never re-seed).
+    let pal = Theory.scalesFor(genre);
+    if (this.curation && this.curation.scaleFilter) {
+      const f = pal.filter((x) => this.curation.scaleFilter.indexOf(x) >= 0);
+      if (f.length) pal = f;
+    }
+
     const song = {
       seed,
       rng,
       name: Names.generate(rng),
       key: Rng.pick(rng, Theory.ROOTS),
-      scaleType: Rng.pick(rng, Theory.scalesFor(genre)), // mood palette is genre-appropriate
+      scaleType: Rng.pick(rng, pal), // mood palette is genre-appropriate (curation can narrow it)
       prog: Rng.pick(rng, Theory.PROGRESSIONS),
       genre: genre,
       bpm: Rng.int(rng, genre.bpmLo, genre.bpmHi),
@@ -214,6 +223,15 @@
       song.genome.active[2] = true;
       song.genome.variant[2] = Rng.int(rng, 0, 5);
     }
+    // Tempo direction: 'slow'/'fast' re-draw from the bottom/top third of the
+    // genre's range; a number is used directly, clamped to a sane 60–200.
+    if (this.curation && this.curation.tempo != null) {
+      const t = this.curation.tempo;
+      const third = Math.max(1, Math.round((genre.bpmHi - genre.bpmLo) / 3));
+      if (t === 'slow') song.bpm = Rng.int(rng, genre.bpmLo, genre.bpmLo + third);
+      else if (t === 'fast') song.bpm = Rng.int(rng, genre.bpmHi - third, genre.bpmHi);
+      else if (typeof t === 'number') song.bpm = clamp(Math.round(t), 60, 200);
+    }
     song.cps = song.bpm / 240; // 1 cycle = 1 bar = 4 beats
     this.song = song;
     this._lastSig = null;
@@ -240,6 +258,13 @@
     if (pal.indexOf(s.scaleType) < 0) s.scaleType = Rng.pick(s.rng, pal);
     s.rev += 1; // a song-level musical change → shows up in _signature()
     return true;
+  };
+
+  // Steer future tracks from the direction box. cur is pre-resolved by the app:
+  // { scaleFilter: [Theory.SCALES names] | null, tempo: 'fast'|'slow'|bpm|null }.
+  // Steer-only — newSong() reads it when picking, the seed is never touched.
+  DJEngine.prototype.setCuration = function (cur) {
+    this.curation = cur || null;
   };
 
   // ---- the optimiser -----------------------------------------------------

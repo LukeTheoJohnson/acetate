@@ -158,6 +158,13 @@
     <!-- ── CODE: the live Strudel the DJ is running, syntax-highlighted ──── -->
     <section class="codepanel panel">
       <h3>&lt;/&gt; The live code</h3>
+      <!-- the direction box: optional free text that steers what the DJ pitches -->
+      <div class="curate">
+        <input id="curateInput" class="curate-input" type="text" maxlength="120" spellcheck="false"
+               placeholder="Direction (optional) — e.g. no hihats, darker, slower"
+               aria-label="curation directions for the DJ" />
+        <div id="curateChips" class="curate-chips" aria-live="polite"></div>
+      </div>
       <pre id="code" class="code" aria-label="live Strudel code">// the DJ hasn't started yet</pre>
     </section>
   </main>
@@ -330,6 +337,7 @@
   <script src="src/theory.js"></script>
   <script src="src/names.js"></script>
   <script src="src/dj.js"></script>
+  <script src="src/curate.js"></script>
   <script src="src/viz.js"></script>
   <script src="src/log.js"></script>
   <script src="src/art.js"></script>

@@ -825,3 +825,25 @@ body[data-view="live"] .sg-actions .btn { min-height:48px; font-size:14px; paddi
 body[data-view="live"] .deck-buttons .btn { font-size:12px; padding:8px 12px; }
 body[data-view="live"] .pill { font-size:12px; padding:6px 11px; }
 body[data-view="live"] .pm-btn { font-size:11px; padding:7px 4px; }
+
+/* ── curation: the free-text direction box above the live code ──────────── */
+.curate { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+.curate-input {
+  width:100%; box-sizing:border-box;
+  background:var(--sr-surface, #14161a);
+  border:1px solid var(--sr-border, #33363e);
+  padding:8px 10px; border-radius:3px;
+  color:inherit; font:inherit; font-size:11px;
+}
+.curate-input:focus { outline:none; border-color:var(--sr-a, #28c8e0); }
+.curate-input::placeholder { color:var(--sr-muted, #6b7280); }
+.curate-chips { display:flex; flex-wrap:wrap; gap:4px; }
+.curate-chip {
+  font-size:8px; letter-spacing:.08em; text-transform:uppercase;
+  padding:2px 6px; border:1px solid var(--sr-border, #33363e); border-radius:2px;
+  color:var(--sr-label, #9aa3b2);
+}
+.curate-chip.ban { border-color:var(--sr-red, #e0485a); color:var(--sr-red, #e0485a); }
+.curate-chip.feature { border-color:var(--sr-green, #38d07a); color:var(--sr-green, #38d07a); }
+.curate-chip.mood, .curate-chip.tempo,
+.curate-chip.density, .curate-chip.genre { border-color:var(--sr-a, #28c8e0); color:var(--sr-a, #28c8e0); }
