@@ -3,17 +3,14 @@
 ![The menu hub — Live Set, Crate, Remix](screenshots/01-menu.png)
 
 **Acetate** is an AI DJ that **cuts tracks live in [Strudel](https://strudel.cc) code**
-while you steer, turn by turn. It authors every note; you only supply *taste*. Every track
-is a **record being cut**: each part you approve presses a coloured groove-ring onto the
-disc spinning on Deck A, and when you keep one it’s a **dubplate** — a one-off cut, its
-name and colours stuck, dropped into your crate for good.
+while you steer, turn by turn. Built on [Strudel](https://strudel.cc)
 
 **[▶ Play it live](https://luketheojohnson.github.io/acetate/)** &nbsp;·&nbsp;
 No backend · no framework · no bundler · no build step &nbsp;·&nbsp; MIT-licensed
 
-> *Named for the **acetate** — the one-off disc a DJ cuts to test a track before it’s
-> pressed. Built on [Strudel](https://strudel.cc), loaded from a CDN; the whole app is a
-> handful of plain scripts sharing one `window.SDJ` namespace.*
+> *Named for the **acetate** — the one off disc a DJ cuts to test a track before it’s
+> pressed. 
+
 
 ![The Live set — two turntables and a crossfader on the left, the console on the right, the roll and set history below](screenshots/02-live.png)
 
