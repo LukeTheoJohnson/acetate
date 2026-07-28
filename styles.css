@@ -276,7 +276,7 @@ body[data-view="menu"] .view-menu { height: 100%; }
 .log-tools { display: flex; align-items: center; gap: 6px; }
 .log-stat { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .feed-head { font-size: 9.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 4px; }
-.feed { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1 1 55%; min-height: 44px; }
+.feed { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1 1 auto; min-height: 44px; }
 .feed-row {
   display: grid; grid-template-columns: 16px 1fr auto; gap: 7px; align-items: baseline;
   padding: 4px 2px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 11px;
@@ -288,8 +288,6 @@ body[data-view="menu"] .view-menu { height: 100%; }
 .fwhy { font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .feed-row.up .fwhy, .feed-row.up .fglyph { color: var(--good); }
 .feed-row.down .fwhy, .feed-row.down .fglyph { color: var(--hot); }
-.log { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1 1 45%; min-height: 44px; font-size: 11px; }
-.log li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); color: #cfcfe6; }
 
 /* ── press modal: the save moment — cut this track to a record ────────── */
 .press-modal {
@@ -441,21 +439,21 @@ body.visuals-open { overflow: hidden; }
 
 /* ── the A/B on/off switch: hear the track (A, cyan) or the change (B, amber) ─ */
 .abswitch { flex-direction: row; align-items: center; justify-content: center; gap: 10px; }
-.abswitch-end { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.abswitch-end { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
 .abswitch-end.a { color: var(--cool); }
 .abswitch-end.b { color: var(--warm); }
-.abswitch-toggle { position: relative; width: 52px; height: 26px; display: inline-block; cursor: pointer; flex: 0 0 auto; }
+.abswitch-toggle { position: relative; width: 72px; height: 34px; display: inline-block; cursor: pointer; flex: 0 0 auto; }
 .abswitch-toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .abswitch-slider {
   position: absolute; inset: 0; border-radius: 999px;
   background: var(--panel-2); border: 1px solid var(--line); transition: background .15s, border-color .15s;
 }
 .abswitch-slider::before {
-  content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+  content: ''; position: absolute; top: 3px; left: 3px; width: 28px; height: 28px;
   border-radius: 50%; background: var(--cool); transition: transform .18s, background .18s;
 }
 .abswitch-toggle input:checked ~ .abswitch-slider { border-color: var(--warm); }
-.abswitch-toggle input:checked ~ .abswitch-slider::before { transform: translateX(26px); background: var(--warm); }
+.abswitch-toggle input:checked ~ .abswitch-slider::before { transform: translateX(38px); background: var(--warm); }
 .abswitch-toggle input:focus-visible ~ .abswitch-slider { box-shadow: 0 0 0 2px var(--cool); }
 
 /* ── menu: signal-bloom hub (scoped palette — menu view only) ─────────── */
@@ -762,9 +760,13 @@ body[data-view="live"] .xfade .btn.on { border-color:var(--sr-a); color:var(--sr
 body[data-view="live"] #abB.on { border-color:var(--sr-b); color:var(--sr-b); }
 
 /* Deck B pitch card + approve/skip */
-body[data-view="live"] .sg-kind { border-radius:2px; font-size:9px; letter-spacing:.06em; }
-body[data-view="live"] .sg-desc { color:var(--sr-bright); font-size:12px; }
-body[data-view="live"] .sg-actions .btn { border-radius:2px; border:1px solid var(--sr-border); }
+body[data-view="live"] .sg-kind { border-radius:2px; font-size:10px; letter-spacing:.06em; padding:4px 10px; }
+body[data-view="live"] .sg-desc { color:#fff; font-size:15px; }
+body[data-view="live"] .sg-actions .btn { border-radius:2px; border:none; }
+body[data-view="live"] .vote-down { background:var(--sr-red); color:#fff; }
+body[data-view="live"] .vote-down:hover { background:#ff5f5f; color:#fff; }
+body[data-view="live"] .vote-up { background:var(--sr-green); color:#0a120c; }
+body[data-view="live"] .vote-up:hover { background:#55e488; color:#0a120c; }
 
 /* ── mini visualiser: the Live floor's calm scene tile (sidebar) ────────── */
 .mini-viz {
@@ -772,10 +774,6 @@ body[data-view="live"] .sg-actions .btn { border-radius:2px; border:1px solid va
   background:var(--sr-raised, #23262c); border:1px solid var(--sr-border, #33363e); border-radius:3px;
 }
 .mini-viz canvas { width:100%; height:100%; display:block; }
-body[data-view="live"] .vote-down { background:transparent; border-color:var(--sr-red); color:var(--sr-red); }
-body[data-view="live"] .vote-down:hover { background:rgba(232,69,69,.12); }
-body[data-view="live"] .vote-up { background:transparent; border-color:var(--sr-green); color:var(--sr-green); }
-body[data-view="live"] .vote-up:hover { background:rgba(62,207,114,.12); }
 
 /* console: genre · density · parts */
 body[data-view="live"] .ctrl-block { border-top:1px solid var(--sr-border); }
@@ -804,7 +802,6 @@ body[data-view="live"] .fmsg { color:var(--sr-text); }
 body[data-view="live"] .fwhy { color:var(--sr-muted); }
 body[data-view="live"] .feed-row.up .fwhy, body[data-view="live"] .feed-row.up .fglyph { color:var(--sr-green); }
 body[data-view="live"] .feed-row.down .fwhy, body[data-view="live"] .feed-row.down .fglyph { color:var(--sr-red); }
-body[data-view="live"] .log li { border-bottom:1px solid rgba(51,54,62,.35); color:var(--sr-text); font-size:10px; }
 @keyframes sr-feedflash { from { background:rgba(40,200,224,.12); } to { background:transparent; } }
 body[data-view="live"] .feed-row.fresh { animation:sr-feedflash 1s ease; }
 
@@ -822,8 +819,9 @@ body[data-view="live"] ::-webkit-scrollbar { width:5px; height:5px; }
 body[data-view="live"] ::-webkit-scrollbar-thumb { background:var(--sr-border); border-radius:2px; }
 body[data-view="live"] ::-webkit-scrollbar-track { background:transparent; }
 
-/* slightly larger right-hand interaction controls — the approve/skip verdict
-   buttons and the console (genre pills + part-mixer) read a touch bigger */
-body[data-view="live"] .sg-actions .btn { font-size:12px; padding:11px 12px; letter-spacing:.06em; }
-body[data-view="live"] .pill { font-size:10px; padding:4px 9px; }
-body[data-view="live"] .pm-btn { font-size:9px; }
+/* the big interaction controls — Press it / Bin it are THE two buttons of the
+   app, so they get real height; transport, pills and the part-mixer step up too */
+body[data-view="live"] .sg-actions .btn { min-height:48px; font-size:14px; padding:12px 14px; letter-spacing:.06em; }
+body[data-view="live"] .deck-buttons .btn { font-size:12px; padding:8px 12px; }
+body[data-view="live"] .pill { font-size:12px; padding:6px 11px; }
+body[data-view="live"] .pm-btn { font-size:11px; padding:7px 4px; }
