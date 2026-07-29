@@ -13,13 +13,6 @@ No backend · no framework · no bundler · no build step &nbsp;·&nbsp; MIT-lic
 
 ---
 
-## Three ways to play
-
-The app is one page with four hash-routed views (**Menu · Live · Crate · Remix**). Audio is
-a single source at a time, with one **⏹ stop** in the header that halts whatever's playing.
-On the menu, a random record from your crate drifts underneath at low volume once you click
-in — the place is never silent.
-
 ### 🎛 Live Set — two decks, one verdict at a time
 
 Turn-based, and physical. The DJ **cuts one change at a time onto Deck B** as an acetate
