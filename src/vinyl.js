@@ -22,13 +22,20 @@
   const Rng = SDJ.Rng;
 
   // Label hue per "face" layer — only legacy crate entries (saved before the
-  // genome rode along) still take their hue from this; it mirrors art.js
-  // LAYER_HUE so those old records keep the identity of their square covers.
-  const LAYER_HUE = { 0: 352, 1: 190, 2: 275, 3: 33, 4: 150, 5: 320, 6: 210 };
+  // genome rode along) still take their hue from this; art.js reads the same
+  // SDJ.LAYER_HUE (lazily, since it loads first) so those old records keep the
+  // identity of their square covers. Defined once here, the single source.
+  const LAYER_HUE = SDJ.LAYER_HUE = { 0: 352, 1: 190, 2: 275, 3: 33, 4: 150, 5: 320, 6: 210 };
 
   // Label hue per lane (matches LANE_COLORS in dj.js; 7 = the fill pseudo-lane)
   // — an acetate's label is tinted to the lane its pitch touches.
-  const LANE_HUE = { 0: 341, 1: 175, 2: 270, 3: 33, 4: 152, 5: 315, 6: 210, 7: 228 };
+  const LANE_HUE = SDJ.LANE_HUE = { 0: 341, 1: 175, 2: 270, 3: 33, 4: 152, 5: 315, 6: 210, 7: 228 };
+
+  // Groove geometry, shared so the lane home grooves (radiusFor) and the etched
+  // decorative grooves stay locked together instead of drifting apart. Slope is
+  // slightly compressed from the old 6.2 so lane 7 + its twin/halo stays clear
+  // of the rim (worst case now < ~90 rather than grazing r≈97).
+  const GROOVE0 = 40, GROOVE_STEP = 5.9;
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -47,7 +54,10 @@
 
   // A lane's home groove. Fixed per lane (not per accretion order), so the same
   // part always sits at the same radius on every disc it appears on.
-  function radiusFor(lane) { return 41 + (lane == null ? 0 : lane) * 6.2; }
+  function radiusFor(lane) {
+    const r = GROOVE0 + 1 + (lane == null ? 0 : lane) * GROOVE_STEP;
+    return r > 84 ? 84 : r; // outer clamp: keep the worst lane clear of the rim
+  }
 
   function circ(rad, colour, w, o, extra) {
     return '<circle cx="100" cy="100" r="' + rad.toFixed(1) + '" fill="none" stroke="' + colour +
@@ -60,6 +70,9 @@
   // it faint (used inside a drop mark to show what's coming off).
   function laneRing(lane, colour, mode, variant) {
     const v = (variant || 0) >>> 0;
+    // A deterministic 0..4 spread off the variant, so reworks vary the halo/air/
+    // chord geometry across five steps instead of repeating every three (v % 3).
+    const vs = (Math.imul(v, 2654435761) >>> 0) % 5;
     const rad = radiusFor(lane);
     const c = 2 * Math.PI * rad;
     const dim = mode === 'ghost' ? 0.35 : 1;
@@ -78,17 +91,17 @@
       case 1: // hats — a run of fine ticks
         return ring(1.9, 0.85, seg(24, 0.42));
       case 2: // bass — a solid core whose sub weight swells with the cut
-        return ring(5.5 + (v % 3), 0.2) + ring(2.7, 0.9);
+        return ring(5.5 + vs * 0.66, 0.2) + ring(2.7, 0.9);
       case 3: // clap — two backbeat arcs
         return ring(3.1, 0.85, seg(2, 0.3) + ' stroke-linecap="round"');
       case 4: { // chords — a stacked voicing whose spread follows the cut
-        const gap = 1.7 + (v % 3) * 0.35;
+        const gap = 1.7 + vs * 0.23;
         return ring(1.2, 0.75, '', rad - gap) + ring(1.6, 0.9) + ring(1.2, 0.75, '', rad + gap);
       }
       case 5: // lead — a melody of dots
         return ring(2.7, 0.9, ' stroke-dasharray="0.01 ' + (c / 14).toFixed(1) + '" stroke-linecap="round"' + rot);
       case 6: // air — a soft band that widens with the cut
-        return ring(4.8 + (v % 3) * 0.7, 0.34);
+        return ring(4.8 + vs * 0.47, 0.34);
       case 7: // fill — one rising arc, a burst rather than a loop
         return ring(2.8, 0.9, seg(1, 0.3) + ' stroke-linecap="round"');
       default:
@@ -159,12 +172,14 @@
     const name = esc(String(opts.name || '').slice(0, 22).toUpperCase());
     let marks = opts.marks || '';
     (opts.rings || []).forEach(function (col, k) { marks += laneRing(k, col, 'press', 0); });
-    const uid = 'vin' + seed.toString(36) + (marks.length % 97) + (ghost ? 'g' : '') + name.length;
+    // Fold a hash of the marks (not just their length) into the id so two
+    // same-seed discs with different marks on one page never collide on SVG ids.
+    const uid = 'vin' + seed.toString(36) + hashStr(marks).toString(36) + (ghost ? 'g' : '') + name.length;
 
     // faint pressing grooves so the disc reads as vinyl, not a flat circle
     let grooves = '';
     for (let i = 0; i < 9; i++) {
-      const rad = 40 + i * 6.4;
+      const rad = GROOVE0 + i * GROOVE_STEP; // same base/step as the lane home grooves
       grooves += '<circle cx="100" cy="100" r="' + rad.toFixed(1) +
         '" fill="none" stroke="rgba(255,255,255,' + (0.025 + Rng.int(r, 0, 3) * 0.01).toFixed(3) +
         ')" stroke-width="1"/>';
@@ -190,7 +205,7 @@
       : '';
     const sub = opts.sub
       ? '<text x="100" y="121" text-anchor="middle" font-size="6.5" letter-spacing="1" ' +
-        'fill="rgba(255,255,255,0.68)">' + esc(opts.sub) + '</text>'
+        'fill="rgba(255,255,255,0.68)">' + esc(String(opts.sub).slice(0, 18)) + '</text>'
       : '';
 
     const rim = ghost && opts.colour

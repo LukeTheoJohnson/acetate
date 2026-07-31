@@ -210,23 +210,28 @@
     // The power chord — root, fifth, octave in degree space — is the rock and
     // metal wall of sound: no third, so it reads neither major nor minor.
     VOICINGS: ['triad', 'seventh', 'sixth', 'ninth', 'quartal', 'shell', 'sus4', 'spread', 'power'],
-    voicing(kind, d) {
+    // `pentatonic` caps the widest extensions: in a 5-note scale a scale-degree
+    // step spans a bigger interval, so d+8/d+9 blow out ~1.8 octaves. Pull the
+    // top voice of `ninth`/`spread` in a step so they stay under an octave.
+    voicing(kind, d, pentatonic) {
       switch (kind) {
         case 'seventh': return [d, d + 2, d + 4, d + 6];
         case 'sixth':   return [d, d + 2, d + 4, d + 5];
-        case 'ninth':   return [d, d + 2, d + 4, d + 6, d + 8];
+        case 'ninth':   return pentatonic ? [d, d + 2, d + 4, d + 6] : [d, d + 2, d + 4, d + 6, d + 8];
         case 'quartal': return [d, d + 3, d + 6];        // stacked fourths
         case 'shell':   return [d, d + 2, d + 6];        // 3rd + 7th, drop the 5th
         case 'sus4':    return [d, d + 3, d + 4];        // suspended 4th
-        case 'spread':  return [d, d + 4, d + 9];        // open: root, 5th, 9th up top
+        case 'spread':  return pentatonic ? [d, d + 4, d + 7] : [d, d + 4, d + 9]; // open: root, 5th, 9th (capped for pentatonic)
         case 'power':   return [d, d + 4, d + 7];        // root–fifth–octave — rock/metal
         default:        return [d, d + 2, d + 4];        // triad
       }
     },
 
-    // Per-cycle chord sequence in a named voicing, e.g. voicingSeq([0,5],'ninth')
-    voicingSeq(prog, kind) {
-      return '<' + prog.map((d) => '[' + Theory.voicing(kind, d).join(',') + ']').join(' ') + '>';
+    // Per-cycle chord sequence in a named voicing, e.g. voicingSeq([0,5],'ninth').
+    // `pentatonic` (optional) caps the widest extensions so 5-note scales don't
+    // blow out ~1.8 octaves — see voicing().
+    voicingSeq(prog, kind, pentatonic) {
+      return '<' + prog.map((d) => '[' + Theory.voicing(kind, d, pentatonic).join(',') + ']').join(' ') + '>';
     },
 
     // A walking bassline for the progression: each chord's root, then a single
@@ -238,7 +243,10 @@
       for (let i = 0; i < prog.length; i++) {
         const root = prog[i];
         const next = prog[(i + 1) % prog.length];
-        const step = next > root ? 1 : next < root ? -1 : 1;
+        // When the next chord repeats the tonic there's no target to walk into,
+        // so give the passing tone contour: alternate the leading step by index
+        // parity (up on even bars, down on odd) instead of always walking up.
+        const step = next > root ? 1 : next < root ? -1 : (i % 2 === 0 ? 1 : -1);
         out.push('[' + root + ' ' + (root + step) + ']');
       }
       return '<' + out.join(' ') + '>';

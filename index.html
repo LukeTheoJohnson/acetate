@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
   <!-- Strudel live-coding engine (exposes initStrudel/evaluate/hush globally) -->
-  <script src="https://unpkg.com/@strudel/web@latest"></script>
+  <script src="https://unpkg.com/@strudel/web@1.3.0" defer></script>
 </head>
 <body data-view="menu">
   <header class="topbar">
@@ -24,31 +24,31 @@
     <div id="transport" class="transport player" hidden>
       <canvas id="playerViz" class="player-viz" aria-hidden="true"></canvas>
       <span class="tp-label"><span id="tpKind" class="tp-kind live">live</span><b id="tpName">—</b></span>
-      <button id="tpStop" class="btn small" title="Stop playback">⏹</button>
+      <button id="tpStop" class="btn small" title="Stop playback" aria-label="Stop playback"><span aria-hidden="true">⏹</span></button>
     </div>
     <!-- status kept for screen readers / errors; not shown (visually stripped) -->
     <p id="status" class="status sr-only" aria-live="polite">Loading…</p>
   </header>
 
   <!-- ══ MENU: signal-bloom hub — a video-game channel select ════════════ -->
-  <main class="view view-menu" data-view="menu">
+  <main class="view view-menu" data-view="menu" id="menu">
     <canvas id="menuViz" class="menu-viz" aria-hidden="true"></canvas>
     <div class="menu-grain" aria-hidden="true"></div>
 
     <div class="menu-hub">
       <h1 class="menu-word">Acetate</h1>
 
-      <div class="menu-channels" id="menuChannels" role="menu" aria-label="main menu">
-        <a class="channel" role="menuitem" href="#live">Live Set</a>
-        <a class="channel" role="menuitem" href="#crate">Crate</a>
-        <a class="channel" role="menuitem" href="#remix">Remix</a>
-        <a class="channel" role="menuitem" href="#" data-action="visuals">Visuals</a>
-      </div>
+      <nav class="menu-channels" id="menuChannels" aria-label="Main menu">
+        <a class="channel" href="#live">Live Set</a>
+        <a class="channel" href="#crate">Crate</a>
+        <a class="channel" href="#remix">Remix</a>
+        <a class="channel" href="#" data-action="visuals">Visuals</a>
+      </nav>
     </div>
   </main>
 
   <!-- ══ LIVE: two turntables + a console — the track is a record being cut ══ -->
-  <main class="view view-live stage" data-view="live" hidden>
+  <main class="view view-live stage" data-view="live" id="live" hidden>
     <!-- ── THE RIG: Deck A (the track so far) · switch · Deck B (the pitch) ── -->
     <section class="rig panel">
       <div class="rig-head">
@@ -157,11 +157,11 @@
 
     <!-- ── CODE: the live Strudel the DJ is running, syntax-highlighted ──── -->
     <section class="codepanel panel">
-      <h3>&lt;/&gt; The live code</h3>
+      <h3><span aria-hidden="true">&lt;/&gt;</span> The live code</h3>
       <!-- the direction box: optional free text that steers what the DJ pitches -->
       <div class="curate">
         <input id="curateInput" class="curate-input" type="text" maxlength="120" spellcheck="false"
-               placeholder="Direction (optional) — e.g. no hihats, darker, slower"
+               placeholder="Direction (optional) — e.g. no hi-hats, darker, slower"
                aria-label="curation directions for the DJ" />
         <div id="curateChips" class="curate-chips" aria-live="polite"></div>
       </div>
@@ -174,19 +174,19 @@
   <main class="view view-crate" data-view="crate" hidden>
     <section class="crate-page panel">
       <div class="crate-page-head">
-        <h2>🗃 The crate <small>your pressed records</small></h2>
+        <h2><span aria-hidden="true">🗃</span> The crate <small>your pressed records</small></h2>
         <div class="crate-tools">
           <select id="crateSort" class="crate-sort" aria-label="sort records">
             <option value="new">Newest</option>
             <option value="hype">Top hype</option>
             <option value="name">A–Z</option>
           </select>
-          <button id="crateExport" class="btn ghost small" title="Download the crate as JSON">⬇ Export</button>
-          <label class="btn ghost small filelabel" title="Merge in a crate JSON">⬆ Import
+          <button id="crateExport" class="btn ghost small" title="Download the crate as JSON"><span aria-hidden="true">⬇</span> Export</button>
+          <label class="btn ghost small filelabel" title="Merge in a crate JSON"><span aria-hidden="true">⬆</span> Import
             <input id="crateImport" type="file" accept="application/json,.json" hidden />
           </label>
-          <a class="btn ghost small" href="#remix">🎚 Remix</a>
-          <a class="btn ghost small" href="#live">▶ Go live</a>
+          <a class="btn ghost small" href="#remix"><span aria-hidden="true">🎚</span> Remix</a>
+          <a class="btn ghost small" href="#live"><span aria-hidden="true">▶</span> Go live</a>
         </div>
       </div>
       <ul id="crate" class="crate"></ul>
@@ -197,11 +197,11 @@
   <!-- The phrase is the clock: a 32-bar timeline drives quantised ARM        -->
   <!-- transitions; each deck splits into stems and owns a filter sweep; three -->
   <!-- hold-to-fire paddles ride the master. Wired in src/app.js (initRemix). -->
-  <main class="view view-remix" data-view="remix" hidden>
+  <main class="view view-remix" data-view="remix" id="remix" hidden>
     <section class="remix-console panel">
       <div class="remix-head">
         <div>
-          <h2>🎛 Remix <small>the authentic deck</small></h2>
+          <h2><span aria-hidden="true">🎛</span> Remix <small>the authentic deck</small></h2>
           <p class="track-meta">Pull sleeves onto Deck&nbsp;A and Deck&nbsp;B, then ARM a transition on the phrase line and work the stems, filters and paddles.</p>
         </div>
       </div>
@@ -287,7 +287,7 @@
 
       <!-- MASTER BAR: transport · hold-to-fire paddles · nudge · press -->
       <div class="rx-master">
-        <button id="remixStart" class="btn primary rx-play" disabled>▶ Play</button>
+        <button id="remixStart" class="btn primary rx-play" disabled><span aria-hidden="true">▶</span> Play</button>
         <span class="rx-paddles" aria-label="hold-to-fire FX paddles">
           <button class="rx-paddle" id="padStutter">STUTTER<small>ply ×4</small></button>
           <button class="rx-paddle" id="padGate">GATE<small>1 0 1 0</small></button>
@@ -295,7 +295,7 @@
         </span>
         <span class="rx-nudge">Nudge<input type="range" id="nudge" min="-8" max="8" step="0.5" value="0" aria-label="tempo nudge" /><b id="nudgeVal">+0.0%</b></span>
         <span class="rx-tempo" id="tempo">— cps</span>
-        <button id="remixSave" class="btn ghost rx-press" title="Cut this blend as a new dubplate" disabled>◉ Cut to crate</button>
+        <button id="remixSave" class="btn ghost rx-press" title="Cut this blend as a new dubplate" disabled><span aria-hidden="true">◉</span> Cut to crate</button>
       </div>
 
       <div class="remix-roll">
@@ -311,9 +311,9 @@
   </div>
 
   <!-- ══ PRESS: the save moment — cut this track to a record ═════════════ -->
-  <div id="pressModal" class="press-modal" hidden>
+  <div id="pressModal" class="press-modal" hidden role="dialog" aria-modal="true" aria-labelledby="press-title">
     <div class="press-sheet">
-      <h3 class="press-title">Cut a dubplate</h3>
+      <h3 id="press-title" class="press-title">Cut a dubplate</h3>
       <p id="pressVersion" class="press-version">—</p>
       <div class="press-disc-wrap"><div id="pressDisc" class="disc press-disc"></div></div>
       <label class="press-name-label">Name on the label
@@ -321,8 +321,8 @@
       </label>
       <p id="pressMeta" class="track-meta">—</p>
       <div class="press-format" role="radiogroup" aria-label="press format">
-        <button id="pressFull" class="pf-btn on" title="Render the record as a full arranged track">Arranged track</button>
-        <button id="pressLoop" class="pf-btn" title="Bank the raw loop as it plays now">Loop</button>
+        <button id="pressFull" class="pf-btn on" role="radio" aria-checked="true" title="Render the record as a full arranged track">Arranged track</button>
+        <button id="pressLoop" class="pf-btn" role="radio" aria-checked="false" title="Bank the raw loop as it plays now">Loop</button>
       </div>
       <p id="pressFormatHint" class="pf-hint">a 36-bar journey: intro → build → peak → strip → peak → outro</p>
       <div class="press-actions">
@@ -338,7 +338,6 @@
   <script src="src/names.js"></script>
   <script src="src/dj.js"></script>
   <script src="src/curate.js"></script>
-  <script src="src/viz.js"></script>
   <script src="src/log.js"></script>
   <script src="src/art.js"></script>
   <script src="src/vinyl.js"></script>

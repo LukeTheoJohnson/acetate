@@ -25,13 +25,19 @@
   const peaks = new Float32Array(NBINS);  // slow-falling peak-hold caps
   const NPART = 6;
   const parts = [];
+  // Seed the partial layout once, deterministically (mirrors how visualiser.js
+  // seeds its one-off layouts) — never Math.random, so the menu is resume-safe
+  // and reads identically every load.
+  const seedRng = (SDJ.Rng && SDJ.Rng.make)
+    ? SDJ.Rng.make(0x5eed11fe >>> 0)
+    : (function () { let s = 1234567; return function () { s = (s * 16807) % 2147483647; return s / 2147483647; }; })();
   for (let i = 0; i < NPART; i++) {
     parts.push({
-      pos: Math.random(),                 // 0..1 position across the spectrum
-      vel: (Math.random() * 2 - 1) * 0.03,
-      width: 0.03 + Math.random() * 0.06,
-      amp: 0.4 + Math.random() * 0.7,
-      ph: Math.random() * Math.PI * 2,
+      pos: seedRng(),                       // 0..1 position across the spectrum
+      vel: (seedRng() * 2 - 1) * 0.03,
+      width: 0.03 + seedRng() * 0.06,
+      amp: 0.4 + seedRng() * 0.7,
+      ph: seedRng() * Math.PI * 2,
     });
   }
 
@@ -70,7 +76,8 @@
       v += bump * (0.6 + 0.4 * Math.sin(t * 3 + pt.ph));
     }
     v += beat * Math.exp(-x * 6) * 0.3;        // kick lifts the low end (gently)
-    v += 0.025 * Math.random();                // noise floor
+    // deterministic, allocation-free noise floor (resume-safe; drifts off t)
+    v += 0.025 * (Math.sin(i * 12.9898 + t * 0.7) * 0.5 + 0.5);
     return v;
   }
 
@@ -86,7 +93,9 @@
     let y = Math.sin(k) + 0.5 * Math.sin(2 * k + 0.6) + 0.33 * Math.sin(3 * k + 1.2) + 0.16 * Math.sin(5 * k);
     y /= 1.99;
     const env = 0.72 + 0.28 * Math.sin(t * 0.9 + u * Math.PI * 3);
-    return (y + (Math.random() - 0.5) * 0.02) * env * (0.78 + 0.22 * beat);
+    // deterministic dither (resume-safe): a cheap t-driven hash, centred on 0
+    const dither = (Math.sin(u * 78.233 + t * 11.3) * 0.5) * 0.02;
+    return (y + dither) * env * (0.78 + 0.22 * beat);
   }
 
   // Map an FFT frame onto the NBINS display bins — the lower ~55% of the spectrum,
@@ -266,6 +275,11 @@
     wired = true;
   }
 
+  function prefersReducedMotion() {
+    return typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
   function enter() {
     if (!ensure()) return;
     active = true;
@@ -274,6 +288,8 @@
     select(sel);
     resize();
     lastTs = window.performance ? performance.now() : Date.now();
+    // Respect reduced-motion: paint one calm static frame, skip the rAF loop.
+    if (prefersReducedMotion()) { step(0.016); draw(); return; }
     if (!raf) raf = requestAnimationFrame(loop);
   }
 

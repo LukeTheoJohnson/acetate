@@ -28,19 +28,32 @@
   // Returns { live, freq, wave, level, bass }. `live` is false until something is
   // actually feeding the analyser, so callers can pick an idle animation instead.
   let freqBuf = null, waveBuf = null;
+  // Memoise the analyser read per frame: every frame loop calls bumpFrame() at
+  // the top of its rAF tick, and read() reuses one sum/bass computation across
+  // the three mounts + the menu instead of re-summing the analyser per caller.
+  let frameToken = 0, readToken = -1, readCache = { live: false, freq: null, wave: null, level: 0, bass: 0 };
+  function bumpFrame() { frameToken++; }
   function read() {
+    if (readToken === frameToken) return readCache;
+    readToken = frameToken;
     const an = (typeof SDJ.getAnalyser === 'function') ? SDJ.getAnalyser() : null;
     if (!an || typeof an.getByteFrequencyData !== 'function') {
-      return { live: false, freq: null, wave: null, level: 0, bass: 0 };
+      readCache = { live: false, freq: null, wave: null, level: 0, bass: 0 };
+      return readCache;
     }
     const n = an.frequencyBinCount;
-    if (!freqBuf || freqBuf.length !== n) { freqBuf = new Uint8Array(n); waveBuf = new Uint8Array(n); }
+    // waveBuf must be fftSize long (getByteTimeDomainData writes fftSize bytes);
+    // freqBuf stays at frequencyBinCount (= fftSize / 2).
+    const wn = an.fftSize || (n * 2);
+    if (!freqBuf || freqBuf.length !== n) freqBuf = new Uint8Array(n);
+    if (!waveBuf || waveBuf.length !== wn) waveBuf = new Uint8Array(wn);
     an.getByteFrequencyData(freqBuf);
     an.getByteTimeDomainData(waveBuf);
     let sum = 0; for (let i = 0; i < n; i++) sum += freqBuf[i];
     const bn = Math.max(1, n >> 5);
     let bs = 0; for (let i = 0; i < bn; i++) bs += freqBuf[i];
-    return { live: sum > 8, freq: freqBuf, wave: waveBuf, level: sum / (n * 255), bass: bs / (bn * 255) };
+    readCache = { live: sum > 8, freq: freqBuf, wave: waveBuf, level: sum / (n * 255), bass: bs / (bn * 255) };
+    return readCache;
   }
 
   // ---- song-aware palette: approved lanes colour the picture ---------------
@@ -53,11 +66,16 @@
     return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
   }
   const FALLBACK = [hexToRgb(COOL), hexToRgb(WARM)];
-  let palCache = FALLBACK, palTime = -1e9;
-  function palette() {
-    const now = Date.now();
-    if (now - palTime < 1000) return palCache;
-    palTime = now;
+  // `palLive` records whether the last palette came from the engine (a real set)
+  // or is the cyan/amber fallback, so callers (e.g. drawStrip) can colour off it.
+  let palCache = FALLBACK, palLive = false, palClock = -1e9;
+  // Throttle on the instance frame clock `t` (seconds) passed in — no Date.now
+  // on the hot path. `t` only moves while a loop runs, so this refreshes ~1 Hz
+  // and pauses cleanly with the animation.
+  function palette(t) {
+    if (t == null) t = palClock; // no clock (e.g. jsdom) → don't force a refresh
+    if (t - palClock < 1 && t >= palClock) return palCache;
+    palClock = t;
     let cols = null;
     try {
       const st = (SDJ.engine && typeof SDJ.engine.state === 'function') ? SDJ.engine.state() : null;
@@ -69,21 +87,50 @@
         }
       }
     } catch (e) { cols = null; }
-    palCache = (cols && cols.length) ? cols : FALLBACK;
+    palLive = !!(cols && cols.length);
+    palCache = palLive ? cols : FALLBACK;
     return palCache;
+  }
+  function paletteLive() { return palLive; }
+
+  // A ring of solid rgb() strings sampled around the palette, memoised on the
+  // palette array identity (palette() returns a stable cached array between
+  // refreshes). Callers index it with a wrapped position and set their own
+  // ctx.globalAlpha, so the 96-bar floor loop stops interpolating + formatting a
+  // colour per bar every frame. RING_SLOTS ≫ bar count, so colour is unchanged.
+  const RING_SLOTS = 128;
+  let ringPal = null, ringArr = null;
+  function palRing() {
+    if (ringPal === palCache && ringArr) return ringArr;
+    ringPal = palCache;
+    ringArr = new Array(RING_SLOTS);
+    for (let i = 0; i < RING_SLOTS; i++) {
+      const s = palCol(palCache, i / RING_SLOTS, 1); // solid; alpha applied by caller
+      // strip 'rgba(r,g,b,1)' → 'rgb(r,g,b)' so fillStyle is a plain solid colour
+      ringArr[i] = 'rgb(' + s.slice(5, s.lastIndexOf(',')) + ')';
+    }
+    return ringArr;
+  }
+  function ringAt(ring, u) {
+    let idx = ((u % 1 + 1) % 1) * RING_SLOTS | 0;
+    if (idx >= RING_SLOTS) idx = RING_SLOTS - 1;
+    return ring[idx];
   }
 
   // Continuous colour around the palette ring: u wraps, neighbours blend.
+  // Hot path: guard an empty palette (no NaN), and quantise alpha with a cheap
+  // integer op instead of toFixed(3) — visually identical to 3 dp, far cheaper.
   function palCol(pal, u, alpha) {
     const n = pal.length;
+    if (!n) return 'rgba(40,200,224,0)';
     const p = (u % 1 + 1) % 1 * n;
     const i = p | 0, k = p - i;
     const c1 = pal[i % n], c2 = pal[(i + 1) % n];
     const r = (c1[0] + (c2[0] - c1[0]) * k) | 0;
     const g = (c1[1] + (c2[1] - c1[1]) * k) | 0;
     const b = (c1[2] + (c2[2] - c1[2]) * k) | 0;
-    const a = alpha < 0 ? 0 : alpha > 1 ? 1 : alpha;
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a.toFixed(3) + ')';
+    const a = alpha < 0 ? 0 : alpha > 1 ? 1 : (alpha * 1000 | 0) / 1000;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
   }
 
   function noop() { return { start: function () {}, stop: function () {}, resize: function () {}, destroy: function () {} }; }
@@ -102,14 +149,28 @@
 
     let W = 0, H = 0, dpr = 1, raf = 0, on = false, last = 0, t = 0;
     let dtNow = 0.016; // the current frame's dt, shared with the scene draws
+    // Cached bloom oscilloscope gradient — a positional linear gradient that only
+    // depends on (W, palette, slow drift). Rebuilt only when its key changes
+    // (drift quantised into ~0.02 buckets), not every frame.
+    let scopeGrad = null, scopeKey = '';
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = canvas.clientWidth; H = canvas.clientHeight;
       if (!W || !H) return; // hidden — size when it becomes visible
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Cap the full-screen backing store's longest edge to ~1600px regardless
+      // of DPR — a 4K panel would otherwise render millions of extra fill pixels
+      // per frame for the screensaver. Strip/mini stay full-DPR (they're small).
+      let bsDpr = dpr;
+      if (mode === 'full') {
+        const longest = Math.max(W, H);
+        if (longest * bsDpr > 1600) bsDpr = 1600 / longest;
+      }
+      canvas.width = Math.round(W * bsDpr);
+      canvas.height = Math.round(H * bsDpr);
+      // The 2d transform maps CSS px → backing px, so all draw code keeps using
+      // W/H (CSS px) unchanged and the appearance is identical at normal sizes.
+      ctx.setTransform(bsDpr, 0, 0, bsDpr, 0, 0);
     }
 
     // a soft idle wave so the strip is never a dead flat line between tracks
@@ -130,7 +191,17 @@
       ctx.clearRect(0, 0, W, H);
       const mid = H * 0.5, amp = H * 0.42;
       const grad = ctx.createLinearGradient(0, 0, W, 0);
-      grad.addColorStop(0, COOL); grad.addColorStop(1, WARM);
+      // While a set is live, pull the strip's ends from the approved-lane palette
+      // (its first + last colour) so the top-bar player tints with the track;
+      // otherwise keep the fixed cyan → amber deck pair.
+      const pal = palette(t);
+      if (paletteLive() && pal.length) {
+        const c0 = pal[0], c1 = pal[pal.length - 1];
+        grad.addColorStop(0, 'rgb(' + c0[0] + ',' + c0[1] + ',' + c0[2] + ')');
+        grad.addColorStop(1, 'rgb(' + c1[0] + ',' + c1[1] + ',' + c1[2] + ')');
+      } else {
+        grad.addColorStop(0, COOL); grad.addColorStop(1, WARM);
+      }
       ctx.strokeStyle = grad; ctx.lineWidth = 1.6;
       ctx.globalAlpha = a.live ? 1 : 0.5;
       ctx.beginPath();
@@ -195,26 +266,42 @@
       ctx.fillStyle = core;
       ctx.beginPath(); ctx.arc(cx, cy, cr, 0, TAU); ctx.fill();
 
-      // spectrum along the floor, coloured across the palette left to right
+      // spectrum along the floor, coloured across the palette left to right.
+      // The bar's rgb comes from the precomputed palette ring (one solid string
+      // per slot, built once per palette refresh); alpha rides globalAlpha, so
+      // no per-bar interpolation/formatting. Colour is visually unchanged.
       const bars = MINI ? 40 : 96, baseY = H * 0.84, bw = W / bars, maxH = H * 0.32;
+      const ring = palRing();
       for (let i = 0; i < bars; i++) {
         const uu = i / bars;
         let v;
         if (a.live && a.freq) { const fi = (uu * a.freq.length * 0.6) | 0; v = a.freq[fi] / 255; }
         else v = Math.max(0, 0.4 - Math.abs(uu - 0.5)) * (0.5 + 0.5 * Math.sin(t * 2 + i * 0.3));
         const h = Math.max(2, v * maxH), x = i * bw;
-        ctx.fillStyle = palCol(pal, uu * 0.999 + drift, (0.16 + v * 0.5) * w);
+        const col = ringAt(ring, uu * 0.999 + drift);
+        ctx.fillStyle = col;
+        ctx.globalAlpha = Math.min(1, (0.16 + v * 0.5) * w);
         ctx.fillRect(x + 1, baseY - h, bw - 2, h);
-        ctx.fillStyle = palCol(pal, uu * 0.999 + drift, 0.05 * w);
+        ctx.globalAlpha = Math.min(1, 0.05 * w);
         ctx.fillRect(x + 1, baseY + 2, bw - 2, h * 0.35); // soft reflection
       }
+      ctx.globalAlpha = 1;
 
-      // the big oscilloscope trace across the middle (the one glow pass)
+      // the big oscilloscope trace across the middle (the one glow pass). The
+      // gradient (positional, W + palette + slow drift) is cached and reused
+      // across frames; the crossfade weight `w` rides globalAlpha instead of
+      // being baked into every colour stop, so a fade doesn't force a rebuild.
       const midY = H * (0.42 + 0.03 * Math.sin(t * 0.05)), amp = H * 0.16;
-      const grad = ctx.createLinearGradient(0, 0, W, 0);
-      grad.addColorStop(0, palCol(pal, drift, 0.9 * w));
-      grad.addColorStop(1, palCol(pal, drift + 0.45, 0.9 * w));
-      ctx.strokeStyle = grad; ctx.lineWidth = MINI ? 1.4 : 2.4;
+      const dq = Math.round(drift * 50); // ~0.02 drift buckets
+      const key = W + ':' + palCache + ':' + dq;
+      if (!scopeGrad || scopeKey !== key) {
+        const g = ctx.createLinearGradient(0, 0, W, 0);
+        g.addColorStop(0, palCol(pal, drift, 0.9));
+        g.addColorStop(1, palCol(pal, drift + 0.45, 0.9));
+        scopeGrad = g; scopeKey = key;
+      }
+      ctx.globalAlpha = w;
+      ctx.strokeStyle = scopeGrad; ctx.lineWidth = MINI ? 1.4 : 2.4;
       if (!MINI) { ctx.shadowColor = palCol(pal, drift, 0.8 * w); ctx.shadowBlur = 16; }
       ctx.beginPath();
       const N = MINI ? 72 : Math.max(120, Math.floor(W / 3));
@@ -222,7 +309,7 @@
         const u = i / N, x = u * W, y = midY + sampleWave(a, u) * amp;
         i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
       }
-      ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
     }
 
     // Scene 1 — orbits: a particle field on slowly precessing elliptical
@@ -355,7 +442,7 @@
       const u = t - idx * PERIOD;
       const cur = idx % DRAWS.length, nxt = (idx + 1) % DRAWS.length;
       const f = u < HOLD ? 0 : (u - HOLD) / FADE;
-      const pal = palette();
+      const pal = palette(t);
       ctx.globalCompositeOperation = 'source-over';
       const trail = TRAIL[cur] + (TRAIL[nxt] - TRAIL[cur]) * f;
       ctx.fillStyle = 'rgba(10,11,13,' + trail.toFixed(3) + ')';
@@ -369,25 +456,59 @@
 
     function frame(ts) {
       raf = 0;
+      bumpFrame(); // start a new shared analyser-read frame
       const now = ts || (window.performance ? performance.now() : 0);
       let dt = (now - last) / 1000; if (!(dt > 0) || dt > 0.05) dt = 0.016; last = now;
+      // Skip the draw entirely when the tab is hidden (keep t/last sane so it
+      // resumes cleanly) — the rAF is usually throttled there anyway, but this
+      // guarantees no wasted paint. Also skip the heavy scene draw on a long
+      // hitch (dt > 33ms) so we don't pile a fresh full-frame onto a stall.
+      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
       t += dt; dtNow = dt;
       if (!W || !H) resize();
-      if (W && H) {
+      if (!hidden && W && H && !(sceneMode && dt > 0.033 && t > dt)) {
         const a = read();
         if (sceneMode) drawScenes(a); else drawStrip(a);
       }
       if (on && typeof requestAnimationFrame === 'function') raf = requestAnimationFrame(frame);
     }
 
+    // React to the container resizing (not just window resize) — the mounts sit
+    // in flex/grid panels that change size without a window event. Self-contained
+    // here; disconnected in stop()/destroy() so it never leaks.
+    let ro = null;
+    function observeResize() {
+      if (ro || typeof ResizeObserver !== 'function') return;
+      try {
+        ro = new ResizeObserver(function () { resize(); });
+        ro.observe(canvas);
+      } catch (e) { ro = null; }
+    }
+    function unobserveResize() {
+      if (ro) { try { ro.disconnect(); } catch (e) {} ro = null; }
+    }
+
+    function reducedMotion() {
+      return typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
     function start() {
       if (on) return;
       on = true; resize();
+      observeResize();
       last = window.performance ? performance.now() : 0;
+      // Respect reduced-motion: paint one static frame and skip the rAF loop.
+      if (reducedMotion()) {
+        bumpFrame();
+        if (W && H) { const a = read(); if (sceneMode) drawScenes(a); else drawStrip(a); }
+        return;
+      }
       if (typeof requestAnimationFrame === 'function') raf = requestAnimationFrame(frame);
     }
     function stop() {
       on = false;
+      unobserveResize();
       if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
       raf = 0;
     }

@@ -11,13 +11,16 @@
   const Rng = SDJ.Rng;
 
   // A signature hue per arrangement layer (kick..air), so the palette reads as
-  // "this is the bass" at a glance. Falls back to a seeded hue if unknown.
-  const LAYER_HUE = { 0: 352, 1: 190, 2: 275, 3: 33, 4: 150, 5: 320, 6: 210 };
+  // "this is the bass" at a glance. Falls back to a seeded hue if unknown. The
+  // table lives once on SDJ.LAYER_HUE (defined in vinyl.js) — read lazily inside
+  // cover() because vinyl.js loads AFTER art.js, so it isn't there at eval time.
+  const LAYER_HUE_FALLBACK = { 0: 352, 1: 190, 2: 275, 3: 33, 4: 150, 5: 320, 6: 210 };
 
   function cover(layer, variant, seed) {
     const r = Rng.make(
       (((seed >>> 0) ^ ((layer + 1) * 0x9e3779b1) ^ ((variant + 1) * 0x85ebca77)) >>> 0)
     );
+    const LAYER_HUE = SDJ.LAYER_HUE || LAYER_HUE_FALLBACK;
     const hue = LAYER_HUE[layer] != null ? LAYER_HUE[layer] : Rng.int(r, 0, 360);
     const gid = 'g' + layer + '_' + variant + '_' + (seed >>> 0).toString(36);
     const bg1 = 'hsl(' + hue + ', 62%, 15%)';

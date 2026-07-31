@@ -13,6 +13,17 @@
   const MIN_FULL = 6;   // active layers that make a track "full" — the DJ then offers a save
   const SAVE_SNOOZE = 4; // pitches to wait before re-offering a save you declined
 
+  // ---- named magic numbers (hoisted from scattered literals) --------------
+  const EVAL_THROTTLE_MS = 150; // crossfader / remix fader evaluate() throttle (CLAUDE.md says ~130ms; code uses 150)
+  const SILENCE_BEAT_MS = 60;   // enforceSilence() re-hush cadence while an evaluate may be in-flight
+  const PRESS_DROP_MS = 520;    // the press modal's "disc drops into the crate" animation length
+  const DROPPED_MSG_MS = 1800;  // how long the remix "dropped!" flash stays up
+  const FEED_MAX = 40;          // most rows kept in the DJ feed / set history
+  const REMIX_GAIN_SCALE = 0.95; // crossfade headroom so summed decks don't clip
+  const AMBIENT_GAIN = 0.3;     // menu-ambience duck level
+  const CHIP_FLASH_MS = 2600;   // transient status/curation chip lifetime
+  const LANE_COUNT = (SDJ.STAGES || []).length || 7; // arrangement lane count (the "/7 parts" denominator)
+
   const engine = new SDJ.DJEngine();
   let started = false; // Strudel initialised
   let running = false; // live set in progress
@@ -31,6 +42,7 @@
   let liveVizInst = null;   // the Live floor's compact scene tile (shared visualiser, 'mini')
   let pressOrigin = null; // 'button' | 'prompt' while the pressing modal is open
   let pressFormat = 'arranged'; // what a press banks: 'arranged' (36-bar track) | 'loop'
+  let savedFocus = null;  // the element focused before the press modal opened (restored on close)
 
   // ---- remix deck state (a saved record looped as a bed + vocal/overlays) --
   let remixPlaying = false; // the remix deck is live (external transport checks this)
@@ -131,6 +143,10 @@
     });
     // crate library tools
     if (el.crateSort) el.crateSort.addEventListener('change', () => { crateSort = el.crateSort.value; renderCrate(); });
+    // ONE delegated listener for every crate row's action buttons — bound once
+    // here, not rebound on each renderCrate(), and resolving the entry by its
+    // stable id at click time (see onCrateClick).
+    if (el.crate) el.crate.addEventListener('click', onCrateClick);
     if (el.crateExport) el.crateExport.addEventListener('click', exportCrate);
     if (el.crateImport) el.crateImport.addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) importCrate(f); e.target.value = ''; });
     // remix console — the Authentic Deck (two-deck DJ console)
@@ -143,7 +159,7 @@
     renderRemixShelf();
     syncDeckButtons();
     onRoute(); // show the view named in the URL hash (defaults to the menu)
-    window.addEventListener('resize', sizeRolls);
+    window.addEventListener('resize', onResize);
     sizeRolls();
     setStatus('Press “Start the set” to bring the DJ up. Audio needs a click to begin.');
   }
@@ -168,7 +184,9 @@
     try {
       await window.initStrudel();
     } catch (err) {
-      console.error(err);
+      console.error('initStrudel failed:', err);
+      setStatus('⚠ The audio engine didn’t start — try a hard refresh.');
+      return false; // leave started=false: never report audio ready when init threw
     }
     if (typeof window.samples === 'function') {
       setStatus('Loading sounds…');
@@ -237,6 +255,10 @@
     resetControls();         // neutral board — parts on auto, density held
     resetMind();
     saveCooldown = 0;
+    // a fresh song hasn't had any mood/tempo direction applied to it yet, so the
+    // first such direction after a new track must re-apply (not be swallowed as
+    // "unchanged" against the previous song's state)
+    curLiveApplied = { mood: null, tempo: null };
     // typed directions persist across tracks — re-stamp them on the fresh song
     // (must run AFTER resetControls(), which zeroes the opinions it re-sets)
     if (curDirectives) renderCurateChips(curDirectives, applyCurationToSong(curDirectives));
@@ -352,9 +374,11 @@
     setDeckSpin();
   }
 
-  // Approve (keep) or skip the pitched change / press prompt.
+  // Approve (keep) or skip the pitched change / press prompt. Returns whether it
+  // acted (false when there was nothing on the card to judge) so headless callers
+  // can tell a no-op from a real decision.
   function liveDecide(keep) {
-    if (!running || !pitching) return;
+    if (!running || !pitching) return false;
     if (pitching === 'save') {
       if (keep) {
         openPress('prompt');      // name it, see what's banked, press it
@@ -363,9 +387,9 @@
         pushFeed('→', 'kept going', 'declined the press', 'flat');
         livePitch();
       }
-      return;
+      return true;
     }
-    if (!engine.song.pending) { livePitch(); return; }
+    if (!engine.song.pending) { livePitch(); return false; }
     const wasBlended = abMix < 0.999; // the fader sat mid-blend when judged
     const p = keep ? engine.acceptChange() : engine.rejectChange();
     if (SDJ.SetLog) SDJ.SetLog.mark('vote', { v: keep ? 'up' : 'down', desc: p.desc });
@@ -375,6 +399,7 @@
     if (!keep || wasBlended) evaluateCurrent(false);
     pitching = false;
     livePitch();
+    return true;
   }
 
   // ---- the A/B switch: hear the pitch against the committed track ----
@@ -393,10 +418,12 @@
     if (el.deckBPlatter) el.deckBPlatter.classList.toggle('hot', abMix >= 0.5);
   }
 
+  // Returns whether the new mix actually reached the speakers (there's a pending
+  // pitch to blend) — a headless caller can tell a live blend from a silent no-op.
   function setAbMix(v) {
     abMix = clamp(v, 0, 1);
     reflectAb();
-    evaluateAb();
+    return evaluateAb();
   }
 
   // Flip → hear it or don't. Snaps to Deck A (0) or Deck B (1), no partial blend.
@@ -406,13 +433,17 @@
   }
 
   function evaluateAb() {
-    if (!running || !pitching || pitching === 'save') return;
-    if (!engine.song || !engine.song.pending || !engine.renderAB) return;
+    if (!running || !pitching || pitching === 'save') return false;
+    if (!engine.song || !engine.song.pending || !engine.renderAB) return false;
     play(withRoll(engine.renderAB(abMix)), 'live', engine.song.name);
+    return true;
   }
 
   function showFader(on) {
     if (el.abWrap) el.abWrap.classList.toggle('off', !on);
+    // the A/B switch is a real keyboard-operable control — disable it when the
+    // fader's hidden so it isn't a dead tab-stop that flips nothing
+    if (el.abSwitch) el.abSwitch.disabled = !on;
   }
 
   // ---- the records on the platters ---------------------------------------
@@ -524,6 +555,15 @@
   function sizeRemixRoll() { sizeCanvas(el.remixRoll); }
   function sizeRolls() { sizeRoll(); sizeRemixRoll(); }
 
+  // Coalesce a burst of resize events into one canvas re-size next frame, so we
+  // don't reallocate the backing stores on every pixel of a drag.
+  let resizeRaf = 0;
+  function onResize() {
+    if (resizeRaf) return;
+    if (typeof requestAnimationFrame !== 'function') { sizeRolls(); return; }
+    resizeRaf = requestAnimationFrame(() => { resizeRaf = 0; sizeRolls(); });
+  }
+
   function clearRoll() {
     if (SDJ._rollCtx && el.roll) SDJ._rollCtx.clearRect(0, 0, el.roll.width, el.roll.height);
   }
@@ -599,6 +639,9 @@
   let silenceUntil = 0;
   let silenceTimer = null;
   function enforceSilence() {
+    // stop any beat loop already scheduled so we never run two in parallel (each
+    // would keep re-arming its own timeout and double the hush cadence)
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
     silenceUntil = Infinity; // run until cancelSilence(), not a fixed window
     const beat = () => {
       silenceTimer = null;
@@ -607,7 +650,7 @@
       if (typeof window.evaluate === 'function') {
         try { Promise.resolve(window.evaluate('silence')).catch(() => {}); } catch (e) { /* ignore */ }
       }
-      silenceTimer = setTimeout(beat, 60);
+      silenceTimer = setTimeout(beat, SILENCE_BEAT_MS);
     };
     beat();
   }
@@ -664,14 +707,15 @@
   }
 
   function openPress(origin) {
-    if (!engine.song) return;
+    if (!engine.song) return false;
+    savedFocus = (document && document.activeElement) || null; // restore focus on close
     pressOrigin = origin || 'button';
     const st = engine.state();
     const n = (committedActive() || []).filter(Boolean).length;
     if (el.pressName) el.pressName.value = engine.song.name || '';
     if (el.pressMeta) {
       el.pressMeta.textContent = st.key + ' ' + st.scaleType + ' · ' + st.bpm + ' BPM' +
-        (st.genreLabel ? ' · ' + st.genreLabel : '') + ' · ' + n + '/7 parts';
+        (st.genreLabel ? ' · ' + st.genreLabel : '') + ' · ' + n + '/' + LANE_COUNT + ' parts';
     }
     if (el.pressVersion) {
       el.pressVersion.textContent = (engine.song.pending && pitching && pitching !== 'save')
@@ -681,7 +725,37 @@
     setPressFormat('arranged'); // the shippable default; Loop is one tap away
     renderPressDisc();
     if (el.pressModal) { el.pressModal.hidden = false; el.pressModal.classList.remove('pressed'); }
+    document.addEventListener('keydown', onPressKey); // Esc closes, Tab wraps focus
     if (el.pressName && el.pressName.focus) el.pressName.focus();
+    return true;
+  }
+
+  // Focusable controls inside the modal, in tab order.
+  function pressFocusables() {
+    return [el.pressName, el.pressFull, el.pressLoop, el.pressCancel, el.pressConfirm]
+      .filter((n) => n && !n.disabled && !n.hidden);
+  }
+
+  // While the modal is open: Esc cancels; Tab is trapped and wraps at the ends so
+  // focus can't escape to the page behind the dialog (aria-modal in the HTML).
+  function onPressKey(e) {
+    if (!el.pressModal || el.pressModal.hidden) return;
+    if (e.key === 'Escape' || e.key === 'Esc') { e.preventDefault(); cancelPress(); return; }
+    if (e.key !== 'Tab') return;
+    const items = pressFocusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+    else if (items.indexOf(active) < 0) { e.preventDefault(); first.focus(); }
+  }
+
+  // Tear down the modal's keyboard trap and hand focus back to where it was.
+  function closePressA11y() {
+    document.removeEventListener('keydown', onPressKey);
+    if (savedFocus && savedFocus.focus) { try { savedFocus.focus(); } catch (e) { /* ignore */ } }
+    savedFocus = null;
   }
 
   // The label updates as you type — the name is imprinted live.
@@ -692,7 +766,7 @@
   }
 
   function confirmPress() {
-    if (!engine.song) return;
+    if (!engine.song) return false;
     const typed = el.pressName && el.pressName.value.trim();
     const name = typed || engine.song.name;
     engine.song.name = name;
@@ -700,15 +774,20 @@
     const code = (pressFormat === 'arranged' && engine.renderArrangedCommitted)
       ? engine.renderArrangedCommitted()
       : loopCode;
-    saveToCrate('◉ cut “' + name + '” as a dubplate' +
+    const banked = saveToCrate('◉ cut “' + name + '” as a dubplate' +
       (pressFormat === 'arranged' ? ' (arranged)' : ' (loop)'), 'saved', code,
       pressFormat === 'arranged' ? loopCode : null);
+    // saveToCrate returns false when storage was full (or it deduped) — don't
+    // claim a save that didn't happen, and leave the modal open so the user can
+    // export/prune and retry.
+    if (!banked) { renderPressDisc(); return false; }
     setStatus('Cut “' + name + '” — it’s in your crate.');
     const fromPrompt = pressOrigin === 'prompt';
     pressOrigin = null;
+    closePressA11y();
     if (el.pressModal) {
       el.pressModal.classList.add('pressed'); // the disc drops away into the crate
-      setTimeout(() => { if (el.pressModal) el.pressModal.hidden = true; }, 520);
+      setTimeout(() => { if (el.pressModal) el.pressModal.hidden = true; }, PRESS_DROP_MS);
     }
     if (fromPrompt) {
       logEvent('🎧 next up: fresh track');
@@ -716,6 +795,7 @@
     } else {
       updateUI();         // keep working; the header wears the new name
     }
+    return true;
   }
 
   // Loop vs arranged: the raw bar as it plays now, or the 36-bar journey
@@ -732,14 +812,17 @@
   }
 
   function cancelPress() {
+    if (el.pressModal && el.pressModal.hidden) return false;
     const fromPrompt = pressOrigin === 'prompt';
     pressOrigin = null;
+    closePressA11y();
     if (el.pressModal) el.pressModal.hidden = true;
     if (fromPrompt) {
       saveCooldown = (engine.song.vprop || 0) + SAVE_SNOOZE; // snooze the prompt
       pushFeed('→', 'kept going', 'declined the press', 'flat');
       livePitch();
     }
+    return true;
   }
 
   function syncDeckButtons() {
@@ -752,8 +835,23 @@
   // a deterministic cover-art seed. Old entries (bare {name,key,…,code}) still
   // render — every new field is read defensively so the library stays portable.
 
+  // The parsed crate, cached so a render pass doesn't JSON.parse localStorage
+  // repeatedly. Invalidated on every write; loadCrate() rebuilds it lazily.
+  let crateCache = null;
+
+  // Persist the crate. Returns true on success, false if localStorage rejected it
+  // (quota exceeded / disabled) — the caller must NOT then claim a save happened.
   function saveCrate(crate) {
-    try { localStorage.setItem(CRATE_KEY, JSON.stringify(crate)); } catch (e) { /* quota */ }
+    try {
+      localStorage.setItem(CRATE_KEY, JSON.stringify(crate));
+      crateCache = crate; // keep the cache in sync with what's on disk
+      return true;
+    } catch (e) {
+      console.warn('crate save failed (storage full?):', e);
+      crateCache = null; // force a fresh read next time — disk and memory diverged
+      flashChip('crate full — export & prune', 'ban');
+      return false;
+    }
   }
 
   // Cheap stable string hash → a seed for records saved before art seeds existed.
@@ -787,9 +885,11 @@
     return SDJ.Vinyl ? SDJ.Vinyl.forEntry(entry) : coverFor(entry);
   }
 
+  // Returns true only when a record was actually banked to disk. False means the
+  // save didn't take — a dedupe hit, no song, or (crucially) storage rejected it.
   function saveToCrate(logMsg, source, codeOverride, loopCodeOverride) {
     const s = engine.song;
-    if (!s) return;
+    if (!s) return false;
     // Bank the COMMITTED genome: an un-judged pitch is Deck B's business, not
     // the record's. (pitching === 'save' means nothing is pending mid-judge.)
     const g = (s.pending && pitching && pitching !== 'save') ? s.pending.snapshot : s.genome;
@@ -801,11 +901,11 @@
     // unchanged track piling up duplicates).
     if (crate.length && crate[0].code === code) {
       if (logMsg) logEvent('↩ already the newest in the crate — not duplicated');
-      return;
+      return false;
     }
     const artLayer = pickArtLayer(g);
     const entry = {
-      id: 'rec-' + (s.seed >>> 0).toString(36) + '-' + Date.now().toString(36),
+      id: mkId('rec-' + (s.seed >>> 0).toString(36)),
       name: s.name,
       key: s.key,
       scaleType: s.scaleType,
@@ -827,18 +927,47 @@
     };
     crate.unshift(entry);
     if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
-    saveCrate(crate);
+    // if storage rejected the write, undo the in-memory unshift so the cache and
+    // disk don't drift, and report failure so the caller doesn't claim a save
+    if (!saveCrate(crate)) { crate.shift(); return false; }
     if (logMsg) logEvent(logMsg);
     renderCrate();
     renderRemixShelf();
+    return true;
   }
 
   function loadCrate() {
+    if (crateCache) return crateCache;
+    let parsed;
     try {
-      return JSON.parse(localStorage.getItem(CRATE_KEY) || '[]');
+      parsed = JSON.parse(localStorage.getItem(CRATE_KEY) || '[]');
     } catch (e) {
-      return [];
+      // corrupt value — drop it so it can't keep failing on every read
+      try { localStorage.removeItem(CRATE_KEY); } catch (e2) { /* ignore */ }
+      crateCache = [];
+      return crateCache;
     }
+    if (!Array.isArray(parsed)) {
+      // something non-array got stored (a truncated write, a wrong key clash) —
+      // discard it rather than let downstream .map/.length throw forever
+      try { localStorage.removeItem(CRATE_KEY); } catch (e2) { /* ignore */ }
+      crateCache = [];
+      return crateCache;
+    }
+    // migrate: every entry needs a stable id so crate actions key on identity,
+    // not a positional index that a background mutation can shift under a click
+    let migrated = false;
+    parsed.forEach((e) => { if (e && typeof e === 'object' && !e.id) { e.id = mkId('rec'); migrated = true; } });
+    crateCache = parsed;
+    if (migrated) saveCrate(parsed); // persist the ids once so they stay stable
+    return crateCache;
+  }
+
+  // A stable, reasonably-unique id for a crate entry.
+  let idSeq = 0;
+  function mkId(prefix) {
+    return (prefix || 'rec') + '-' + Date.now().toString(36) + '-' + (idSeq++).toString(36) +
+      '-' + Math.floor(Math.random() * 1e6).toString(36);
   }
 
   // Records in display order. Storage stays newest-first; sort is a view only,
@@ -864,58 +993,75 @@
     const SRC = { banger: '★ banger', 'a&r': 'a&r', saved: 'saved' };
     rows.forEach(({ entry, i }) => {
       const playing = i === previewing;
+      const id = escapeHtml(entry.id || ''); // stable identity — clicks resolve by this, never a positional index
       const li = document.createElement('li');
       li.className = 'crate-item' + (playing ? ' playing' : '');
-      li.dataset.i = i;
-      const when = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString() : '';
+      li.dataset.id = entry.id || '';
+      // savedAt / bpm arrive from untrusted imports too — derive `when` only from a
+      // real Date, coerce bpm to a Number, and escape every interpolated string.
+      const when = entry.savedAt ? escapeHtml(new Date(entry.savedAt).toLocaleDateString()) : '';
+      const bpm = Number(entry.bpm) || '?';
       const src = entry.source ? (SRC[entry.source] || entry.source) : '';
+      const nm = escapeHtml(entry.name || 'Untitled');
       li.innerHTML =
         '<div class="crate-art">' + discFor(entry) + '</div>' +
         '<div class="crate-body">' +
-          '<div class="crate-meta"><strong>' + escapeHtml(entry.name || 'Untitled') + '</strong>' +
-          '<span>' + escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' + entry.bpm + ' BPM' +
+          '<div class="crate-meta"><strong>' + nm + '</strong>' +
+          '<span>' + escapeHtml((entry.key || '') + ' ' + (entry.scaleType || '')) + ' · ' + bpm + ' BPM' +
           (entry.genreLabel ? ' · ' + escapeHtml(entry.genreLabel) : '') + '</span></div>' +
           '<div class="crate-tags">' +
-            (entry.approval != null ? '<span class="crate-hype">' + entry.approval + '% kept</span>' : '') +
+            (entry.approval != null ? '<span class="crate-hype">' + (Number(entry.approval) || 0) + '% kept</span>' : '') +
             (src ? '<span class="crate-src">' + escapeHtml(src) + '</span>' : '') +
             (when ? '<span class="crate-when">' + when + '</span>' : '') +
           '</div>' +
         '</div>' +
         '<div class="crate-actions">' +
-          '<button data-act="' + (playing ? 'stop' : 'play') + '" data-i="' + i + '" title="' + (playing ? 'Stop' : 'Spin it') + '">' + (playing ? '⏹' : '▶') + '</button>' +
-          '<button data-act="remix" data-i="' + i + '" title="DJ this record in the Remix lab">🎚</button>' +
-          '<button data-act="mp3" data-i="' + i + '" title="Export as MP3">⬇</button>' +
-          '<button data-act="rename" data-i="' + i + '" title="Rename">✎</button>' +
-          '<button data-act="del" data-i="' + i + '" title="Delete">✕</button>' +
+          '<button data-act="' + (playing ? 'stop' : 'play') + '" data-id="' + id + '" title="' + (playing ? 'Stop' : 'Spin it') + '" aria-label="' + (playing ? 'Stop' : 'Spin') + ' “' + nm + '”">' + (playing ? '⏹' : '▶') + '</button>' +
+          '<button data-act="remix" data-id="' + id + '" title="DJ this record in the Remix lab" aria-label="Remix “' + nm + '”">🎚</button>' +
+          '<button data-act="mp3" data-id="' + id + '" title="Export as MP3" aria-label="Export “' + nm + '” as MP3">⬇</button>' +
+          '<button data-act="rename" data-id="' + id + '" title="Rename" aria-label="Rename “' + nm + '”">✎</button>' +
+          '<button data-act="del" data-id="' + id + '" title="Delete" aria-label="Delete “' + nm + '”">✕</button>' +
         '</div>';
       el.crate.appendChild(li);
     });
-    el.crate.querySelectorAll('button').forEach((b) => {
-      b.addEventListener('click', () => {
-        const i = +b.dataset.i;
-        const act = b.dataset.act;
-        if (act === 'play') previewTrack(i);
-        else if (act === 'stop') stopPreview();
-        else if (act === 'remix') sendToRemix(i);
-        else if (act === 'mp3') exportTrackMp3(i, b);
-        else if (act === 'rename') renameTrack(i);
-        else deleteTrack(i);
-      });
-    });
   }
 
-  function deleteTrack(i) {
+  // ONE delegated click handler (bound once at boot) for the whole crate list.
+  // Resolves the entry by its stable id AT CLICK TIME, so a background mutation
+  // (a delete, an import, a fresh press) can't make a click hit the wrong record.
+  function onCrateClick(event) {
+    const btn = event.target.closest && event.target.closest('button[data-act]');
+    if (!btn || !el.crate.contains(btn)) return;
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+    if (act === 'play') previewTrack(id);
+    else if (act === 'stop') stopPreview();
+    else if (act === 'remix') sendToRemix(id);
+    else if (act === 'mp3') exportTrackMp3(id, btn);
+    else if (act === 'rename') renameTrack(id);
+    else if (act === 'del') deleteTrack(id);
+  }
+
+  // Resolve a crate entry's live storage index from its stable id.
+  function crateIndexById(id) {
+    if (id == null) return -1;
+    return loadCrate().findIndex((e) => (e.id || '') === id);
+  }
+
+  function deleteTrack(id) {
     if (previewing >= 0) stopPreview(); // indices shift; drop any preview first
     const crate = loadCrate();
+    const i = crateIndexById(id);
+    if (i < 0) return;
     crate.splice(i, 1);
     saveCrate(crate);
     renderCrate();
     renderRemixShelf();
   }
 
-  function renameTrack(i) {
+  function renameTrack(id) {
     const crate = loadCrate();
-    const entry = crate[i];
+    const entry = crate[crateIndexById(id)];
     if (!entry) return;
     const name = window.prompt('Re-imprint the label', entry.name || '');
     if (name == null) return;
@@ -1004,8 +1150,8 @@
   SDJ.getAnalyser = getAnalyser;
 
   function exportCps(entry) {
-    const m = /setcps\(([0-9.]+)\)/.exec((entry.code || '').split('\n')[0] || '');
-    return m ? parseFloat(m[1]) : (entry.cps || 0.5);
+    const cps = splitCps(entry.code).cps;
+    return cps != null ? cps : (entry.cps || 0.5);
   }
   function safeFile(name) {
     return String(name || 'record').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 48) || 'record';
@@ -1021,8 +1167,10 @@
   // Export one crate record as an MP3. Renders in REAL TIME (Strudel has no
   // offline render): an arranged track is its full 36-bar journey, a loop gets
   // 16 bars. btn is the clicked button, disabled while the render runs.
-  async function exportTrackMp3(i, btn) {
-    const entry = loadCrate()[i];
+  async function exportTrackMp3(ref, btn) {
+    // ref is a stable id (from the crate UI) or a numeric index (headless callers)
+    const crate = loadCrate();
+    const entry = typeof ref === 'number' ? crate[ref] : crate[crateIndexById(ref)];
     if (!entry || !entry.code) return;
     if (audioTap.busy) { setStatus('Already rendering an MP3 — hang on.'); return; }
     if (typeof MediaRecorder === 'undefined') { setStatus('MP3 export needs a browser with MediaRecorder.'); return; }
@@ -1054,6 +1202,9 @@
       stopAll();
       rec.stop();
       await stopped;
+      // nothing captured means the record evaluated to silence (or the tap never
+      // caught a master) — fail loudly rather than hand decodeAudioData an empty buffer
+      if (!chunks.length) throw new Error('captured no audio — the record was silent');
       setStatus('Encoding “' + (entry.name || 'record') + '” to MP3…');
       const buffer = await ctx.decodeAudioData(await new Blob(chunks).arrayBuffer());
       const mp3 = await encodeMp3(buffer);
@@ -1111,6 +1262,41 @@
     return new Blob(out, { type: 'audio/mpeg' });
   }
 
+  // Sanitise one untrusted imported entry into a shape the rest of the app can
+  // trust: a real code string, a coerced bpm, a stable id, capped string fields
+  // and a validated genome (dropped if malformed rather than allowed to crash a
+  // render). Returns null for anything unusable.
+  function sanitiseImport(e) {
+    if (!e || typeof e !== 'object' || typeof e.code !== 'string' || !e.code) return null;
+    const capStr = (v, n) => (typeof v === 'string' ? v.slice(0, n) : (v == null ? '' : String(v).slice(0, n)));
+    let genome = null;
+    if (e.genome && typeof e.genome === 'object' && Array.isArray(e.genome.active) && Array.isArray(e.genome.variant)) {
+      // deep-clone so we never keep a reference into the parsed import object
+      try { genome = JSON.parse(JSON.stringify(e.genome)); } catch (er) { genome = null; }
+    }
+    const bpm = Number(e.bpm);
+    const approval = e.approval == null ? null : (Number(e.approval) || 0);
+    return {
+      id: (typeof e.id === 'string' && e.id) ? e.id.slice(0, 80) : mkId('imp'),
+      name: capStr(e.name || 'Untitled', 80),
+      key: capStr(e.key, 8),
+      scaleType: capStr(e.scaleType, 24),
+      bpm: Number.isFinite(bpm) ? bpm : 0,
+      cps: Number(e.cps) || 0,
+      genre: capStr(e.genre, 24) || null,
+      genreLabel: capStr(e.genreLabel, 40) || null,
+      code: e.code.slice(0, 20000),
+      loopCode: typeof e.loopCode === 'string' ? e.loopCode.slice(0, 20000) : null,
+      genome: genome,
+      art: (e.art && typeof e.art === 'object')
+        ? { seed: (Number(e.art.seed) >>> 0) || 0, layer: Number(e.art.layer) || 0, variant: Number(e.art.variant) || 0 }
+        : null,
+      approval: approval,
+      source: capStr(e.source, 24) || 'saved',
+      savedAt: Number(e.savedAt) || Date.now(),
+    };
+  }
+
   // Merge an exported crate back in (skips codes already present).
   function importCrate(file) {
     const reader = new FileReader();
@@ -1121,8 +1307,9 @@
         const crate = loadCrate();
         const seen = new Set(crate.map((e) => e.code));
         let added = 0;
-        incoming.forEach((e) => {
-          if (e && typeof e.code === 'string' && !seen.has(e.code)) { crate.push(e); seen.add(e.code); added++; }
+        incoming.forEach((raw) => {
+          const e = sanitiseImport(raw);
+          if (e && !seen.has(e.code)) { crate.push(e); seen.add(e.code); added++; }
         });
         crate.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
         if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
@@ -1139,8 +1326,8 @@
   }
 
   // Load a crate record onto the Remix deck (B) and jump there.
-  function sendToRemix(i) {
-    const entry = loadCrate()[i];
+  function sendToRemix(id) {
+    const entry = loadCrate()[crateIndexById(id)];
     if (!entry) return;
     loadRemixDeck('b', entry);
     location.hash = '#remix';
@@ -1149,14 +1336,18 @@
   // The crate is a standalone player: previewing initialises audio on demand
   // and doesn't need a live set. Live and preview are mutually exclusive —
   // starting a preview stops any running set so nothing plays over the top.
-  async function previewTrack(i) {
+  async function previewTrack(id) {
+    const i = crateIndexById(id);
     const entry = loadCrate()[i];
     if (!entry) return;
     setStatus('Loading sounds…');
     if (!(await ensureAudio())) return;
     if (remixPlaying) stopRemix(); // one source at a time
     if (running) stopSet();
-    previewing = i;
+    // re-resolve after the awaits: audio init could have run long enough for the
+    // crate to shift under us; previewing must track the record's live index
+    previewing = crateIndexById(id);
+    if (previewing < 0) return;
     play(entry.code, 'preview', entry.name);
     renderCrate();
     setStatus('Spinning “' + entry.name + '”.');
@@ -1214,17 +1405,28 @@
     return (rec.name || 'Untitled') + ' · ' + ((rec.key || '') + ' ' + (rec.scaleType || '')).trim() + ' · ' + (rec.bpm || '?') + ' BPM';
   }
 
-  // Equal-power crossfade × trim, scaled to ~0.95 (2dp) — chained .gain() multiply.
+  // Equal-power crossfade × trim, scaled by REMIX_GAIN_SCALE (2dp) — chained .gain() multiply.
   function deckGain(which) {
     const m = remix.cross;
     const curve = which === 'a' ? Math.cos(m * Math.PI / 2) : Math.sin(m * Math.PI / 2);
-    return Math.round(curve * 0.95 * remix.decks[which].trim * 100) / 100;
+    return Math.round(curve * REMIX_GAIN_SCALE * remix.decks[which].trim * 100) / 100;
   }
-  function stripCps(code) {
-    const nl = code.indexOf('\n');
-    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) return code.slice(nl + 1);
-    return code;
+  // Split a program's leading `setcps(...)` line off its body. One helper for the
+  // four places that used to re-parse the first line by hand. Returns:
+  //   line — the raw `setcps(...)` line (or null if the code has none),
+  //   cps  — the numeric cps parsed from it (or null),
+  //   body — everything after the setcps line (the whole code if there was none).
+  function splitCps(code) {
+    const src = String(code || '');
+    const nl = src.indexOf('\n');
+    const first = nl >= 0 ? src.slice(0, nl) : src;
+    if (first.indexOf('setcps') >= 0) {
+      const m = /setcps\(([0-9.]+)\)/.exec(first);
+      return { line: first, cps: m ? parseFloat(m[1]) : null, body: nl >= 0 ? src.slice(nl + 1) : '' };
+    }
+    return { line: null, cps: null, body: src };
   }
+  function stripCps(code) { return splitCps(code).body; }
   // centre = open; negative → LP sweep down to ~200 Hz; positive → HP sweep up.
   function applyDeckFilter(bed, filter) {
     if (filter < 0) return bed + '.lpf(' + Math.round(200 * Math.pow(90, 1 + filter)) + ')';
@@ -1236,9 +1438,7 @@
   // its .color() so lanes can be grouped into stems. Depth/quote-aware so a comma
   // or paren inside a mini-notation string never splits a lane.
   function splitStack(code) {
-    const nl = code.indexOf('\n');
-    let body = code;
-    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) body = code.slice(nl + 1);
+    const body = splitCps(code).body;
     const open = body.indexOf('stack('); if (open < 0) return null;
     let i = open + 6, depth = 1, inStr = false, q = '', start = i;
     const parts = [];
@@ -1252,7 +1452,12 @@
     }
     return parts.map((p) => {
       const s = p.trim(); if (!s) return null;
-      const mc = s.match(/\.color\("(#[0-9a-fA-F]{3,8})"\)/);
+      // accept single OR double quotes and optional inner whitespace — the render
+      // uses double quotes today, but a hand-edited/imported record might not
+      const mc = s.match(/\.color\(\s*['"](#[0-9a-fA-F]{3,8})['"]\s*\)/);
+      if (!mc && s.indexOf('.color(') >= 0) {
+        console.debug('[acetate] splitStack: .color( present but did not match the colour pattern:', s.slice(0, 80));
+      }
       return { code: s, colour: mc ? mc[1].toLowerCase() : null };
     }).filter(Boolean);
   }
@@ -1341,14 +1546,14 @@
     const code = composeRemix();
     play(withRemixRoll(code || 'silence'), 'remix', remixName());
   }
-  // Throttled to ~150ms so working a fader (or an autofade) can't thrash evaluate.
+  // Throttled to EVAL_THROTTLE_MS so working a fader (or an autofade) can't thrash evaluate.
   function remixRefresh() {
     if (el.cross) el.cross.value = remix.cross; // ARM / autofade can move it
     updateRemixPlatters();
     updateRemixTempo();
     if (!remixPlaying) return;
     clearTimeout(remixEvalTimer);
-    const wait = Math.max(0, 150 - (Date.now() - remixLastEval));
+    const wait = Math.max(0, EVAL_THROTTLE_MS - (Date.now() - remixLastEval));
     remixEvalTimer = setTimeout(remixDoEval, wait);
   }
   // Paddles are momentary + user-triggered — evaluate immediately, no throttle.
@@ -1449,12 +1654,12 @@
     if (!el.droppedMsg) return;
     el.droppedMsg.classList.add('show');
     clearTimeout(remixDroppedTimer);
-    remixDroppedTimer = setTimeout(() => el.droppedMsg.classList.remove('show'), 1800);
+    remixDroppedTimer = setTimeout(() => el.droppedMsg.classList.remove('show'), DROPPED_MSG_MS);
   }
   function clearArm() {
     remix.armed = null;
-    if (el.armA) el.armA.classList.remove('armed');
-    if (el.armB) el.armB.classList.remove('armed');
+    if (el.armA) { el.armA.classList.remove('armed'); el.armA.setAttribute('aria-pressed', 'false'); }
+    if (el.armB) { el.armB.classList.remove('armed'); el.armB.setAttribute('aria-pressed', 'false'); }
   }
   function remixArm(target) {
     if (target == null) { clearArm(); autofadeActive = false; setStatus('ARM cleared.'); updateRemixReadouts(); return; }
@@ -1462,8 +1667,8 @@
     if (remix.armed === target) { clearArm(); setStatus('ARM cleared.'); updateRemixReadouts(); return; }
     remix.armed = target;
     if (remixPlaying) remixLastTotalBars = barPosition();
-    if (el.armA) el.armA.classList.toggle('armed', target === 'a');
-    if (el.armB) el.armB.classList.toggle('armed', target === 'b');
+    if (el.armA) { el.armA.classList.toggle('armed', target === 'a'); el.armA.setAttribute('aria-pressed', target === 'a' ? 'true' : 'false'); }
+    if (el.armB) { el.armB.classList.toggle('armed', target === 'b'); el.armB.setAttribute('aria-pressed', target === 'b' ? 'true' : 'false'); }
     setStatus('Armed →' + target.toUpperCase() + ' · will ' + (remix.autofade ? 'fade' : 'drop') + ' on the next ' + remix.boundary + '-bar line.');
     updateRemixReadouts();
   }
@@ -1496,7 +1701,10 @@
     if (!ctx) return;
     const W = canvas.offsetWidth || canvas.width, H = 64;
     if (!W) return;
-    canvas.width = W; canvas.height = H;
+    // only touch width/height when they actually changed — assigning either
+    // reallocates the backing store and clears it, which we'd otherwise do 60×/s
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    else ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#05030e'; ctx.fillRect(0, 0, W, H);
     const barW = W / REMIX_PHRASE_BARS;
     for (let gp = 0; gp < REMIX_PHRASE_BARS / REMIX_GROUP_BARS; gp++) {
@@ -1546,15 +1754,15 @@
     let html = '<div class="rx-stem-head">Stems</div>';
     if (!st.splittable) {
       html += '<div class="rx-stem-chip"><span class="rx-stem-label" style="color:var(--rx-muted)">FULL</span>' +
-        '<button class="rx-mute' + (st.muted ? ' on' : '') + '" data-deck="' + which + '" data-action="mutefull">MUTE</button></div>' +
+        '<button class="rx-mute' + (st.muted ? ' on' : '') + '" aria-pressed="' + (st.muted ? 'true' : 'false') + '" data-deck="' + which + '" data-action="mutefull">MUTE</button></div>' +
         '<div class="rx-stem-note">single track — not splittable</div>';
     } else {
       Object.keys(st.groups).forEach((grp) => {
         const col = REMIX_GROUP_COLOUR[grp] || '#9d8fc7';
         html += '<div class="rx-stem-chip">' +
           '<span class="rx-stem-label" style="color:' + col + '">' + grp + '</span>' +
-          '<button class="rx-mute' + (st.muted[grp] ? ' on' : '') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="mute">MUTE</button>' +
-          '<button class="rx-solo' + (st.solo[grp] ? ' on' : '') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="solo">SOLO</button></div>';
+          '<button class="rx-mute' + (st.muted[grp] ? ' on' : '') + '" aria-pressed="' + (st.muted[grp] ? 'true' : 'false') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="mute">MUTE</button>' +
+          '<button class="rx-solo' + (st.solo[grp] ? ' on' : '') + '" aria-pressed="' + (st.solo[grp] ? 'true' : 'false') + '" data-deck="' + which + '" data-group="' + grp + '" data-action="solo">SOLO</button></div>';
       });
     }
     box.innerHTML = html;
@@ -1656,13 +1864,12 @@
     const a = remix.decks.a.rec, b = remix.decks.b.rec;
     const name = (a && b) ? remixShortName(a.name) + ' × ' + remixShortName(b.name) : remixShortName(rec.name) + ' (remix)';
     const genome = rec.genome ? JSON.parse(JSON.stringify(rec.genome)) : null;
-    let lane = 0;
-    if (genome && genome.active) { for (let i = 0; i < genome.active.length; i++) if (genome.active[i]) lane = i; }
+    const lane = (genome && genome.active) ? pickArtLayer(genome) : 0;
     const cps = masterCps();
     const crate = loadCrate();
     if (crate.length && crate[0].code === code) { setStatus('Already cut — the newest dubplate is this exact blend.'); return; }
     const entry = {
-      id: 'rmx-' + Date.now().toString(36),
+      id: mkId('rmx'),
       name: name, key: rec.key, scaleType: rec.scaleType,
       bpm: Math.round(cps * 240), cps: cps,
       genre: rec.genre || null, genreLabel: rec.genreLabel || null,
@@ -1673,7 +1880,7 @@
     };
     crate.unshift(entry);
     if (crate.length > CRATE_CAP) crate.length = CRATE_CAP;
-    saveCrate(crate);
+    if (!saveCrate(crate)) { crate.shift(); return; } // storage rejected it — don't claim a save
     renderCrate();
     renderRemixShelf();
     logEvent('◉ cut the remix “' + name + '” as a dubplate');
@@ -1686,11 +1893,16 @@
     if (el.remixSave) el.remixSave.disabled = !has;
   }
 
+  // Release functions for every hold-to-fire paddle, so ONE window-level
+  // mouseup/touchend can drop a paddle even when the pointer left the button
+  // before releasing (otherwise the FX chain stays welded on).
+  const paddleReleases = [];
   // Hold-to-fire: paddle FX chain onto the master while the button is held.
   function bindPaddle(btnId, key) {
     const btn = el[btnId]; if (!btn) return;
     const activate = (e) => { if (e && e.preventDefault) e.preventDefault(); if (remix.paddles[key]) return; remix.paddles[key] = true; btn.classList.add('held'); remixPaddleRefresh(); };
     const release = () => { if (!remix.paddles[key]) return; remix.paddles[key] = false; btn.classList.remove('held'); remixPaddleRefresh(); };
+    paddleReleases.push(release);
     btn.addEventListener('mousedown', activate);
     btn.addEventListener('touchstart', activate, { passive: false });
     btn.addEventListener('mouseup', release);
@@ -1698,6 +1910,7 @@
     btn.addEventListener('touchend', release);
     btn.addEventListener('touchcancel', release);
   }
+  function releaseAllPaddles() { paddleReleases.forEach((r) => r()); }
 
   // Wire every control once at boot.
   function initRemix() {
@@ -1726,6 +1939,10 @@
     if (el.swapAdrumsBmelody) el.swapAdrumsBmelody.addEventListener('click', () => { remixSwap(['CHORDS', 'LEAD', 'AIR'], ['DRUMS', 'BASS']); setStatus('Swap: A drums × B melody.'); });
     if (el.swapAmelodyBdrums) el.swapAmelodyBdrums.addEventListener('click', () => { remixSwap(['DRUMS', 'BASS'], ['CHORDS', 'LEAD', 'AIR']); setStatus('Swap: A melody × B drums.'); });
     bindPaddle('padStutter', 'stutter'); bindPaddle('padGate', 'gate'); bindPaddle('padEcho', 'echo');
+    // a pointer released anywhere (outside the button, in another window) drops
+    // every held paddle — otherwise a stuck paddle welds the FX chain on
+    window.addEventListener('mouseup', releaseAllPaddles);
+    window.addEventListener('touchend', releaseAllPaddles);
     updateRemixButtons();
   }
 
@@ -1826,8 +2043,14 @@
   // style headlessly. If a set is live, re-skin the current track in place — same
   // arrangement, re-rendered in the new style at the new tempo — so you hear it
   // straight away instead of dropping back to a bare kick.
+  // Returns whether the genre id was valid and took. '' / null = surprise me.
   function setGenre(id) {
-    const reskinned = engine.setGenre(id);
+    const norm = id == null ? '' : String(id);
+    // validate against the known genre ids (plus '' for surprise me) so a bad
+    // headless id can't silently pin nothing and report success
+    const valid = norm === '' || SDJ.Theory.GENRES.some((g) => g.id === norm);
+    if (!valid) { setStatus('Unknown genre “' + norm + '” — ignored.'); return false; }
+    const reskinned = engine.setGenre(norm);
     reflectGenre();
     const label = engine.genrePref
       ? ((SDJ.Theory.GENRES.find((g) => g.id === engine.genrePref) || {}).label || 'that style')
@@ -1844,6 +2067,7 @@
     } else {
       setStatus(label + ' — takes effect on the next track.');
     }
+    return true;
   }
 
   // Build the part mixer: one row per arrangement lane, each a 3-state segmented
@@ -1971,15 +2195,19 @@
   function applyCurationToSong(d) {
     curBanKeys = [];
     const set = {};
-    const acted = { changed: false, repitch: false, notes: { ban: {}, feature: {} } };
+    const acted = { changed: false, repitch: false, notes: { ban: {}, feature: {}, soften: {} } };
     if (engine.song && d) {
       const s = engine.song;
       if (!s.banned) s.banned = {};
+      // curation-scoped RNG: feature variants are drawn from a seed derived from
+      // the SONG seed (not s.rng), so a debounced re-parse can't perturb the
+      // shared generator's stream and desync the deterministic engine.
+      const curRng = (i) => SDJ.Rng.make((s.seed ^ 0x0c0ffee5 ^ (i * 0x9e3779b1)) >>> 0);
       (d.bans || []).forEach((i) => {
+        if (i === 0) { acted.notes.ban[i] = 'the kick is the floor'; return; } // never droppable — no ban key, no opinion (kept symmetric)
         const key = 'add:' + i;
         s.banned[key] = true;
         curBanKeys.push(key);
-        if (i === 0) { acted.notes.ban[i] = 'the kick is the floor'; return; } // never droppable
         // a pitch mid-audition on the banned lane is overruled on the spot
         if (s.pending && pitching && pitching !== 'save' && s.pending.layer === i) {
           const p = engine.rejectChange();
@@ -2001,7 +2229,7 @@
         // un-judged pitch can't undo it
         const wasOut = !s.genome.active[i];
         if (wasOut) {
-          const v = SDJ.Rng.int(s.rng, 0, 5);
+          const v = SDJ.Rng.int(curRng(i), 0, 5);
           s.genome.active[i] = true; s.genome.variant[i] = v;
           if (s.pending && s.pending.snapshot && !s.pending.snapshot.active[i]) {
             s.pending.snapshot.active[i] = true;
@@ -2012,10 +2240,22 @@
         acted.changed = true; // at least the opinion's gain tint must re-render
         SDJ.setOpinion(i, 1); set[i] = true;
       });
+      // "less X" — a soft de-emphasis: the lane stays in but sits back, biasing the
+      // DJ to thin it rather than drop it. Lower priority than a ban/feature on the
+      // same lane, so don't override an opinion those already set.
+      (d.soften || []).forEach((i) => {
+        if (set[i]) return; // a ban (-1) or feature (+1) on this lane wins
+        SDJ.setOpinion(i, -0.5); set[i] = true;
+        acted.notes.soften[i] = 'pulled back';
+        acted.changed = true;
+      });
     }
     curOpinionSet = set;
-    if (d && d.density != null) { SDJ.setDensity(d.density * 0.7); curDensitySet = true; }
-    else if (curDensitySet) { SDJ.setDensity(0); curDensitySet = false; }
+    if (d && d.density != null) {
+      SDJ.setDensity(d.density * 0.7); curDensitySet = true;
+      acted.notes.density = d.density > 0 ? 'busier' : d.density < 0 ? 'stripped back' : 'held';
+    } else if (curDensitySet) { SDJ.setDensity(0); curDensitySet = false; }
+    if (d && d.genre) acted.notes.genre = 'restyled';
     return acted;
   }
 
@@ -2039,7 +2279,10 @@
       const pal = SDJ.Theory.scalesFor(s.genre);
       const filtered = pal.filter((x) => SDJ.Curate.MOOD_SCALES[d.mood].indexOf(x) >= 0);
       if (moodChanged && filtered.length && filtered.indexOf(s.scaleType) < 0) {
-        s.scaleType = SDJ.Rng.pick(s.rng, filtered);
+        // draw from a curation-scoped RNG (seeded off the song seed + rev), not
+        // s.rng — a timing-keyed re-parse must not perturb the shared generator
+        const moodRng = SDJ.Rng.make((s.seed ^ 0x5ca1e5ca ^ ((s.rev + 1) * 0x9e3779b1)) >>> 0);
+        s.scaleType = SDJ.Rng.pick(moodRng, filtered);
         changed = true;
       }
       acted.notes.mood = filtered.indexOf(s.scaleType) >= 0 ? 'now ' + s.scaleType : 'next track';
@@ -2066,24 +2309,48 @@
   function renderCurateChips(d, acted) {
     if (!el.curateChips) return;
     el.curateChips.innerHTML = '';
-    const notes = (acted && acted.notes) || { ban: {}, feature: {} };
+    const notes = (acted && acted.notes) || { ban: {}, feature: {}, soften: {} };
     ((d && d.chips) || []).forEach((c) => {
       const span = document.createElement('span');
       span.className = 'curate-chip ' + (c.kind || '');
       let note = null;
       if (c.kind === 'ban' && c.lane != null) note = notes.ban[c.lane];
       else if (c.kind === 'feature' && c.lane != null) note = notes.feature[c.lane];
+      else if (c.kind === 'soften' && c.lane != null) note = notes.soften && notes.soften[c.lane];
       else if (c.kind === 'mood') note = notes.mood;
       else if (c.kind === 'tempo') note = notes.tempo;
+      else if (c.kind === 'density') note = notes.density;
+      else if (c.kind === 'genre') note = notes.genre;
       span.textContent = c.label + (note ? ' — ' + note : '');
       el.curateChips.appendChild(span);
     });
   }
 
-  // One status line summarising what the direction box took effect on.
+  // A transient one-off chip (crate-full warnings, unrecognised input). Reuses
+  // the curate-chip surface where it exists and fades itself out; falls back to
+  // the (sr-only) status line if that surface isn't mounted.
+  let chipFlashTimer = 0;
+  function flashChip(text, kind) {
+    if (!el.curateChips) { setStatus(text); return; }
+    const span = document.createElement('span');
+    span.className = 'curate-chip transient ' + (kind || '');
+    span.textContent = text;
+    el.curateChips.appendChild(span);
+    clearTimeout(chipFlashTimer);
+    chipFlashTimer = setTimeout(() => { if (span.parentNode) span.parentNode.removeChild(span); }, CHIP_FLASH_MS);
+  }
+
+  // The unrecognised-input hint used to route through the sr-only #status, so a
+  // sighted mistyping user never saw it. Surface it as a transient chip instead
+  // (and flag the input) — the direction box's own visible feedback lane.
   function curateStatus(d) {
+    if (el.curateInput) el.curateInput.classList.remove('unrecognised');
     if (!d.chips.length) {
       const txt = el.curateInput ? el.curateInput.value.trim() : '';
+      if (txt) {
+        if (el.curateInput) el.curateInput.classList.add('unrecognised');
+        flashChip('couldn’t read that — try “no hihats, darker, slower”', 'ban');
+      }
       setStatus(txt
         ? 'No directions recognised — try e.g. “no hihats, darker, slower”.'
         : 'Direction cleared — the DJ is back on its own instincts.');
@@ -2101,7 +2368,7 @@
     const st = engine.state();
     el.trackName.textContent = st.name;
     el.trackMeta.textContent =
-      st.key + ' ' + st.scaleType + ' · ' + st.bpm + ' BPM · ' + st.activeCount + '/7 parts';
+      st.key + ' ' + st.scaleType + ' · ' + st.bpm + ' BPM · ' + st.activeCount + '/' + LANE_COUNT + ' parts';
     if (el.stageChips.childElementCount !== st.stageKeys.length) {
       el.stageChips.innerHTML = '';
       st.stageKeys.forEach((k) => {
@@ -2141,7 +2408,7 @@
       '<span class="fmsg">' + escapeHtml(msg) + '</span>' +
       '<span class="fwhy">' + escapeHtml(why || '') + '</span>';
     el.djFeed.prepend(li);
-    while (el.djFeed.childElementCount > 40) el.djFeed.lastChild.remove();
+    while (el.djFeed.childElementCount > FEED_MAX) el.djFeed.lastChild.remove();
   }
 
   // ---- live code panel (the drawer) --------------------------------------
@@ -2311,11 +2578,9 @@
   const menuAmbient = { on: false, armed: false };
 
   function ambientProgram(entry) {
-    const code = entry.code || '';
-    const nl = code.indexOf('\n');
-    let cps = 'setcps(' + (entry.cps || 0.5) + ')', body = code;
-    if (nl >= 0 && code.slice(0, nl).indexOf('setcps') >= 0) { cps = code.slice(0, nl); body = code.slice(nl + 1); }
-    return cps + '\n(' + body.trim() + ').gain(0.3)'; // duck the whole mix down low
+    const { line, body } = splitCps(entry.code);
+    const cps = line || ('setcps(' + (entry.cps || 0.5) + ')');
+    return cps + '\n(' + body.trim() + ').gain(' + AMBIENT_GAIN + ')'; // duck the whole mix down low
   }
   function maybeStartMenuAmbient() {
     if (menuAmbient.on) return;
@@ -2366,28 +2631,35 @@
     el.status.textContent = t;
   }
   function escapeHtml(s) {
-    return s
+    return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // expose the controls so every action the UI can take is available
   // programmatically (agent-native parity, and the headless test drives them)
   SDJ.engine = engine; // the live engine, for headless drive + agent-native reads
-  // the live turn-based flow: approve / skip the current pitch (agent-native)
+  // the live turn-based flow: start / stop the set + approve / skip the current
+  // pitch (agent-native — the whole loop is drivable headlessly). approve/skip
+  // return whether they acted.
   SDJ.live = {
-    approve: function () { liveDecide(true); },
-    skip: function () { liveDecide(false); },
+    start: startSet,
+    stop: stopSet,
+    approve: function () { return liveDecide(true); },
+    skip: function () { return liveDecide(false); },
     pitching: function () { return pitching; },
   };
-  // the A/B crossfader (agent-native): blend the pitch against the committed track
+  // the A/B crossfader (agent-native): blend the pitch against the committed
+  // track. set() returns whether the mix was audible (there was a pitch to blend).
   SDJ.ab = {
     set: setAbMix,
     mix: function () { return abMix; },
   };
-  // the pressing flow (agent-native): open / confirm / cancel the save moment
+  // the pressing flow (agent-native): open / confirm / cancel the save moment.
+  // Each returns whether it did anything.
   SDJ.press = {
     open: openPress,
     confirm: confirmPress,
