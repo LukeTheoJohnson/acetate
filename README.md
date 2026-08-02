@@ -2,7 +2,7 @@
 
 ![The menu hub — Live Set, Crate, Remix](screenshots/01-menu.png)
 
-**Acetate** is an AI DJ that **cuts tracks live in [Strudel](https://strudel.cc) code**
+**Acetate** is a DJ that **cuts tracks live in [Strudel](https://strudel.cc) code**
 while you steer, turn by turn. Built on [Strudel](https://strudel.cc)
 
 **[▶ Play it live](https://luketheojohnson.github.io/acetate/)** &nbsp;·&nbsp;
