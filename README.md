@@ -45,11 +45,11 @@ the crate wearing its approve-rate. From the save prompt, the DJ then rolls a fr
 
 ![The pressing modal — the disc with its stuck colours, the name imprinted on the label, and which version is being banked](screenshots/03-press.png)
 
-### 🗃 The Crate — your dubplates
+### 🗃 The Crate
 
-A standalone player and your vault. Every saved track is a full **dubplate** — vinyl face,
-genome snapshot, cover seed, metadata — persisted in `localStorage` and portable via
-Export/Import JSON. Spin (the disc rotates while previewing), re-imprint the label, send
+A standalone player and your vault. Every saved track is a full **dubplate** with a vinyl face,
+genome snapshot, cover seed, and metadata persisted in `localStorage` and portable via
+Export/Import JSON. Spin, imprint the label, send
 to Remix, **export to MP3** (⬇ — a real-time render captured and encoded in-browser), or
 delete. Because every track is seeded, a record's code is fully reproducible.
 
