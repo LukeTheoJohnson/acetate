@@ -16,6 +16,7 @@
   // ---- named magic numbers (hoisted from scattered literals) --------------
   const EVAL_THROTTLE_MS = 150; // crossfader / remix fader evaluate() throttle (CLAUDE.md says ~130ms; code uses 150)
   const SILENCE_BEAT_MS = 60;   // enforceSilence() re-hush cadence while an evaluate may be in-flight
+  const SILENCE_HOLD_MS = 2000; // how long enforceSilence() keeps hushing after a stop, then settles to idle
   const PRESS_DROP_MS = 520;    // the press modal's "disc drops into the crate" animation length
   const DROPPED_MSG_MS = 1800;  // how long the remix "dropped!" flash stays up
   const FEED_MAX = 40;          // most rows kept in the DJ feed / set history
@@ -635,14 +636,16 @@
   // in-flight when you stop brings the audio straight back, and hush() can't
   // reach an already-queued async resolution. So we also call evaluate('silence')
   // — the same authoritative code path that starts audio — to replace the active
-  // pattern. Both are called every 60ms until a new play() calls cancelSilence().
+  // pattern. Both are called every 60ms for a bounded hold that outlasts any
+  // in-flight evaluate, then the loop settles to idle (a new play() cuts it short
+  // via cancelSilence()) — an unbounded loop would churn CPU forever while stopped.
   let silenceUntil = 0;
   let silenceTimer = null;
   function enforceSilence() {
     // stop any beat loop already scheduled so we never run two in parallel (each
     // would keep re-arming its own timeout and double the hush cadence)
     if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-    silenceUntil = Infinity; // run until cancelSilence(), not a fixed window
+    silenceUntil = Date.now() + SILENCE_HOLD_MS; // outlast any in-flight evaluate, then settle to idle
     const beat = () => {
       silenceTimer = null;
       if (Date.now() >= silenceUntil) return; // released by cancelSilence()
